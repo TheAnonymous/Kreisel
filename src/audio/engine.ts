@@ -15,14 +15,14 @@ import {
   MasterRecorder,
   midiToHz,
   renderInChunks,
-  riser,
   Transport,
   trimmedLength,
   type ChannelBus,
 } from "klangwerk";
-import { BAR, currentScene, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Project, type Step } from "../model";
+import { BAR, currentScene, OWN_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Project, type Step } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
+import { playBild } from "./bild";
 import { glides, playHit } from "./sounds";
 
 /*
@@ -113,6 +113,33 @@ function hush(graph: Graph, time: number): void {
   });
 }
 
+/**
+ * Noise that rises until `end` and then stays up until it is cut: the breath
+ * held during a pause. (Klangwerk's riser reads its two seconds of noise only
+ * once; a pause can be held for longer.)
+ */
+function rise(kit: Kit, out: AudioNode, start: number, end: number, peak: number): { cut(time: number): void } {
+  const source = kit.context.createBufferSource();
+  source.buffer = kit.noise;
+  source.loop = true;
+  const tone = kit.filter("bandpass", 300, 2.5);
+  tone.frequency.setValueAtTime(300, start);
+  tone.frequency.exponentialRampToValueAtTime(7000, end);
+  const amp = kit.gain(0);
+  amp.gain.setValueAtTime(0.0001, start);
+  amp.gain.exponentialRampToValueAtTime(peak, end);
+  source.connect(tone).connect(amp).connect(out);
+  source.start(start);
+  source.stop(start + 120);
+  return {
+    cut: (time: number) => {
+      amp.gain.cancelScheduledValues(time);
+      amp.gain.setTargetAtTime(0, time, 0.012);
+      source.stop(time + 0.15);
+    },
+  };
+}
+
 /** Turns steps into notes, and remembers each ring's last note for slides. */
 class Voices {
   private readonly last: ({ hz: number; until: number } | null)[] = Array.from({ length: TRACK_COUNT }, () => null);
@@ -138,14 +165,10 @@ class Voices {
       const frequency = midiToHz(midis[0] ?? 60);
       const before = this.last[track];
       const glideFrom = glides(track, settings.sound) && before && before.until > at - 0.012 && before.hz !== frequency ? before.hz : null;
-      playHit(this.graph.kit, inlet, track, settings, at, {
-        gain: (VELOCITY[step.vel] ?? 0.78) * (repeat === 0 ? 1 : 0.7),
-        accent: step.vel === 2,
-        pitch: step.pitch,
-        midis,
-        duration,
-        glideFrom,
-      });
+      const hit = { gain: (VELOCITY[step.vel] ?? 0.78) * (repeat === 0 ? 1 : 0.7), accent: step.vel === 2, pitch: step.pitch, midis, duration, glideFrom };
+      // The ring's own sound is its picture; without one (or with an empty one) it is silent.
+      if (settings.sound !== OWN_SOUND) playHit(this.graph.kit, inlet, track, settings, at, hit);
+      else if (settings.bild) playBild(this.graph.kit, inlet, track, settings, at, hit, settings.bild);
       this.last[track] = { hz: frequency, until: at + duration };
       if (track === 0 && project.pump > 0) {
         for (const pumped of [4, 5, 6]) {
@@ -425,7 +448,7 @@ export class Engine {
       } else if (this.player) {
         this.player.pause = on && this.playing;
         if (on && this.playing) {
-          this.rise = riser(graph.kit, graph.mix, now, now + 2 * BAR * stepSeconds(this.project()), { peak: 0.22 });
+          this.rise = rise(graph.kit, graph.mix, now, now + 2 * BAR * stepSeconds(this.project()), 0.22);
         } else {
           this.rise?.cut(now);
           if (this.rise && this.playing) crash(graph.kit, graph.mix, now + 0.01, 0.4, 1.5).connect(graph.hall);

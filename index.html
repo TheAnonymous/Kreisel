@@ -6,11 +6,11 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#f4ecdd" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#15121d" media="(prefers-color-scheme: dark)">
-    <meta name="description" content="Kreisel ist eine Groovebox im Kreis: Sieben Ringe, in die du Schläge und Töne malst. Dreh sie, würfle sie, lass sie gegeneinander laufen. Alle Klänge entstehen live im Browser.">
+    <meta name="description" content="Kreisel ist eine Groovebox im Kreis: Sieben Ringe, in die du Schläge und Töne malst. Dreh sie, würfle sie, lass sie gegeneinander laufen, und mal dir eigene Klänge dazu. Alles entsteht live im Browser.">
     <meta property="og:type" content="website">
     <meta property="og:locale" content="de_DE">
     <meta property="og:title" content="Kreisel · Musik-Werkstatt">
-    <meta property="og:description" content="Eine Groovebox im Kreis: Schläge und Töne in sieben Ringe malen, drehen, würfeln und teilen.">
+    <meta property="og:description" content="Eine Groovebox im Kreis: Schläge und Töne in sieben Ringe malen, drehen, würfeln und teilen. Eigene Klänge malst du als Bild.">
     <title>Kreisel · Musik-Werkstatt</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -70,10 +70,37 @@
 
         <section class="wheel" aria-label="Kreisel">
           <div id="tools" class="tools" role="radiogroup" aria-label="Werkzeug"></div>
+          <div id="brushes" class="tools" role="radiogroup" aria-label="Pinsel" hidden></div>
           <div class="stage" id="stage">
             <canvas id="kreisel" tabindex="0" role="application" aria-label="Der Kreisel: sieben Ringe aus Schritten. Pfeiltasten bewegen den Zeiger, Eingabe setzt einen Schlag." aria-describedby="status"></canvas>
             <div id="tip" class="tip" hidden></div>
             <div id="chord-menu" class="chord-menu" hidden></div>
+            <div id="easel" class="easel" hidden>
+              <div class="easel-card" role="dialog" aria-labelledby="easel-title">
+                <header class="easel-head">
+                  <span class="dot"></span>
+                  <h2 id="easel-title">Klangmalerei</h2>
+                  <label class="check" id="hold-box" title="Solange eine Note dauert, bleibt der Klang an der Halten-Linie stehen"><input id="hold" type="checkbox"><span>Ton halten</span></label>
+                  <span class="spacer"></span>
+                  <button id="easel-done" class="button small done" type="button" title="Zurück zum Kreisel (Esc)">Fertig</button>
+                </header>
+                <div class="easel-actions">
+                  <button id="bild-listen" class="button small" type="button" title="Mach den Klang vor: summ, klopf oder zisch ins Mikrofon, und er wird gemalt">Vormachen</button>
+                  <button id="bild-dice" class="button small" type="button" title="Ein neues Bild für diesen Ring würfeln (N)">Würfeln</button>
+                  <button id="bild-clear" class="button small" type="button" title="Alle Striche wegnehmen">Leeren</button>
+                  <button id="bild-keep" class="button small" type="button" title="Das Bild ins Regal legen, für andere Ringe und andere Kreisel">Merken</button>
+                </div>
+                <div class="easel-paper">
+                  <canvas id="bild" tabindex="0" aria-label="Das Klangbild: Zeit von links nach rechts, Tonhöhe von unten nach oben. Mit Maus oder Finger malen." aria-describedby="status"></canvas>
+                  <span class="axis y">hoch ↑</span>
+                  <span class="axis x">Zeit →</span>
+                  <p id="bild-empty" class="bild-empty" hidden>Mal los: Jeder Strich ist ein Ton.</p>
+                  <div id="listening" class="listening" hidden><span class="ear" aria-hidden="true"></span><p id="listening-text">Ich höre zu …</p></div>
+                </div>
+                <p class="easel-hint">Links fängt der Klang an, oben ist hoch. Wo du ansetzt, ist der Strich am lautesten, dann geht dem Pinsel die Farbe aus. Von rechts nach links gemalt schwillt er an.</p>
+                <div id="shelf" class="shelf" aria-label="Regal: gemerkte Klänge"></div>
+              </div>
+            </div>
             <div id="coach" class="coach" hidden>
               <p><strong>Mal in die Ringe.</strong> Ein Klick setzt einen Schlag, ziehen malt mehrere, nach außen ziehen macht höher. Das Mausrad dreht einen Ring weiter, die Mitte startet.</p>
               <button id="coach-ok" class="button small" type="button">Los</button>
@@ -108,6 +135,11 @@
                 <dt>Mitte</dt><dd>Start und Stopp</dd>
                 <dt>Akkordfeld</dt><dd>Akkord wählen, Takte dazu oder weg</dd>
               </dl>
+            </section>
+            <section>
+              <h3>Eigene Klänge malen</h3>
+              <p>„Malen“ im Feld des Rings öffnet den Malkasten. Das Bild ist der Klang: Links fängt er an, oben ist hoch. Jeder Strich ist ein Ton, am lautesten dort, wo du ansetzt; von rechts nach links gemalt schwillt er an. Summen ist weich, Sägen scharf, Zischen ist Rauschen.</p>
+              <p>Bei Bass, Akkorden und Melodie bleiben Striche auf den Linien in der Stimmung. „Ton halten“ lässt lange Noten an der Linie stehen. Der Kreisel läuft beim Malen weiter.</p>
             </section>
             <section>
               <h3>Tasten</h3>

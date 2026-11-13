@@ -1,9 +1,14 @@
 import { Engine, renderWav, type FxName } from "./audio/engine";
-import { decodeLink, encodeLink } from "./codec";
-import { BAR, clamp, clone, currentScene, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_STEPS, patternOf, PITCH_MAX, PITCH_MIN, SCENE_COUNT, SCENE_NAMES, stepAt, TRACK_COUNT, trackInfo, trackOf, type Project, type Step, type Track } from "./model";
+import { canListen, listen } from "./audio/listen";
+import { diceBild, emptyBild, makeStroke, snapHeight, type RawPoint } from "./bild";
+import { decodeLink, encodeLink, unpackBild } from "./codec";
+import { framesToBild } from "./imitate";
+import { keep, loadKept, saveKept, type Kept } from "./collection";
+import { BAR, clamp, clone, currentScene, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_COUNT, SCENE_NAMES, stepAt, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Project, type Step, type Track } from "./model";
 import { chordAt } from "./music";
 import { activeSteps, clear, dice, resize, rotate, seeded, spread, transpose, vary } from "./patterns";
 import { Store } from "./store";
+import type { EaselHost } from "./ui/easel";
 import type { RingHost, Tool } from "./ui/ring";
 
 /*
@@ -36,7 +41,16 @@ export const FX: readonly { id: FxName; name: string; hint: string }[] = [
 /** New hits start here: the melody on the fifth, everything else on its root. */
 const FIRST_PITCH = [0, 0, 0, 0, 0, 0, 4];
 
-export class App implements RingHost {
+/** The brushes of the paint box; the fourth takes strokes away again. */
+export const BRUSH_TOOLS: readonly { name: string; hint: string }[] = [
+  { name: "Summen", hint: "Ein weicher, reiner Ton" },
+  { name: "Sägen", hint: "Ein scharfer, schnarrender Ton" },
+  { name: "Zischen", hint: "Rauschen in dieser Höhe: Becken, Besen, Wind" },
+  { name: "Radieren", hint: "Einen Strich wegnehmen (auch mit Rechtsklick)" },
+];
+export const ERASER = 3;
+
+export class App implements RingHost, EaselHost {
   readonly store = new Store();
   readonly engine: Engine;
   /** The ring in focus; a first visit starts on the melody, the widest ring to aim at. */
@@ -50,6 +64,17 @@ export class App implements RingHost {
   toast: Toast | null = null;
   /** 0..1 while a WAV is being rendered. */
   exporting: number | null = null;
+  /** The paint box is open: the ring in focus gets its own sound painted. */
+  easel = false;
+  brush = 0;
+  brushSize = 1;
+  /** Pictures kept on the shelf, across projects. */
+  readonly kept: Kept[] = loadKept();
+  /** What the paint box says while the microphone listens; `null` when it does not. */
+  listening: string | null = null;
+  /** Hears how loud the microphone is while it listens (the paint box shows it). */
+  onLoudness: (level: number) => void = () => undefined;
+  private stopListening: AbortController | null = null;
   private readonly pitches = [...FIRST_PITCH];
   private readonly listeners = new Set<() => void>();
   private random = seeded(Date.now() >>> 0);
@@ -330,6 +355,192 @@ export class App implements RingHost {
 
   setGlobal(change: Partial<Pick<Project, "bpm" | "swing" | "root" | "scale" | "pump" | "volume" | "chain" | "repeats">>, key?: string): void {
     this.store.edit((project) => { Object.assign(project, change); }, key);
+  }
+
+  // ---- painting sounds -----------------------------------------------------------
+
+  /** The picture of the ring in focus, if it has one. */
+  get bild(): Bild | null {
+    return trackOf(this.project, this.selected).bild;
+  }
+
+  /** Opens the paint box on the ring in focus; a ring without a picture gets a first one to start from. */
+  openEasel(): void {
+    const track = this.selected;
+    const settings = trackOf(this.project, track);
+    if (!settings.bild) {
+      this.store.edit((project) => { Object.assign(trackOf(project, track), { bild: diceBild(track, this.random), sound: OWN_SOUND }); });
+    } else if (settings.sound !== OWN_SOUND) {
+      this.setTrack(track, { sound: OWN_SOUND });
+    }
+    this.easel = true;
+    this.openSlot = null;
+    this.notify();
+    this.preview(track);
+  }
+
+  closeEasel(): void {
+    if (!this.easel) return;
+    this.easel = false;
+    this.notify();
+  }
+
+  /** The ring's own sound: picks it, or opens the paint box if it is picked already or not painted yet. */
+  useOwn(): void {
+    const settings = trackOf(this.project, this.selected);
+    if (!settings.bild || settings.sound === OWN_SOUND) this.openEasel();
+    else this.setSound(this.selected, OWN_SOUND);
+  }
+
+  setBrush(brush: number): void {
+    this.brush = clamp(brush, 0, ERASER);
+    this.notify();
+  }
+
+  setBrushSize(size: number): void {
+    const target = clamp(size, 0, 2);
+    if (target === this.brushSize) return;
+    this.brushSize = target;
+    this.notify();
+  }
+
+  /** One stroke of the brush, through the points it passed (both 0..1). */
+  paint(drawn: readonly RawPoint[]): void {
+    const track = this.selected;
+    const kind = Math.min(this.brush, 2);
+    const stroke = makeStroke(kind, this.brushSize, drawn, (y) => snapHeight(track, kind, y));
+    if (!stroke) return;
+    if ((this.bild?.strokes.length ?? 0) >= MAX_STROKES) {
+      this.say(`Mehr als ${MAX_STROKES} Striche passen nicht in einen Klang. Radier einen weg, dann geht es weiter.`);
+      return;
+    }
+    this.store.edit((project) => {
+      const settings = trackOf(project, track);
+      settings.bild ??= emptyBild();
+      settings.bild.strokes.push(stroke);
+      settings.sound = OWN_SOUND;
+    });
+    this.preview(track);
+  }
+
+  eraseStroke(index: number, gesture: string): void {
+    const track = this.selected;
+    if (!this.bild?.strokes[index]) return;
+    this.store.edit((project) => { trackOf(project, track).bild?.strokes.splice(index, 1); }, gesture, Infinity);
+  }
+
+  /** Takes the newest stroke away. */
+  eraseLast(): void {
+    const count = this.bild?.strokes.length ?? 0;
+    if (count > 0) this.eraseStroke(count - 1, "strich");
+    this.store.settle();
+  }
+
+  setHold(value: number | null, gesture?: string): void {
+    const track = this.selected;
+    const target = value === null ? null : clamp(Math.round(value), 2, TIME_MAX - 2);
+    if (!this.bild || this.bild.hold === target) return;
+    this.store.edit((project) => {
+      const bild = trackOf(project, track).bild;
+      if (bild) bild.hold = target;
+    }, gesture, Infinity);
+  }
+
+  diceOwn(): void {
+    const track = this.selected;
+    this.store.edit((project) => { Object.assign(trackOf(project, track), { bild: diceBild(track, this.random), sound: OWN_SOUND }); });
+    this.preview(track);
+  }
+
+  clearOwn(): void {
+    const track = this.selected;
+    if (!this.bild || this.bild.strokes.length === 0) return;
+    this.store.edit((project) => {
+      const bild = trackOf(project, track).bild;
+      if (bild) bild.strokes = [];
+    });
+  }
+
+  /** Puts the ring's picture on the shelf. */
+  keepOwn(): void {
+    const bild = this.bild;
+    if (!bild || bild.strokes.length === 0) {
+      this.say("Hier ist noch nichts gemalt.");
+      return;
+    }
+    if (!keep(this.kept, this.selected, bild)) {
+      this.say("Dieses Bild liegt schon im Regal.");
+      return;
+    }
+    saveKept(this.kept);
+    this.say("Gemerkt. Das Bild liegt im Regal und passt in jeden Ring, auch in einem anderen Kreisel.");
+  }
+
+  /** Takes a picture from the shelf into the ring in focus. */
+  useKept(index: number): void {
+    const bild = unpackBild(this.kept[index]?.bild);
+    if (!bild) return;
+    const track = this.selected;
+    // Only rings that play notes hold; a drum plays the picture through.
+    if (!trackInfo(track).melodic) bild.hold = null;
+    this.store.edit((project) => { Object.assign(trackOf(project, track), { bild, sound: OWN_SOUND }); });
+    this.preview(track);
+  }
+
+  dropKept(index: number): void {
+    if (!this.kept[index]) return;
+    this.kept.splice(index, 1);
+    saveKept(this.kept);
+    this.notify();
+  }
+
+  /** Listens to one sound made into the microphone and paints what it heard; a second call stops listening. */
+  async imitate(): Promise<void> {
+    if (this.stopListening) {
+      this.stopListening.abort();
+      return;
+    }
+    if (!canListen()) {
+      this.say("Dieser Browser gibt hier kein Mikrofon her.");
+      return;
+    }
+    const track = this.selected;
+    // The Kreisel would hear itself through the speakers.
+    const wasPlaying = this.playing;
+    if (wasPlaying) this.engine.stop();
+    const stop = new AbortController();
+    this.stopListening = stop;
+    this.listening = "Mach den Klang vor: summ, klopf oder zisch. Es bleibt alles auf deinem Gerät.";
+    this.notify();
+    try {
+      const frames = await listen({
+        signal: stop.signal,
+        onLevel: (level, begun) => {
+          this.onLoudness(level);
+          if (begun && this.listening !== "Ich höre dich …") {
+            this.listening = "Ich höre dich …";
+            this.notify();
+          }
+        },
+      });
+      const bild = framesToBild(frames, track);
+      if (!bild) {
+        this.say(stop.signal.aborted ? "Vormachen abgebrochen." : "Ich habe nichts gehört. Etwas näher ans Mikrofon, oder lauter?");
+      } else {
+        this.store.edit((project) => { Object.assign(trackOf(project, track), { bild, sound: OWN_SOUND }); });
+        this.say("So habe ich dich verstanden. Mal daran weiter oder mach es noch einmal vor.", { label: "Zurück", run: () => this.undo() });
+      }
+    } catch (error) {
+      const refused = error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "SecurityError");
+      this.say(refused ? "Ohne Mikrofon kein Vormachen. Erlaub es in der Adresszeile, dann klappt es." : "Das Mikrofon ließ sich nicht öffnen.");
+    } finally {
+      this.stopListening = null;
+      this.listening = null;
+      this.onLoudness(0);
+      this.notify();
+      if (wasPlaying) await this.engine.start();
+      else if (this.bild) this.preview(track);
+    }
   }
 
   // ---- chords -------------------------------------------------------------------

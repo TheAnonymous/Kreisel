@@ -1,6 +1,14 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
 const port = Number.parseInt(process.env.KREISEL_E2E_PORT ?? "4309", 10);
+
+// Chromium's stand-in microphone plays a synthetic "bumm" (a falling tone) over and over: what "Vormachen" hears in the tests.
+const microphone = [
+  "--use-fake-ui-for-media-stream",
+  "--use-fake-device-for-media-stream",
+  `--use-file-for-fake-audio-capture=${fileURLToPath(new URL("./e2e/fixtures/bumm.wav", import.meta.url))}`,
+];
 
 export default defineConfig({
   testDir: "./e2e",
@@ -20,10 +28,11 @@ export default defineConfig({
   },
   // Kreisel is built for the laptop first and has to work on a phone too.
   // Firefox takes a second look at everything it can: it cannot be granted the
-  // clipboard, and its offline switch does not reach service workers.
+  // clipboard, its offline switch does not reach service workers, and it has
+  // no stand-in microphone that plays a file.
   projects: [
-    { name: "laptop", use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 768 } } },
+    { name: "laptop", use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 768 }, launchOptions: { args: microphone } } },
     { name: "phone", use: { ...devices["Pixel 7"] } },
-    { name: "firefox", use: { ...devices["Desktop Firefox"], viewport: { width: 1366, height: 768 } }, grepInvert: /teilt den Kreisel|ohne Netz|am Handy/ },
+    { name: "firefox", use: { ...devices["Desktop Firefox"], viewport: { width: 1366, height: 768 } }, grepInvert: /teilt den Kreisel|im Link|macht einen Klang vor|ohne Netz|am Handy/ },
   ],
 });

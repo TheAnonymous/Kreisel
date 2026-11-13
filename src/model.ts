@@ -40,8 +40,35 @@ export interface Pattern {
   steps: Step[];
 }
 
+/** A ring's own sound is sound number four: the picture painted for it. */
+export const OWN_SOUND = 4;
+export const MAX_STROKES = 8;
+export const MAX_STROKE_POINTS = 32;
+/** A picture's time runs from 0 to TIME_MAX, its pitch from 0 (27.5 Hz) to HEIGHT_MAX (nine octaves up). */
+export const TIME_MAX = 255;
+export const HEIGHT_MAX = 65_535;
+
+/** One stroke of the brush: a tone (or a hiss) that moves through pitch as time passes. */
+export interface Stroke {
+  /** 0 hums (a sine), 1 saws (a sawtooth), 2 hisses (noise around that pitch). */
+  kind: number;
+  /** How much paint the brush held: 0 thin and quiet, 2 thick and loud. */
+  size: number;
+  /** Painted from right to left: the stroke grows louder instead of running dry. */
+  swell: boolean;
+  /** t0, y0, t1, y1 …, with time never running backwards. */
+  points: number[];
+}
+
+/** A painted sound: time from left to right, pitch from bottom to top. */
+export interface Bild {
+  strokes: Stroke[];
+  /** Where a held note stands still until it ends (rings that play notes); `null` rings out like a struck sound. */
+  hold: number | null;
+}
+
 export interface Track {
-  /** Which of the ring's four sounds. */
+  /** Which of the ring's four sounds, or OWN_SOUND for its picture. */
   sound: number;
   /** The two macros of the sound pad, 0..1. */
   x: number;
@@ -50,6 +77,8 @@ export interface Track {
   hall: number;
   echo: number;
   mute: boolean;
+  /** The ring's own sound, once one was painted. */
+  bild: Bild | null;
 }
 
 export interface Scene {
@@ -89,16 +118,18 @@ export interface TrackInfo {
   /** What moving a step outwards does. */
   pitchLabel: string;
   color: string;
+  /** The pitch a picture is painted at: played notes move it from here. 0 for drums, whose pictures are meant as painted. */
+  refHz: number;
 }
 
 export const TRACK_INFO: Record<TrackKind, TrackInfo> = {
-  kick: { name: "Kick", melodic: false, sounds: ["Rund", "Hart", "Tief", "Staub"], xLabel: "Ton", yLabel: "Länge", pitchLabel: "Stimmung", color: "#e4572e" },
-  snare: { name: "Snare", melodic: false, sounds: ["Snare", "Klatsch", "Rand", "Schnipp"], xLabel: "Ton", yLabel: "Länge", pitchLabel: "Stimmung", color: "#f29a2e" },
-  hat: { name: "Hi-Hat", melodic: false, sounds: ["Seide", "Blech", "Shaker", "Zisch"], xLabel: "Helligkeit", yLabel: "Länge", pitchLabel: "Offenheit", color: "#e9bd24" },
-  perc: { name: "Trommel", melodic: false, sounds: ["Tom", "Conga", "Kuhglocke", "Holz"], xLabel: "Ton", yLabel: "Länge", pitchLabel: "Tonhöhe", color: "#5fb85a" },
-  bass: { name: "Bass", melodic: true, sounds: ["Sub", "Säge", "Acid", "Gummi"], xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Tonhöhe", color: "#27a79c" },
-  chord: { name: "Akkorde", melodic: true, sounds: ["Fläche", "Stab", "E-Piano", "Orgel"], xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Lage", color: "#3d7edb" },
-  lead: { name: "Melodie", melodic: true, sounds: ["Zupf", "Glocke", "Pfeife", "Säge"], xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Tonhöhe", color: "#a45de0" },
+  kick: { name: "Kick", melodic: false, sounds: ["Rund", "Hart", "Tief", "Staub"], xLabel: "Ton", yLabel: "Länge", pitchLabel: "Stimmung", color: "#e4572e", refHz: 0 },
+  snare: { name: "Snare", melodic: false, sounds: ["Snare", "Klatsch", "Rand", "Schnipp"], xLabel: "Ton", yLabel: "Länge", pitchLabel: "Stimmung", color: "#f29a2e", refHz: 0 },
+  hat: { name: "Hi-Hat", melodic: false, sounds: ["Seide", "Blech", "Shaker", "Zisch"], xLabel: "Helligkeit", yLabel: "Länge", pitchLabel: "Offenheit", color: "#e9bd24", refHz: 0 },
+  perc: { name: "Trommel", melodic: false, sounds: ["Tom", "Conga", "Kuhglocke", "Holz"], xLabel: "Ton", yLabel: "Länge", pitchLabel: "Tonhöhe", color: "#5fb85a", refHz: 110 },
+  bass: { name: "Bass", melodic: true, sounds: ["Sub", "Säge", "Acid", "Gummi"], xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Tonhöhe", color: "#27a79c", refHz: 55 },
+  chord: { name: "Akkorde", melodic: true, sounds: ["Fläche", "Stab", "E-Piano", "Orgel"], xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Lage", color: "#3d7edb", refHz: 220 },
+  lead: { name: "Melodie", melodic: true, sounds: ["Zupf", "Glocke", "Pfeife", "Säge"], xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Tonhöhe", color: "#a45de0", refHz: 440 },
 };
 
 export const trackInfo = (index: number): TrackInfo => TRACK_INFO[TRACK_KINDS[index] ?? "kick"];
@@ -164,13 +195,13 @@ export function factoryProject(): Project {
     pump: 0.3,
     volume: 0.8,
     tracks: [
-      { sound: 0, x: 0.5, y: 0.5, level: 0.85, hall: 0, echo: 0, mute: false },
-      { sound: 1, x: 0.5, y: 0.5, level: 0.78, hall: 0.25, echo: 0, mute: false },
-      { sound: 0, x: 0.5, y: 0.5, level: 0.7, hall: 0.05, echo: 0, mute: false },
-      { sound: 1, x: 0.5, y: 0.5, level: 0.6, hall: 0.2, echo: 0.25, mute: false },
-      { sound: 3, x: 0.45, y: 0.4, level: 0.7, hall: 0, echo: 0, mute: false },
-      { sound: 2, x: 0.45, y: 0.5, level: 0.7, hall: 0.3, echo: 0.15, mute: false },
-      { sound: 0, x: 0.55, y: 0.45, level: 0.72, hall: 0.3, echo: 0.4, mute: false },
+      { sound: 0, x: 0.5, y: 0.5, level: 0.85, hall: 0, echo: 0, mute: false, bild: null },
+      { sound: 1, x: 0.5, y: 0.5, level: 0.78, hall: 0.25, echo: 0, mute: false, bild: null },
+      { sound: 0, x: 0.5, y: 0.5, level: 0.7, hall: 0.05, echo: 0, mute: false, bild: null },
+      { sound: 1, x: 0.5, y: 0.5, level: 0.6, hall: 0.2, echo: 0.25, mute: false, bild: null },
+      { sound: 3, x: 0.45, y: 0.4, level: 0.7, hall: 0, echo: 0, mute: false, bild: null },
+      { sound: 2, x: 0.45, y: 0.5, level: 0.7, hall: 0.3, echo: 0.15, mute: false, bild: null },
+      { sound: 0, x: 0.55, y: 0.45, level: 0.72, hall: 0.3, echo: 0.4, mute: false, bild: null },
     ],
     scenes: [scene, null, null, null, null, null, null, null],
     scene: 0,

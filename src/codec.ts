@@ -1,4 +1,4 @@
-import { clamp, emptyStep, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_STEPS, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TRACK_COUNT, type Pattern, type Project, type Scene, type ScaleId, type Step, type Track } from "./model";
+import { clamp, emptyStep, HEIGHT_MAX, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_STROKES, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, type Bild, type Pattern, type Project, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 
 /*
@@ -26,6 +26,65 @@ export function unpackStep(value: number): Step {
   };
 }
 
+function toBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
+  const binary = atob(text.replaceAll("-", "+").replaceAll("_", "/"));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+/**
+ * A painted sound as bytes, in base64: whether and where it holds, then per
+ * stroke a head (kind | size << 2 | swell << 4), its number of points and
+ * three bytes a point (time, height high, height low).
+ */
+export function packBild(bild: Bild): string {
+  const bytes: number[] = [bild.hold === null ? 0 : 1, bild.hold ?? 0, bild.strokes.length];
+  for (const stroke of bild.strokes) {
+    const count = stroke.points.length >> 1;
+    bytes.push(stroke.kind | (stroke.size << 2) | (stroke.swell ? 16 : 0), count);
+    for (let index = 0; index < count; index += 1) {
+      const y = stroke.points[index * 2 + 1] ?? 0;
+      bytes.push(stroke.points[index * 2] ?? 0, y >> 8, y & 255);
+    }
+  }
+  return toBase64Url(Uint8Array.from(bytes));
+}
+
+/** A picture from untrusted text; `null` when it is none. Whatever it claims is clamped to what a picture may hold. */
+export function unpackBild(value: unknown): Bild | null {
+  if (typeof value !== "string" || value.length === 0 || value.length > 4000) return null;
+  let bytes: Uint8Array;
+  try {
+    bytes = fromBase64Url(value);
+  } catch {
+    return null;
+  }
+  if (bytes.length < 3) return null;
+  const strokes: Stroke[] = [];
+  let at = 3;
+  for (let index = 0; index < (bytes[2] ?? 0) && at + 2 <= bytes.length; index += 1) {
+    const head = bytes[at] ?? 0;
+    const count = bytes[at + 1] ?? 0;
+    at += 2;
+    const points: number[] = [];
+    let time = 0;
+    for (let point = 0; point < count && at + 3 <= bytes.length; point += 1) {
+      time = Math.max(time, clamp(bytes[at] ?? 0, 0, TIME_MAX));
+      if (point < MAX_STROKE_POINTS) points.push(time, clamp(((bytes[at + 1] ?? 0) << 8) | (bytes[at + 2] ?? 0), 0, HEIGHT_MAX));
+      at += 3;
+    }
+    if (points.length > 0 && strokes.length < MAX_STROKES) strokes.push({ kind: Math.min(2, head & 3), size: Math.min(2, (head >> 2) & 3), swell: (head & 16) !== 0, points });
+  }
+  return { strokes, hold: bytes[0] === 1 ? clamp(bytes[1] ?? 0, 0, TIME_MAX) : null };
+}
+
 interface Packed {
   v: 1;
   b: number;
@@ -34,7 +93,7 @@ interface Packed {
   m: string;
   p: number;
   o: number;
-  t: number[][];
+  t: (number | string)[][];
   c: ({ h: number[]; p: number[][] } | 0)[];
   i: number;
   k: number;
@@ -52,7 +111,11 @@ export function pack(project: Project): Packed {
     m: project.scale,
     p: round(project.pump),
     o: round(project.volume),
-    t: project.tracks.map((track) => [track.sound, round(track.x), round(track.y), round(track.level), round(track.hall), round(track.echo), track.mute ? 1 : 0]),
+    t: project.tracks.map((track) => {
+      const packed: (number | string)[] = [track.sound, round(track.x), round(track.y), round(track.level), round(track.hall), round(track.echo), track.mute ? 1 : 0];
+      if (track.bild) packed.push(packBild(track.bild));
+      return packed;
+    }),
     c: project.scenes.map((scene) => {
       if (!scene) return 0;
       return {
@@ -94,14 +157,18 @@ function unpackScene(value: unknown): Scene | null {
 
 function unpackTrack(value: unknown): Track {
   const list = Array.isArray(value) ? value : [];
+  const bild = unpackBild(list[7]);
+  const sound = integer(list[0], 0, OWN_SOUND, 0);
   return {
-    sound: integer(list[0], 0, 3, 0),
+    // A ring cannot play a picture it does not have.
+    sound: sound === OWN_SOUND && !bild ? 0 : sound,
     x: number(list[1], 0, 1, 0.5),
     y: number(list[2], 0, 1, 0.5),
     level: number(list[3], 0, 1, 0.7),
     hall: number(list[4], 0, 1, 0),
     echo: number(list[5], 0, 1, 0),
     mute: list[6] === 1,
+    bild,
   };
 }
 
@@ -128,19 +195,6 @@ export function unpack(value: unknown): Project {
     chain: data.k === 1,
     repeats: [1, 2, 4].includes(data.n as number) ? (data.n as number) : 1,
   };
-}
-
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
-}
-
-function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
-  const binary = atob(text.replaceAll("-", "+").replaceAll("_", "/"));
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-  return bytes;
 }
 
 async function pipe(bytes: Uint8Array<ArrayBuffer>, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {

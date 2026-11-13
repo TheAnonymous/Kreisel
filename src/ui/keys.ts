@@ -1,4 +1,4 @@
-import { FX, TOOLS, type App } from "../app";
+import { BRUSH_TOOLS, FX, TOOLS, type App } from "../app";
 import { SCENE_COUNT, stepAt, patternOf, TRACK_COUNT } from "../model";
 import { FX_CODES, PLAY_CODES, TOOL_CODES, type Panels } from "./panels";
 
@@ -50,7 +50,35 @@ export function bindKeys(app: App, panels: Panels): void {
       panels.closeMenu();
       app.closeChord();
       app.hideCursor();
+      app.closeEasel();
       return;
+    }
+    // While the paint box is open, the top row holds the brushes and Enter puts the sheet away.
+    if (app.easel && !event.repeat) {
+      const brush = TOOL_CODES.indexOf(code as (typeof TOOL_CODES)[number]);
+      if (brush >= 0 && brush < BRUSH_TOOLS.length) {
+        app.setBrush(brush);
+        return;
+      }
+      if (code === "KeyT") {
+        app.setBrushSize((app.brushSize + 1) % 3);
+        return;
+      }
+      if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        app.closeEasel();
+        return;
+      }
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        if (event.shiftKey) app.clearOwn();
+        else app.eraseLast();
+        return;
+      }
+      if (code === "KeyN") {
+        app.diceOwn();
+        return;
+      }
     }
     if (event.key === "?") {
       event.preventDefault();

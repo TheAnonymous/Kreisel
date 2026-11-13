@@ -39,6 +39,36 @@ and no knobs. So Kreisel has no knobs either:
   link *is* the project), it starts offline, records what is heard and
   renders a WAV faster than real time.
 
+## Part two: Klangmalerei
+
+Every ring has four built-in sounds and one of its own, and that one is
+painted. "Malen" opens the paint box on top of the turning wheel:
+
+- **The picture is the sound.** Time runs from left to right, pitch from
+  bottom to top (nine octaves). Every stroke of the brush is one tone.
+- **The brush runs dry.** A stroke is loudest where the brush was set down
+  and fades as the paint runs out, so a stroke painted from left to right
+  decays and one painted from right to left swells. Brush size is loudness.
+  No envelope, no knobs.
+- **Three brushes, named by ear:** Summen (a sine), Sägen (a sawtooth, drawn
+  as a zigzag) and Zischen (noise around that pitch, drawn as a spray). The
+  right button, or the eraser, takes a stroke away.
+- **In tune by itself.** Rings that play notes show their root and its
+  overtones as lines; tones painted near a line stick to it, and the whole
+  picture moves to every note the ring plays. "Ton halten" adds a line where a
+  long note stands still until it ends.
+- **Vormachen.** Hum, knock or hiss into the microphone and the paint box
+  paints what it heard: pitch and noise are followed a few dozen times a
+  second and become strokes that can be repainted like any others. Nothing is
+  recorded or leaves the device.
+- **Dice and a shelf.** Dice paint a first picture in the manner of the ring;
+  "Merken" puts a picture on a shelf that outlives the project, so a kick's
+  picture can become a bass in next week's Kreisel.
+
+The Kreisel keeps playing while you paint, so every stroke is heard in the
+groove. Pictures are part of the project: they travel in the link (a few
+dozen bytes a stroke), are rendered into the WAV and can be undone.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the
@@ -59,8 +89,11 @@ run locally; see [AGENTS.md](AGENTS.md).
 | `src/model.ts`, `src/music.ts` | the project as plain data; scales, chords and where each ring's notes sit |
 | `src/patterns.ts` | turning, spreading, dice and small variations (pure, seeded) |
 | `src/codec.ts`, `src/store.ts` | the project as a link and in the browser's storage; undo |
-| `src/audio/` | the 28 sounds, the mixer, the player (live and offline), effects, recording |
+| `src/bild.ts`, `src/imitate.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes |
+| `src/collection.ts` | the shelf of kept pictures |
+| `src/audio/` | the 28 built-in sounds, painted sounds (`bild.ts`), listening (`listen.ts`), the mixer, the player (live and offline), effects, recording |
 | `src/ui/ring.ts` | the wheel: drawing and every gesture on it |
+| `src/ui/easel.ts` | the paint box: drawing pictures and painting them |
 | `src/ui/panels.ts`, `src/ui/keys.ts` | everything around the wheel; the keyboard |
 | `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox |
 

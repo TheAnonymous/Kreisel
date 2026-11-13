@@ -1,8 +1,11 @@
-import { FX, TOOLS, type App } from "../app";
+import { BRUSH_TOOLS, FX, TOOLS, type App } from "../app";
 import type { FxName } from "../audio/engine";
-import { clamp, currentScene, MAX_CHORDS, MAX_STEPS, MIN_STEPS, patternOf, SCENE_COUNT, SCENE_NAMES, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
+import { describeBild } from "../bild";
+import { packBild, unpackBild } from "../codec";
+import { clamp, currentScene, MAX_CHORDS, MAX_STEPS, MIN_STEPS, OWN_SOUND, patternOf, SCENE_COUNT, SCENE_NAMES, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
 import { chordName, chordRoman, NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
 import { activeSteps, describe } from "../patterns";
+import { renderThumb, type EaselView } from "./easel";
 import type { RingView, Tool } from "./ring";
 
 /*
@@ -25,6 +28,13 @@ const TOOL_ICONS: Record<Tool, string> = {
   wirbel: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6v12M10 6v12M15 6v12M20 6v12"/></svg>',
   laenge: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M4 8v8M20 8v8"/></svg>',
 };
+
+const BRUSH_ICONS = [
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12c3-7 6-7 9 0s6 7 9 0"/></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 16 8 7v9l5-9v9l5-9v9"/></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><g class="fill"><circle cx="5" cy="13" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="10" cy="15" r="1.3"/><circle cx="14" cy="11" r="1.3"/><circle cx="15" cy="17" r="1.3"/><circle cx="18" cy="7" r="1.3"/><circle cx="19" cy="13" r="1.3"/></g></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 19-4-4 9-9 6 6-7 7zM13 19h7M9 10l6 6"/></svg>',
+] as const;
 
 /** The physical keys: tools on the top row, playing on the home row, effects on the bottom row. */
 export const TOOL_CODES = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT"] as const;
@@ -82,16 +92,24 @@ export class Panels {
   private readonly toolButtons = new Map<Tool, HTMLButtonElement>();
   private readonly fxButtons = new Map<FxName, HTMLButtonElement>();
   private readonly soundButtons: HTMLButtonElement[] = [];
+  private readonly brushButtons: HTMLButtonElement[] = [];
+  private readonly own = { pick: button("own-pick", ""), thumb: el("canvas", "thumb"), label: el("span", "own-label") };
+  private readonly sizeDots = el("span", "dots");
+  private thumbSignature = "";
+  private shelfSignature = "noch nicht gebaut";
+  private easelOpen = false;
+  private closeCoach: () => void = () => undefined;
   private readonly panel = { name: el("h2"), info: el("p", "info"), pad: el("div", "pad"), puck: el("span", "puck"), axisX: el("span", "axis x"), axisY: el("span", "axis y"), steps: el("output"), spread: el("input"), spreadValue: el("output") };
   private chordSignature = "";
   private recordTimer: ReturnType<typeof setInterval> | null = null;
   private lastPreview = 0;
 
-  constructor(private readonly app: App, private readonly ring: RingView) {
+  constructor(private readonly app: App, private readonly ring: RingView, private readonly easel: EaselView) {
     this.buildBar();
     this.buildTracks();
     this.buildScenes();
     this.buildTools();
+    this.buildEasel();
     this.buildFx();
     this.buildPanel();
     this.buildCoach();
@@ -137,6 +155,10 @@ export class Panels {
     FX.forEach((fx, index) => {
       const key = this.fxButtons.get(fx.id)?.querySelector(".key");
       if (key) key.textContent = this.keyLabel(FX_CODES[index] ?? "");
+    });
+    this.brushButtons.forEach((node, index) => {
+      const key = node.querySelector(".key");
+      if (key) key.textContent = this.keyLabel(TOOL_CODES[index] ?? "");
     });
     this.buildHelp();
   }
@@ -267,6 +289,41 @@ export class Panels {
     holder.append(live);
   }
 
+  /** The paint box: its buttons, and the brushes that take the tools' place while it is open. */
+  private buildEasel(): void {
+    const app = this.app;
+    const brushes = byId("brushes");
+    BRUSH_TOOLS.forEach((brush, index) => {
+      const node = button("tool", "", brush.hint);
+      node.innerHTML = BRUSH_ICONS[index] ?? "";
+      node.append(el("span", "name", brush.name), el("kbd", "key"));
+      node.setAttribute("role", "radio");
+      node.addEventListener("click", () => app.setBrush(index));
+      brushes.append(node);
+      this.brushButtons.push(node);
+    });
+    const size = button("tool size", "", "Wie viel Farbe der Pinsel hält: dünn und leise bis dick und laut (auch mit dem Mausrad)");
+    size.id = "brush-size";
+    size.append(this.sizeDots, el("span", "name", "Dicke"), el("kbd", "key", "T"));
+    for (let dot = 0; dot < 3; dot += 1) this.sizeDots.append(el("i"));
+    size.addEventListener("click", () => app.setBrushSize((app.brushSize + 1) % 3));
+    brushes.append(size);
+
+    byId("easel-done").addEventListener("click", () => app.closeEasel());
+    byId("bild-dice").addEventListener("click", () => app.diceOwn());
+    byId("bild-clear").addEventListener("click", () => app.clearOwn());
+    byId("bild-keep").addEventListener("click", () => app.keepOwn());
+    byId("bild-listen").addEventListener("click", () => void app.imitate());
+    const ear = byId("listening");
+    app.onLoudness = (level) => ear.style.setProperty("--loud", String(1 + Math.min(0.9, level * 8)));
+    const hold = byId<HTMLInputElement>("hold");
+    hold.addEventListener("change", () => app.setHold(hold.checked ? Math.round(TIME_MAX * 0.32) : null));
+    // A click beside the sheet puts it away, like a click beside any open box.
+    byId("easel").addEventListener("pointerdown", (event) => {
+      if (event.target === event.currentTarget) app.closeEasel();
+    });
+  }
+
   private buildFx(): void {
     const holder = byId("fx");
     for (const fx of FX) {
@@ -317,6 +374,14 @@ export class Panels {
       sounds.append(chip);
       this.soundButtons.push(chip);
     }
+
+    const own = el("div", "own");
+    this.own.pick.append(this.own.thumb, this.own.label);
+    this.own.pick.addEventListener("click", () => app.useOwn());
+    const paint = button("button small", "Malen", "Den eigenen Klang dieses Rings malen");
+    paint.id = "paint";
+    paint.addEventListener("click", () => app.openEasel());
+    own.append(this.own.pick, paint);
 
     const pad = parts.pad;
     pad.tabIndex = 0;
@@ -399,7 +464,7 @@ export class Panels {
     mixSlider("Hall", "hall");
     mixSlider("Echo", "echo");
 
-    holder.append(head, parts.info, doing, sounds, pad, ringGroup, mix);
+    holder.append(head, parts.info, doing, sounds, own, pad, ringGroup, mix);
   }
 
   private buildCoach(): void {
@@ -422,6 +487,7 @@ export class Panels {
     };
     byId("coach-ok").addEventListener("click", close);
     byId("kreisel").addEventListener("pointerdown", close);
+    this.closeCoach = close;
   }
 
   private buildHelp(): void {
@@ -438,6 +504,7 @@ export class Panels {
       ["Eingabe", "am Zeiger setzen oder löschen"],
       ["+ −", "Ton am Zeiger höher oder tiefer"],
       [key("KeyN"), "Ring würfeln · mit Umschalt nur variieren"],
+      ["Im Malkasten", `${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} Pinsel und Radierer · ${key("KeyT")} Dicke · ${key("KeyN")} würfeln · Entf nimmt den letzten Strich · Esc fertig`],
       [key("KeyM"), "Ring stumm · mit Umschalt allein hören"],
       [", .", "Szene zurück oder vor"],
       ["Strg+Z", "Rückgängig · mit Umschalt wiederholen"],
@@ -519,6 +586,7 @@ export class Panels {
       node.setAttribute("aria-checked", String(tool === app.tool));
       node.disabled = tool === "laenge" && !info.melodic;
     }
+    this.syncEasel();
     byId("live").setAttribute("aria-pressed", String(app.live));
     for (const [fx, node] of this.fxButtons) node.classList.toggle("held", app.engine.fx[fx]);
 
@@ -545,10 +613,74 @@ export class Panels {
       if (node.textContent === "+") node.disabled = pattern.len >= MAX_STEPS;
     }
 
-    byId("status").textContent = `${info.name}: ${describe(pattern)}`;
+    byId("status").textContent = app.easel ? `Klangmalerei ${info.name}: ${describeBild(settings.bild)}` : `${info.name}: ${describe(pattern)}`;
     this.syncChordMenu();
     this.syncToast();
     this.ring.invalidate();
+    this.easel.invalidate();
+  }
+
+  /** The ring's own sound in the panel, the paint box and its shelf. */
+  private syncEasel(): void {
+    const app = this.app;
+    const track = app.selected;
+    const info = trackInfo(track);
+    const settings = trackOf(app.project, track);
+    const bild = settings.bild;
+
+    this.own.pick.setAttribute("aria-pressed", String(settings.sound === OWN_SOUND));
+    this.own.pick.title = bild ? "Den eigenen Klang dieses Rings spielen (noch ein Klick öffnet den Malkasten)" : "Einen eigenen Klang für diesen Ring malen";
+    this.own.label.textContent = bild ? "Eigener Klang" : "Eigenen Klang malen";
+    const signature = `${track}|${bild ? packBild(bild) : ""}`;
+    if (signature !== this.thumbSignature) {
+      this.thumbSignature = signature;
+      renderThumb(this.own.thumb, bild, info.color);
+    }
+
+    const open = app.easel;
+    byId("easel").hidden = !open;
+    byId("brushes").hidden = !open;
+    byId("tools").hidden = open;
+    if (open && !this.easelOpen) {
+      // The first hint is about the rings, and where the panel sits below the wheel, the sheet opens out of sight.
+      this.closeCoach();
+      byId("stage").scrollIntoView({ block: "nearest" });
+    }
+    this.easelOpen = open;
+    if (!open) return;
+    byId("easel").style.setProperty("--c", info.color);
+    byId("easel-title").textContent = `Klangmalerei: ${info.name}`;
+    byId("hold-box").hidden = !info.melodic;
+    byId<HTMLInputElement>("hold").checked = bild?.hold !== null && bild?.hold !== undefined;
+    byId("bild-empty").hidden = (bild?.strokes.length ?? 0) > 0 || app.listening !== null;
+    this.brushButtons.forEach((node, index) => node.setAttribute("aria-checked", String(index === app.brush)));
+    this.sizeDots.dataset.size = String(app.brushSize);
+    byId("listening").hidden = !app.listening;
+    byId("listening-text").textContent = app.listening ?? "";
+    byId("bild-listen").setAttribute("aria-pressed", String(app.listening !== null));
+
+    const shelfSignature = app.kept.map((item) => item.bild).join("|");
+    if (shelfSignature !== this.shelfSignature) {
+      this.shelfSignature = shelfSignature;
+      const shelf = byId("shelf");
+      const items: HTMLElement[] = [app.kept.length > 0 ? el("span", "shelf-label", "Regal") : el("span", "shelf-label empty", "Das Regal ist leer. „Merken“ hebt ein Bild auf: für andere Ringe und für den nächsten Kreisel.")];
+      app.kept.forEach((item, index) => {
+        const holder = el("span", "kept");
+        const pick = button("kept-pick", "", `Aus dem Regal in diesen Ring holen (gemalt für ${trackInfo(item.ring).name})`);
+        pick.setAttribute("aria-label", `Gemerkter Klang ${index + 1}, gemalt für ${trackInfo(item.ring).name}`);
+        const thumb = el("canvas", "thumb");
+        pick.append(thumb);
+        pick.addEventListener("click", () => app.useKept(index));
+        const drop = button("kept-drop", "×", "Aus dem Regal nehmen");
+        drop.setAttribute("aria-label", `Gemerkten Klang ${index + 1} aus dem Regal nehmen`);
+        drop.addEventListener("click", () => app.dropKept(index));
+        holder.append(pick, drop);
+        items.push(holder);
+        // The canvas needs its place on the page before it knows its size.
+        requestAnimationFrame(() => renderThumb(thumb, unpackBild(item.bild), trackInfo(item.ring).color));
+      });
+      shelf.replaceChildren(...items);
+    }
   }
 
   private syncChordMenu(): void {
