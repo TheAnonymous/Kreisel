@@ -22,6 +22,7 @@ import {
 import { BAR, currentScene, OWN_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Project, type Step } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
+import { barCount, dropsQuiet, gateLevel, planBar, type BarPlan } from "../piece";
 import { playBild } from "./bild";
 import { glides, playHit } from "./sounds";
 
@@ -146,8 +147,8 @@ class Voices {
 
   constructor(private readonly graph: Graph) {}
 
-  /** Plays `step` of ring `track` at `time`; `stepTime` is how long one step lasts. */
-  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number): void {
+  /** Plays `step` of ring `track` at `time`; `stepTime` is how long one step lasts, `level` scales how loud it is. */
+  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number, level = 1): void {
     const settings = project.tracks[track];
     const inlet = this.graph.inlets[track];
     if (!settings || !inlet) return;
@@ -165,7 +166,7 @@ class Voices {
       const frequency = midiToHz(midis[0] ?? 60);
       const before = this.last[track];
       const glideFrom = glides(track, settings.sound) && before && before.until > at - 0.012 && before.hz !== frequency ? before.hz : null;
-      const hit = { gain: (VELOCITY[step.vel] ?? 0.78) * (repeat === 0 ? 1 : 0.7), accent: step.vel === 2, pitch: step.pitch, midis, duration, glideFrom };
+      const hit = { gain: (VELOCITY[step.vel] ?? 0.78) * (repeat === 0 ? 1 : 0.7) * level, accent: step.vel === 2, pitch: step.pitch, midis, duration, glideFrom };
       // The ring's own sound is its picture; without one (or with an empty one) it is silent.
       if (settings.sound !== OWN_SOUND) playHit(this.graph.kit, inlet, track, settings, at, hit);
       else if (settings.bild) playBild(this.graph.kit, inlet, track, settings, at, hit, settings.bild);
@@ -191,6 +192,8 @@ export interface StepReport {
   fired: number;
   time: number;
   duration: number;
+  /** While a piece plays: the bar that sounds, with the step inside it as its fraction. `null` otherwise. */
+  bar: number | null;
 }
 
 function nextFilled(project: Project, from: number): number {
@@ -215,10 +218,21 @@ export class Player {
   /** While the pause is held, drums and bass drop out. */
   pause = false;
   chord = 0;
+  /** The bar the piece jumps to at the next bar line. */
+  seek: number | null = null;
+  /** An effect key holds the master lowpass: the piece leaves it alone meanwhile. */
+  filterHeld = false;
   private stutter: { at: number; start: number } | null = null;
   private readonly voices: Voices;
   private readonly skip = new Set<string>();
   private readonly random: Random;
+  /** What the bar of the piece that sounds asks for; `null` while no piece plays. */
+  private plan: BarPlan | null = null;
+  private pieceBar = 0;
+  private pieceSteps = 0;
+  private barNow = 0;
+  private cutoff = 20_000;
+  private runUp: { cut(time: number): void } | null = null;
 
   constructor(
     private readonly graph: Graph,
@@ -231,12 +245,72 @@ export class Player {
     this.random = seeded(seed);
   }
 
-  reset(scene: number): void {
+  /** Back to the start of `scene`; a piece begins at bar `bar`. */
+  reset(scene: number, bar = 0): void {
     this.scene = scene;
     this.local = 0;
     this.queued = null;
     this.stutter = null;
     this.skip.clear();
+    this.plan = null;
+    this.pieceBar = bar;
+    this.pieceSteps = 0;
+    this.seek = null;
+  }
+
+  /** Where the master lowpass sits by the piece's line right now (wide open without a piece). */
+  get cutoffNow(): number {
+    return this.cutoff;
+  }
+
+  /** The piece no longer plays: the run-up stops and the sound opens up again. */
+  leavePiece(time: number): void {
+    this.runUp?.cut(time);
+    this.runUp = null;
+    if (this.plan && !this.filterHeld) {
+      const frequency = this.graph.lowpass.frequency;
+      frequency.cancelScheduledValues(time);
+      frequency.setTargetAtTime(20_000, time, 0.08);
+    }
+    this.cutoff = 20_000;
+    this.plan = null;
+  }
+
+  /** A bar line of the piece: its scene, who plays, how open the sound is, and run-ups and landings. */
+  private barLine(project: Project, time: number, duration: number): void {
+    const piece = project.piece;
+    const count = barCount(piece);
+    if (this.seek !== null) {
+      this.pieceBar = ((this.seek % count) + count) % count;
+      this.seek = null;
+    }
+    const bar = this.pieceBar % count;
+    const plan = planBar(piece, bar);
+    if (project.scenes[plan.scene] && plan.scene !== this.scene) {
+      this.scene = plan.scene;
+      this.local = 0;
+      this.stutter = null;
+      this.skip.clear();
+    }
+    this.queued = null;
+    const { kit, mix, hall, lowpass } = this.graph;
+    if (this.runUp) {
+      // The landing after a run-up.
+      this.runUp.cut(time);
+      this.runUp = null;
+      crash(kit, mix, time, 0.36, 1.6).connect(hall);
+    }
+    if (plan.rise) this.runUp = rise(kit, mix, time, time + BAR * duration, 0.15);
+    if (!this.filterHeld) {
+      lowpass.frequency.cancelScheduledValues(time);
+      lowpass.frequency.setValueAtTime(this.cutoff, time);
+      if (plan.cutoff !== this.cutoff) lowpass.frequency.exponentialRampToValueAtTime(plan.cutoff, time + 0.14);
+      if (plan.cutoffEnd !== plan.cutoff) lowpass.frequency.exponentialRampToValueAtTime(plan.cutoffEnd, time + BAR * duration);
+    }
+    this.cutoff = plan.cutoffEnd;
+    this.plan = plan;
+    this.barNow = bar;
+    this.pieceBar = bar + 1;
   }
 
   /** Repeats the two steps just played for as long as it is held. */
@@ -251,7 +325,19 @@ export class Player {
 
   step(time: number, duration: number): void {
     const project = this.project();
-    if (this.local % BAR === 0) this.changeScene(project);
+    // A piece takes over at a bar line and then decides scene, entries and sound bar by bar.
+    if (project.piece.on && (this.plan !== null || this.local % BAR === 0)) {
+      if (this.plan === null) this.pieceSteps = 0;
+      if (this.pieceSteps % BAR === 0) this.barLine(project, time, duration);
+      if (this.plan?.fall && this.pieceSteps % BAR === BAR - 4) {
+        // Before a steep fall, the last beat is thrown into the echo.
+        this.graph.throwSend.gain.setValueAtTime(0.85, time);
+        this.graph.throwSend.gain.setValueAtTime(0, time + 4 * duration);
+      }
+    } else {
+      if (this.plan !== null) this.leavePiece(time);
+      if (this.local % BAR === 0) this.changeScene(project);
+    }
     const scene = project.scenes[this.scene] ?? currentScene(project);
     const position = this.stutter ? this.stutter.start + ((this.local - this.stutter.at) % 2) : this.local;
     const chord = chordAt(scene, position);
@@ -266,11 +352,16 @@ export class Player {
       if (step.chance > 0 && this.random() >= (CHANCES[step.chance] ?? 1)) continue;
       if (!this.audible(track)) continue;
       if (this.pause && track <= 4) continue;
+      // In a piece, a ring plays once the tension has reached it; freshly in, it leaves its quiet steps out.
+      const gate = this.plan ? (this.plan.gates[track] ?? 0) : 1;
+      if (gate <= 0 || (this.plan && step.vel === 0 && dropsQuiet(gate))) continue;
       fired |= 1 << track;
-      this.voices.strike(project, track, step, chord, time, duration);
+      this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1);
     }
-    this.report({ position, local: this.local, scene: this.scene, chord, fired, time, duration });
+    const bar = this.plan ? this.barNow + (this.pieceSteps % BAR) / BAR : null;
+    this.report({ position, local: this.local, scene: this.scene, chord, fired, time, duration, bar });
     this.local += 1;
+    if (this.plan) this.pieceSteps += 1;
   }
 
   /** Plays one step by hand, over `chord`. */
@@ -307,6 +398,8 @@ export interface EngineView {
   onScene(scene: number): void;
   /** Playing, recording or an effect changed. */
   onState(): void;
+  /** The bar a piece starts from. */
+  pieceStart(): number;
 }
 
 export class Engine {
@@ -359,7 +452,7 @@ export class Engine {
     if (this.playing || !(await this.wake())) return;
     const context = this.host.context;
     if (!context || !this.player) return;
-    this.player.reset(this.project().scene);
+    this.player.reset(this.project().scene, this.view.pieceStart());
     this.transport.begin(context, context.currentTime + 0.06);
     this.playing = true;
     this.view.onState();
@@ -372,7 +465,10 @@ export class Engine {
     this.cues.cancel();
     this.heard = null;
     const graph = this.host.graph;
-    if (graph) hush(graph, graph.context.currentTime);
+    if (graph) {
+      this.player?.leavePiece(graph.context.currentTime);
+      hush(graph, graph.context.currentTime);
+    }
     for (const name of Object.keys(this.fx) as FxName[]) this.setFx(name, false);
     this.view.onState();
   }
@@ -403,6 +499,19 @@ export class Engine {
     if (!this.playing || !heard) return null;
     const share = (this.host.visualTime() - heard.time) / heard.duration;
     return heard.position + Math.max(0, Math.min(1, share));
+  }
+
+  /** Where a piece is, in bars with fractions; `null` when none plays. */
+  pieceCursor(): number | null {
+    const heard = this.heard;
+    if (!this.playing || !heard || heard.bar === null) return null;
+    const share = (this.host.visualTime() - heard.time) / heard.duration;
+    return heard.bar + Math.max(0, Math.min(1, share)) / BAR;
+  }
+
+  /** Jump to `bar` of the piece at the next bar line. */
+  seekPiece(bar: number): void {
+    if (this.playing && this.player) this.player.seek = bar;
   }
 
   /** Plays a step by hand, for the keyboard and for hearing what was just painted. */
@@ -436,7 +545,10 @@ export class Engine {
     if (graph) {
       const now = graph.context.currentTime;
       if (name === "dumpf") {
-        graph.lowpass.frequency.setTargetAtTime(on ? 300 : 20_000, now, on ? 0.2 : 0.07);
+        // A piece keeps the lowpass moving by its line: the key takes it over and hands it back.
+        if (this.player) this.player.filterHeld = on;
+        graph.lowpass.frequency.cancelScheduledValues(now);
+        graph.lowpass.frequency.setTargetAtTime(on ? 300 : (this.player?.cutoffNow ?? 20_000), now, on ? 0.2 : 0.07);
         graph.lowpass.Q.setTargetAtTime(on ? 6 : 0.7, now, 0.05);
       } else if (name === "duenn") {
         graph.highpass.frequency.setTargetAtTime(on ? 1300 : 20, now, on ? 0.2 : 0.07);
@@ -516,9 +628,9 @@ export interface RenderPlan {
   seconds: number;
 }
 
-/** What a WAV of the project holds: the whole chain, or the scene on the table twice through its chords. */
+/** What a WAV of the project holds: the piece once round, the whole chain, or the scene on the table twice through its chords. */
 export function renderPlan(project: Project): RenderPlan {
-  const bars = project.chain ? chainBars(project) : currentScene(project).chords.length * 2;
+  const bars = project.piece.on ? barCount(project.piece) : project.chain ? chainBars(project) : currentScene(project).chords.length * 2;
   const steps = bars * BAR;
   return { steps, seconds: steps * stepSeconds(project) + 3 };
 }

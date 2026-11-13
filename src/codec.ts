@@ -1,5 +1,6 @@
-import { clamp, emptyStep, HEIGHT_MAX, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_STROKES, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, type Bild, type Pattern, type Project, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
+import { clamp, emptyStep, HEIGHT_MAX, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_STROKES, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Pattern, type Piece, type Project, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
+import { soundPiece } from "./piece";
 
 /*
  * A Kreisel as text: small enough for a link. Steps are packed into one
@@ -85,6 +86,24 @@ export function unpackBild(value: unknown): Bild | null {
   return { strokes, hold: bytes[0] === 1 ? clamp(bytes[1] ?? 0, 0, TIME_MAX) : null };
 }
 
+/** A piece as [on, one byte a bar (tension | scene << 5) in base64, the order of the rings as digits]. */
+export function packPiece(piece: Piece): [number, string, string] {
+  const bytes = piece.tension.map((tension, bar) => (tension & 31) | (((piece.scenes[bar] ?? 0) & 7) << 5));
+  return [piece.on ? 1 : 0, toBase64Url(Uint8Array.from(bytes)), piece.order.join("")];
+}
+
+export function unpackPiece(value: unknown, fallbackScene: number): Piece {
+  const [on, bars, order] = Array.isArray(value) ? value : [];
+  if (typeof bars !== "string" || bars.length === 0 || bars.length > 400) return firstPiece(fallbackScene);
+  let bytes: Uint8Array;
+  try {
+    bytes = fromBase64Url(bars);
+  } catch {
+    return firstPiece(fallbackScene);
+  }
+  return soundPiece(on === 1, Array.from(bytes, (byte) => byte & 31), Array.from(bytes, (byte) => byte >> 5), typeof order === "string" ? Array.from(order, Number) : [], fallbackScene);
+}
+
 interface Packed {
   v: 1;
   b: number;
@@ -98,6 +117,7 @@ interface Packed {
   i: number;
   k: number;
   n: number;
+  z?: [number, string, string];
 }
 
 const round = (value: number): number => Math.round(value * 100) / 100;
@@ -130,6 +150,7 @@ export function pack(project: Project): Packed {
     i: project.scene,
     k: project.chain ? 1 : 0,
     n: project.repeats,
+    z: packPiece(project.piece),
   };
 }
 
@@ -181,6 +202,10 @@ export function unpack(value: unknown): Project {
   if (scenes.every((scene) => scene === null)) throw new Error("keine Szene");
   const wanted = integer(data.i, 0, SCENE_COUNT - 1, 0);
   const tracks = Array.isArray(data.t) ? data.t : [];
+  const first = scenes.findIndex((scene) => scene !== null);
+  const piece = unpackPiece(data.z, first);
+  // A bar cannot play a scene that is not there.
+  piece.scenes = piece.scenes.map((scene) => (scenes[scene] ? scene : first));
   return {
     v: 1,
     bpm: integer(data.b, 60, 200, 112),
@@ -194,6 +219,7 @@ export function unpack(value: unknown): Project {
     scene: scenes[wanted] ? wanted : scenes.findIndex((scene) => scene !== null),
     chain: data.k === 1,
     repeats: [1, 2, 4].includes(data.n as number) ? (data.n as number) : 1,
+    piece,
   };
 }
 

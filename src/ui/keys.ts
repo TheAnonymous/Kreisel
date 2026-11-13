@@ -87,6 +87,43 @@ export function bindKeys(app: App, panels: Panels): void {
     }
 
     const range = event.target instanceof HTMLInputElement && event.target.type === "range";
+    // On the piece's ring the keys mean bars and tension.
+    if (app.pieceFocus && !range) {
+      if (code === "ArrowLeft" || code === "ArrowRight") {
+        event.preventDefault();
+        const by = code === "ArrowLeft" ? -1 : 1;
+        if (event.shiftKey) app.rotatePiece(by);
+        else app.movePieceKey(by);
+        return;
+      }
+      if (code === "ArrowDown") {
+        event.preventDefault();
+        app.select(TRACK_COUNT - 1);
+        return;
+      }
+      if (code === "ArrowUp") {
+        event.preventDefault();
+        return;
+      }
+      if (event.key === "+" || event.key === "-") {
+        event.preventDefault();
+        app.nudgeTension(event.key === "+" ? 2 : -2);
+        return;
+      }
+      if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        if (app.pieceKey !== null) app.seekPiece(app.pieceKey);
+        return;
+      }
+      if (!event.repeat && code === "KeyN") {
+        app.diceThePiece();
+        return;
+      }
+      if (!event.repeat && code === "KeyM") {
+        app.togglePiece();
+        return;
+      }
+    }
     if (code.startsWith("Arrow") && !range) {
       event.preventDefault();
       app.wake();
@@ -97,6 +134,7 @@ export function bindKeys(app: App, panels: Panels): void {
       } else {
         const by = code === "ArrowUp" ? 1 : -1;
         if (event.shiftKey) app.nudgePitch(by, true);
+        else if (by > 0 && app.selected === TRACK_COUNT - 1) app.focusPiece();
         else app.select(app.selected + by);
       }
       return;
@@ -125,6 +163,7 @@ export function bindKeys(app: App, panels: Panels): void {
     const digit = /^Digit([1-9])$/.exec(code)?.[1];
     if (digit) {
       const track = Number(digit) - 1;
+      if (track === TRACK_COUNT) app.focusPiece();
       if (track >= TRACK_COUNT) return;
       if (event.shiftKey) app.toggleMute(track);
       else app.select(track);

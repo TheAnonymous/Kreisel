@@ -65,6 +65,23 @@ async function paint(page: Page, points: readonly (readonly [number, number])[])
 const bildOf = (page: Page, track: number) => page.evaluate((ring) => window.kreisel.app.project.tracks[ring]!.bild, track);
 const soundOf = (page: Page, track: number): Promise<number> => page.evaluate((ring) => window.kreisel.app.project.tracks[ring]!.sound, track);
 
+/** Where a bar of the piece's ring is on the page, at a tension of 0..1. */
+const barAt = (page: Page, bar: number, height: number): Promise<{ x: number; y: number }> =>
+  page.evaluate(([index, share]) => window.kreisel.bar(index ?? 0, share ?? 0), [bar, height]);
+const pieceOf = (page: Page) => page.evaluate(() => window.kreisel.app.project.piece);
+
+/** Puts the piece's ring in focus and waits until it has grown to its full width. */
+async function focusPiece(page: Page): Promise<void> {
+  await page.evaluate(() => window.kreisel.app.focusPiece());
+  await expect.poll(async () => {
+    const first = await barAt(page, 0, 1);
+    await page.waitForTimeout(80);
+    const second = await barAt(page, 0, 0);
+    const third = await barAt(page, 0, 1);
+    return Math.abs(first.y - third.y) + (second.y > third.y ? 0 : 1);
+  }).toBeLessThan(0.05);
+}
+
 const laptop = ({ isMobile }: { isMobile: boolean }): boolean => !isMobile;
 
 test.describe("am Laptop", () => {
@@ -485,6 +502,139 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
+  test("malt das Stück in den äußersten Ring", async ({ page }) => {
+    const problems = await open(page);
+    expect((await pieceOf(page)).on).toBe(false);
+    // A click on the resting ring picks it and paints at once.
+    const first = await barAt(page, 2, 0.9);
+    await page.mouse.click(first.x, first.y);
+    await expect(status(page)).toHaveText("Stück: 32 Takte, 1:09 Minuten, im Mittel 66 % Spannung (aus)");
+    await expect(page.locator(".piece-row")).toHaveClass(/selected/);
+    await expect(page.locator(".panel-box").last()).toContainText("Wer zuerst einsetzt");
+    expect((await pieceOf(page)).tension[2]).toBeGreaterThan(24);
+    await focusPiece(page);
+
+    // A stroke along the ring sets bar after bar, and is one step back.
+    const before = (await pieceOf(page)).tension;
+    await page.mouse.move((await barAt(page, 10, 0.5)).x, (await barAt(page, 10, 0.5)).y);
+    await page.mouse.down();
+    for (const bar of [11, 12, 13]) {
+      const spot = await barAt(page, bar, 0.5);
+      await page.mouse.move(spot.x, spot.y, { steps: 4 });
+    }
+    await page.mouse.up();
+    for (const tension of (await pieceOf(page)).tension.slice(10, 14)) expect(Math.abs(tension - 15.5)).toBeLessThanOrEqual(2);
+    await page.keyboard.press("Control+z");
+    expect((await pieceOf(page)).tension).toEqual(before);
+    await page.keyboard.press("Control+Shift+z");
+
+    // The wheel turns the piece, the keyboard moves from bar to bar and changes the tension.
+    const turned = (await pieceOf(page)).tension;
+    await page.mouse.wheel(0, 50);
+    expect((await pieceOf(page)).tension).toEqual([turned[31], ...turned.slice(0, 31)]);
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+    const low = (await pieceOf(page)).tension[1]!;
+    await page.keyboard.press("+");
+    expect((await pieceOf(page)).tension[1]).toBe(Math.min(31, low + 2));
+
+    // Its length stretches the line; the order of the rings is the piece's to keep.
+    await page.locator(".panel-box").last().getByTitle("64 Takte").click();
+    expect((await pieceOf(page)).tension).toHaveLength(64);
+    await expect(page.locator(".piece-row .sound")).toHaveText("64 Takte");
+    await page.getByRole("button", { name: "Kick früher einsetzen lassen" }).click();
+    expect((await pieceOf(page)).order).toEqual([5, 2, 0, 4, 1, 6, 3]);
+    await page.locator(".panel-box").last().getByText("Würfeln").click();
+    expect(Math.max(...(await pieceOf(page)).tension)).toBeGreaterThan(25);
+
+    // Switched on, the piece lays the scenes out itself.
+    await page.locator(".piece-toggle").click();
+    expect((await pieceOf(page)).on).toBe(true);
+    await expect(page.locator("#chain")).toBeDisabled();
+    await expect(page.locator("#piece-on")).toBeChecked();
+    // Back on a ring, the ring's panel is back.
+    await page.keyboard.press("ArrowDown");
+    await expect(status(page)).toContainText("Melodie:");
+    await expect(page.locator(".panel-box").first()).toBeVisible();
+    await expect(page.locator(".panel-box").last()).toBeHidden();
+    expect(problems).toEqual([]);
+  });
+
+  test("spielt nach dem Stück: Einsätze, Szenen und Sprünge", async ({ page }) => {
+    const problems = await open(page);
+    // Eight quick bars: four of silence in scene A, four of everything in scene B.
+    await page.evaluate(() => {
+      const app = window.kreisel.app;
+      app.pickScene(1);
+      app.pickScene(0);
+      app.dismiss();
+      app.store.edit((project) => {
+        project.bpm = 200;
+        project.piece = { on: true, tension: [0, 0, 0, 0, 31, 31, 31, 31], scenes: [0, 0, 0, 0, 1, 1, 1, 1], order: project.piece.order };
+      });
+    });
+    await page.keyboard.press("Space");
+    await expect.poll(() => page.evaluate(() => window.kreisel.app.piecePlayhead() ?? 0)).toBeGreaterThan(0.4);
+    let loudest = 0;
+    for (let look = 0; look < 12; look += 1) {
+      loudest = Math.max(loudest, await page.evaluate(() => window.kreisel.level()));
+      await page.waitForTimeout(50);
+    }
+    expect(loudest).toBeLessThan(0.01);
+    await expect(page.locator(".scene.current")).toHaveText("A");
+    // The second half: everyone plays, in scene B.
+    await expect.poll(() => page.evaluate(() => window.kreisel.level()), { timeout: 9000 }).toBeGreaterThan(0.05);
+    expect(await page.evaluate(() => window.kreisel.app.piecePlayhead() ?? 0)).toBeGreaterThanOrEqual(4);
+    await expect(page.locator(".scene.current")).toHaveText("B");
+
+    // The right button sends the piece to a bar; "Von vorn" to its first.
+    await focusPiece(page);
+    const quiet = await barAt(page, 1, 0.5);
+    await page.mouse.click(quiet.x, quiet.y, { button: "right" });
+    await expect.poll(() => page.evaluate(() => Math.floor(window.kreisel.app.piecePlayhead() ?? 9)), { timeout: 4000 }).toBe(1);
+    await expect(page.locator(".scene.current")).toHaveText("A");
+    await page.locator("#piece-top").click();
+    await expect.poll(() => page.evaluate(() => Math.floor(window.kreisel.app.piecePlayhead() ?? 9)), { timeout: 4000 }).toBe(0);
+    // Switched off while it plays, the Kreisel goes back to its loop and is heard at once.
+    await page.locator(".piece-toggle").click();
+    await expect.poll(() => page.evaluate(() => window.kreisel.level()), { timeout: 6000 }).toBeGreaterThan(0.05);
+    expect(await page.evaluate(() => window.kreisel.app.piecePlayhead())).toBeNull();
+    await page.keyboard.press("Space");
+    expect(problems).toEqual([]);
+  });
+
+  test("speichert das Stück als WAV und nimmt es im Link mit", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await open(page);
+    await page.evaluate(() => {
+      const app = window.kreisel.app;
+      app.store.edit((project) => {
+        project.bpm = 200;
+        project.piece = { on: true, tension: [8, 14, 31, 31], scenes: [0, 0, 0, 0], order: [0, 1, 2, 3, 4, 5, 6] };
+      });
+    });
+    await page.keyboard.press("8");
+    const rendered = page.waitForEvent("download");
+    await page.locator(".panel-box").last().getByText("Als WAV speichern").click();
+    const wav = await rendered;
+    await expect(page.locator("#toast")).toContainText("Das ganze Stück als WAV gespeichert");
+    // Four bars at 200 BPM are 4.8 seconds of 16-bit stereo, plus what rings out: not the eight bars of a plain scene.
+    const size = statSync(await wav.path()).size;
+    expect(size).toBeGreaterThan(4.8 * 44_100 * 4);
+    expect(size).toBeLessThan(8.5 * 44_100 * 4);
+
+    const shared = await state(page);
+    await page.locator("#share").click();
+    await expect(page.locator("#toast")).toContainText("Link kopiert");
+    const link = await page.evaluate(() => navigator.clipboard.readText());
+    const other = await context.newPage();
+    await open(other);
+    await other.goto(link);
+    await expect(other.locator("#toast")).toContainText("Ein geteilter Kreisel");
+    expect(await state(other)).toBe(shared);
+    expect(await pieceOf(other)).toEqual({ on: true, tension: [8, 14, 31, 31], scenes: [0, 0, 0, 0], order: [0, 1, 2, 3, 4, 5, 6] });
+  });
+
   test("startet auch ohne Netz", async ({ page, context }) => {
     await open(page);
     await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.ready).active?.state), { timeout: 10_000 }).toBe("activated");
@@ -519,6 +669,18 @@ test.describe("am Handy", () => {
     await expect(page.locator(".pad-fx", { hasText: "Dumpf" })).not.toHaveClass(/held/);
     await page.locator("#play").tap();
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "false");
+
+    // A finger first picks the piece's ring and paints with the next touch.
+    const rim = await barAt(page, 6, 0.5);
+    const untouched = (await pieceOf(page)).tension;
+    await page.touchscreen.tap(rim.x, rim.y);
+    await expect(status(page)).toContainText("Stück: 32 Takte");
+    expect((await pieceOf(page)).tension).toEqual(untouched);
+    await focusPiece(page);
+    const wide = await barAt(page, 6, 1);
+    await page.touchscreen.tap(wide.x, wide.y);
+    expect((await pieceOf(page)).tension[6]).toBeGreaterThan(27);
+    await page.evaluate(() => window.kreisel.app.select(0));
 
     // The paint box fits the phone, too.
     await page.locator("#paint").tap();

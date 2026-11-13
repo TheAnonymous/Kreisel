@@ -87,6 +87,28 @@ export interface Scene {
   chords: number[];
 }
 
+export const MIN_BARS = 4;
+export const MAX_BARS = 128;
+/** The highest tension a bar can have. */
+export const TENSION_MAX = 31;
+
+/**
+ * The piece: the ring around all rings, where one turn is the whole piece.
+ * Each bar has a tension (how much is going on) and a scene. The Kreisel
+ * arranges by it: rings come in as the tension rises, the sound opens up,
+ * and before a steep rise it takes a run-up.
+ */
+export interface Piece {
+  /** Play by the piece instead of looping the scene on the table. */
+  on: boolean;
+  /** One number per bar, 0..TENSION_MAX. Its length is the piece's length in bars. */
+  tension: number[];
+  /** The scene each bar plays. */
+  scenes: number[];
+  /** The rings in the order they come in as the tension rises. */
+  order: number[];
+}
+
 export interface Project {
   v: 1;
   bpm: number;
@@ -106,6 +128,7 @@ export interface Project {
   chain: boolean;
   /** How often each scene plays its chords in the chain. */
   repeats: number;
+  piece: Piece;
 }
 
 export interface TrackInfo {
@@ -172,6 +195,15 @@ function pattern(len: number, notes: readonly Note[]): Pattern {
   return result;
 }
 
+/** Chords first, then hi-hat, bass, kick, snare, melody and the tuned drum last: how a piece usually builds. */
+export const FIRST_ORDER = [5, 2, 4, 0, 1, 6, 3] as const;
+
+/** The piece a project starts with: 32 bars that build, break and build higher. It waits switched off. */
+export function firstPiece(scene = 0): Piece {
+  const shape = [6, 7, 8, 9, 12, 14, 16, 18, 24, 24, 25, 25, 26, 26, 27, 27, 9, 9, 11, 14, 31, 31, 31, 31, 31, 31, 30, 30, 20, 15, 10, 6];
+  return { on: false, tension: shape, scenes: shape.map(() => scene), order: [...FIRST_ORDER] };
+}
+
 /** The groove a first visit starts with: A minor, four chords, one ring of twelve against the sixteens. */
 export function factoryProject(): Project {
   const scene: Scene = {
@@ -207,6 +239,7 @@ export function factoryProject(): Project {
     scene: 0,
     chain: false,
     repeats: 1,
+    piece: firstPiece(),
   };
 }
 

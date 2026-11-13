@@ -4,9 +4,10 @@ import { diceBild, emptyBild, makeStroke, snapHeight, type RawPoint } from "./bi
 import { decodeLink, encodeLink, unpackBild } from "./codec";
 import { framesToBild } from "./imitate";
 import { keep, loadKept, saveKept, type Kept } from "./collection";
-import { BAR, clamp, clone, currentScene, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_COUNT, SCENE_NAMES, stepAt, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Project, type Step, type Track } from "./model";
+import { BAR, clamp, clone, currentScene, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Project, type Step, type Track } from "./model";
 import { chordAt } from "./music";
 import { activeSteps, clear, dice, resize, rotate, seeded, spread, transpose, vary } from "./patterns";
+import { barCount, dicePiece, moveInOrder, resizePiece, rotatePiece, smoothPiece } from "./piece";
 import { Store } from "./store";
 import type { EaselHost } from "./ui/easel";
 import type { RingHost, Tool } from "./ui/ring";
@@ -64,6 +65,12 @@ export class App implements RingHost, EaselHost {
   toast: Toast | null = null;
   /** 0..1 while a WAV is being rendered. */
   exporting: number | null = null;
+  /** The piece's ring is in focus instead of one of the seven. */
+  pieceFocus = false;
+  /** The bar a piece starts from. */
+  pieceStart = 0;
+  /** The bar the keyboard points at on the piece's ring. */
+  pieceKey: number | null = null;
   /** The paint box is open: the ring in focus gets its own sound painted. */
   easel = false;
   brush = 0;
@@ -88,6 +95,7 @@ export class App implements RingHost, EaselHost {
         if (this.store.project.scene !== scene) this.store.touch((project) => { project.scene = scene; });
       },
       onState: () => this.notify(),
+      pieceStart: () => (this.project.piece.on ? this.pieceStart % barCount(this.project.piece) : 0),
     });
     this.store.subscribe(() => {
       this.engine.sync();
@@ -165,8 +173,10 @@ export class App implements RingHost, EaselHost {
 
   select(track: number, step?: number): void {
     const target = clamp(track, 0, TRACK_COUNT - 1);
-    const changed = this.selected !== target || (step !== undefined && this.keyCursor !== null);
+    const changed = this.selected !== target || this.pieceFocus || (step !== undefined && this.keyCursor !== null);
     this.selected = target;
+    this.pieceFocus = false;
+    this.pieceKey = null;
     // A step comes from the pointer: then the mouse is in charge and the keyboard's cursor steps aside.
     if (step !== undefined) this.keyCursor = null;
     else if (this.keyCursor !== null) this.keyCursor = Math.min(this.keyCursor, patternOf(this.project, target).len - 1);
@@ -355,6 +365,86 @@ export class App implements RingHost, EaselHost {
 
   setGlobal(change: Partial<Pick<Project, "bpm" | "swing" | "root" | "scale" | "pump" | "volume" | "chain" | "repeats">>, key?: string): void {
     this.store.edit((project) => { Object.assign(project, change); }, key);
+  }
+
+  // ---- the piece ------------------------------------------------------------------
+
+  piecePlayhead(): number | null {
+    return this.engine.pieceCursor();
+  }
+
+  /** Puts the piece's ring in focus: it widens, and the panel shows the piece. */
+  focusPiece(): void {
+    if (this.pieceFocus) return;
+    this.pieceFocus = true;
+    this.easel = false;
+    this.openSlot = null;
+    this.keyCursor = null;
+    this.notify();
+  }
+
+  /** Switches between looping the scene on the table and playing by the piece. */
+  togglePiece(): void {
+    const on = !this.project.piece.on;
+    this.store.edit((project) => { project.piece.on = on; });
+    if (on) this.say("Der Kreisel spielt jetzt nach dem Stück-Ring: außen ist viel los, innen wenig. Mal die Spannung in den Ring.");
+  }
+
+  paintTension(bar: number, tension: number, gesture: string): void {
+    const target = clamp(Math.round(tension), 0, TENSION_MAX);
+    if (this.project.piece.tension[bar] === undefined || this.project.piece.tension[bar] === target) return;
+    this.store.edit((project) => { project.piece.tension[bar] = target; }, gesture, Infinity);
+  }
+
+  paintScene(bar: number, gesture: string): void {
+    const scene = this.project.scene;
+    if (this.project.piece.scenes[bar] === undefined || this.project.piece.scenes[bar] === scene) return;
+    this.store.edit((project) => { project.piece.scenes[bar] = scene; }, gesture, Infinity);
+  }
+
+  rotatePiece(by: number): void {
+    this.store.edit((project) => rotatePiece(project.piece, by), "stueck-drehen");
+  }
+
+  resizeThePiece(bars: number): void {
+    this.store.edit((project) => resizePiece(project.piece, bars), "stueck-laenge");
+    const count = barCount(this.project.piece);
+    this.pieceStart = Math.min(this.pieceStart, count - 1);
+    if (this.pieceKey !== null) this.pieceKey = Math.min(this.pieceKey, count - 1);
+  }
+
+  diceThePiece(): void {
+    this.store.edit((project) => dicePiece(project.piece, this.random));
+  }
+
+  smoothThePiece(): void {
+    this.store.edit((project) => smoothPiece(project.piece), "stueck-glaetten");
+  }
+
+  /** Moves a ring earlier (−1) or later (+1) in the order in which the rings come in. */
+  moveEntry(ring: number, by: number): void {
+    this.store.edit((project) => moveInOrder(project.piece, ring, by));
+  }
+
+  /** The piece goes on from `bar` at the next bar line; when nothing plays, it will start there. */
+  seekPiece(bar: number): void {
+    const count = barCount(this.project.piece);
+    this.pieceStart = ((Math.round(bar) % count) + count) % count;
+    this.engine.seekPiece(this.pieceStart);
+    this.notify();
+  }
+
+  /** The keyboard on the piece's ring: a pointer moves from bar to bar, plus and minus change the tension there. */
+  movePieceKey(by: number): void {
+    const count = barCount(this.project.piece);
+    this.pieceKey = (((this.pieceKey ?? -by) + by) % count + count) % count;
+    this.notify();
+  }
+
+  nudgeTension(by: number): void {
+    const bar = this.pieceKey;
+    if (bar === null) return;
+    this.paintTension(bar, (this.project.piece.tension[bar] ?? 0) + by, "spannung-taste");
   }
 
   // ---- painting sounds -----------------------------------------------------------
@@ -581,10 +671,11 @@ export class App implements RingHost, EaselHost {
       this.store.edit((project) => { project.scenes[index] = clone(currentScene(project)); });
       this.say(`Szene ${SCENE_NAMES[index]} ist eine Kopie von ${from}. Jetzt kannst du sie verändern.`);
     }
-    if (this.playing) {
+    if (this.playing && !this.project.piece.on) {
       this.engine.queueScene(index);
       this.notify();
     } else if (this.project.scene !== index) {
+      // While a piece plays, the piece decides which scene sounds; this only puts a scene on the table (to change it, or to lay it on the piece).
       this.store.touch((project) => { project.scene = index; });
     }
   }
@@ -595,6 +686,8 @@ export class App implements RingHost, EaselHost {
     this.store.edit((project) => {
       project.scenes[index] = null;
       if (project.scene === index) project.scene = project.scenes.findIndex((scene) => scene !== null);
+      // The piece cannot play a scene that is gone: its bars fall to the scene now on the table.
+      project.piece.scenes = project.piece.scenes.map((scene) => (scene === index ? project.scene : scene));
     });
     if (this.playing) this.engine.queueScene(this.project.scene);
     this.say(`Szene ${SCENE_NAMES[index]} geleert.`, { label: "Zurück", run: () => this.undo() });
@@ -654,7 +747,7 @@ export class App implements RingHost, EaselHost {
         this.notify();
       });
       download(blob, "kreisel.wav");
-      this.say(this.project.chain ? "Die ganze Folge als WAV gespeichert." : "Die Szene als WAV gespeichert (zweimal durch die Akkorde).");
+      this.say(this.project.piece.on ? "Das ganze Stück als WAV gespeichert." : this.project.chain ? "Die ganze Folge als WAV gespeichert." : "Die Szene als WAV gespeichert (zweimal durch die Akkorde).");
     } catch {
       this.say("Das WAV konnte nicht erzeugt werden.");
     } finally {

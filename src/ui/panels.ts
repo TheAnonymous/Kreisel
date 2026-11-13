@@ -2,9 +2,10 @@ import { BRUSH_TOOLS, FX, TOOLS, type App } from "../app";
 import type { FxName } from "../audio/engine";
 import { describeBild } from "../bild";
 import { packBild, unpackBild } from "../codec";
-import { clamp, currentScene, MAX_CHORDS, MAX_STEPS, MIN_STEPS, OWN_SOUND, patternOf, SCENE_COUNT, SCENE_NAMES, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
+import { clamp, currentScene, MAX_BARS, MAX_CHORDS, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, SCENE_COUNT, SCENE_NAMES, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
 import { chordName, chordRoman, NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
 import { activeSteps, describe } from "../patterns";
+import { barCount, describePiece } from "../piece";
 import { renderThumb, type EaselView } from "./easel";
 import type { RingView, Tool } from "./ring";
 
@@ -98,6 +99,12 @@ export class Panels {
   private thumbSignature = "";
   private shelfSignature = "noch nicht gebaut";
   private easelOpen = false;
+  private readonly ringBox = el("div", "panel-box");
+  private readonly pieceBox = el("div", "panel-box");
+  private readonly pieceRow = el("li", "track piece-row");
+  private readonly pieceParts = { info: el("p", "info"), on: el("input"), bars: el("output"), order: el("ol", "entries") };
+  private orderSignature = "";
+  private pieceFocused = false;
   private closeCoach: () => void = () => undefined;
   private readonly panel = { name: el("h2"), info: el("p", "info"), pad: el("div", "pad"), puck: el("span", "puck"), axisX: el("span", "axis x"), axisY: el("span", "axis y"), steps: el("output"), spread: el("input"), spreadValue: el("output") };
   private chordSignature = "";
@@ -112,6 +119,7 @@ export class Panels {
     this.buildEasel();
     this.buildFx();
     this.buildPanel();
+    this.buildPiece();
     this.buildCoach();
     this.buildHelp();
     document.addEventListener("pointerdown", (event) => this.outside(event), true);
@@ -236,6 +244,17 @@ export class Panels {
 
   private buildTracks(): void {
     const list = byId("tracks");
+    // The piece is the outermost ring: it comes first.
+    const row = this.pieceRow;
+    const pick = button("pick", "", "Den Stück-Ring wählen (Taste 8)");
+    pick.append(el("span", "dot"), el("span", "name", "Stück"), el("span", "sound"));
+    pick.addEventListener("click", () => this.app.focusPiece());
+    const toggle = button("piece-toggle", "", "Nach dem Stück spielen oder nur die Szene im Kreis");
+    toggle.addEventListener("click", () => this.app.togglePiece());
+    const roll = iconButton("roll", ICONS.dice, "Stück würfeln", "Einen neuen Verlauf würfeln");
+    roll.addEventListener("click", () => this.app.diceThePiece());
+    row.append(pick, toggle, roll);
+    list.append(row);
     for (let track = TRACK_COUNT - 1; track >= 0; track -= 1) {
       // The list runs like the rings: the outermost on top.
       const info = trackInfo(track);
@@ -464,7 +483,59 @@ export class Panels {
     mixSlider("Hall", "hall");
     mixSlider("Echo", "echo");
 
-    holder.append(head, parts.info, doing, sounds, own, pad, ringGroup, mix);
+    this.ringBox.append(head, parts.info, doing, sounds, own, pad, ringGroup, mix);
+    holder.append(this.ringBox, this.pieceBox);
+  }
+
+  /** The panel of the piece: what the outermost ring is, its length, and the order in which the rings come in. */
+  private buildPiece(): void {
+    const app = this.app;
+    const parts = this.pieceParts;
+    const head = el("header", "panel-head");
+    head.append(el("span", "dot"), el("h2", "", "Stück"));
+
+    const doing = el("div", "doing");
+    const roll = button("button small", "Würfeln", "Einen neuen Verlauf würfeln (N)");
+    roll.addEventListener("click", () => app.diceThePiece());
+    const smooth = button("button small", "Glätten", "Die Linie abrunden: steile Stufen werden sanfter");
+    smooth.addEventListener("click", () => app.smoothThePiece());
+    const top = button("button small", "Von vorn", "Das Stück beginnt wieder beim ersten Takt");
+    top.id = "piece-top";
+    top.addEventListener("click", () => app.seekPiece(0));
+    doing.append(roll, smooth, top);
+
+    const on = el("label", "check");
+    parts.on.type = "checkbox";
+    parts.on.id = "piece-on";
+    parts.on.addEventListener("change", () => app.togglePiece());
+    on.append(parts.on, el("span", "", "Nach dem Stück spielen"));
+
+    const length = el("div", "group");
+    const line = el("div", "line");
+    const less = button("button icon small", "−", "Vier Takte kürzer");
+    less.setAttribute("aria-label", "Vier Takte kürzer");
+    less.addEventListener("click", () => app.resizeThePiece(barCount(app.project.piece) - 4));
+    const more = button("button icon small", "+", "Vier Takte länger");
+    more.setAttribute("aria-label", "Vier Takte länger");
+    more.addEventListener("click", () => app.resizeThePiece(barCount(app.project.piece) + 4));
+    const quick = el("span", "quick");
+    for (const bars of [16, 32, 64, 128]) {
+      const chip = button("chip tiny", String(bars), `${bars} Takte`);
+      chip.addEventListener("click", () => app.resizeThePiece(bars));
+      quick.append(chip);
+    }
+    line.append(el("span", "label", "Takte"), less, parts.bars, more, quick);
+    length.append(line);
+
+    const order = el("div", "group");
+    order.append(el("h3", "", "Wer zuerst einsetzt"), parts.order);
+
+    const hint = el("p", "easel-hint", "Mal die Spannung in den äußeren Ring: außen ist viel los, innen wenig. Die farbigen Linien zeigen, ab wo ein Ring mitspielt. Vor einem steilen Anstieg nimmt der Kreisel Anlauf. Am inneren Rand liegen die Szenen: links eine wählen, dann dort malen. Ein Rechtsklick spielt ab der Stelle.");
+
+    const save = button("button small", "Als WAV speichern", "Das Stück einmal rundherum als WAV");
+    save.addEventListener("click", () => void app.exportWav());
+
+    this.pieceBox.append(head, parts.info, on, doing, length, order, hint, save);
   }
 
   private buildCoach(): void {
@@ -507,6 +578,7 @@ export class Panels {
       ["Im Malkasten", `${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} Pinsel und Radierer · ${key("KeyT")} Dicke · ${key("KeyN")} würfeln · Entf nimmt den letzten Strich · Esc fertig`],
       [key("KeyM"), "Ring stumm · mit Umschalt allein hören"],
       [", .", "Szene zurück oder vor"],
+      ["8", "den Stück-Ring wählen · dort: ← → Takt, + − Spannung, Eingabe spielt ab dem Takt"],
       ["Strg+Z", "Rückgängig · mit Umschalt wiederholen"],
       ["?", "diese Hilfe"],
     ];
@@ -542,7 +614,11 @@ export class Panels {
     byId<HTMLSelectElement>("scale").value = project.scale;
     byId<HTMLButtonElement>("undo").disabled = !app.store.canUndo;
     byId<HTMLButtonElement>("redo").disabled = !app.store.canRedo;
-    byId<HTMLInputElement>("chain").checked = project.chain;
+    const chain = byId<HTMLInputElement>("chain");
+    chain.checked = project.chain;
+    // A piece lays the scenes out itself.
+    chain.disabled = project.piece.on;
+    byId<HTMLSelectElement>("repeats").disabled = project.piece.on;
     byId<HTMLSelectElement>("repeats").value = String(project.repeats);
     for (const slider of this.sliders) {
       const value = String(Math.round(slider.read() * 100));
@@ -562,13 +638,14 @@ export class Panels {
       this.recordTimer = null;
     }
 
+    this.syncPiece();
     this.trackRows.forEach((row, track) => {
       const one = trackOf(project, track);
-      row.classList.toggle("selected", track === selected);
+      row.classList.toggle("selected", track === selected && !app.pieceFocus);
       row.classList.toggle("silent", !app.audible(track));
       row.classList.toggle("solo", app.solo === track);
       row.querySelector(".sound")!.textContent = trackInfo(track).sounds[one.sound] ?? "";
-      row.querySelector(".pick")!.setAttribute("aria-pressed", String(track === selected));
+      row.querySelector(".pick")!.setAttribute("aria-pressed", String(track === selected && !app.pieceFocus));
       row.querySelector(".mute")!.setAttribute("aria-pressed", String(!app.audible(track)));
     });
 
@@ -613,11 +690,62 @@ export class Panels {
       if (node.textContent === "+") node.disabled = pattern.len >= MAX_STEPS;
     }
 
-    byId("status").textContent = app.easel ? `Klangmalerei ${info.name}: ${describeBild(settings.bild)}` : `${info.name}: ${describe(pattern)}`;
+    byId("status").textContent = app.pieceFocus
+      ? `Stück: ${describePiece(project.piece, project.bpm)}${project.piece.on ? "" : " (aus)"}`
+      : app.easel ? `Klangmalerei ${info.name}: ${describeBild(settings.bild)}` : `${info.name}: ${describe(pattern)}`;
     this.syncChordMenu();
     this.syncToast();
     this.ring.invalidate();
     this.easel.invalidate();
+  }
+
+  /** The piece in the list of rings and in its panel. */
+  private syncPiece(): void {
+    const app = this.app;
+    const piece = app.project.piece;
+    const count = barCount(piece);
+    this.pieceRow.classList.toggle("selected", app.pieceFocus);
+    this.pieceRow.classList.toggle("silent", !piece.on);
+    this.pieceRow.querySelector(".sound")!.textContent = `${count} Takte`;
+    this.pieceRow.querySelector(".pick")!.setAttribute("aria-pressed", String(app.pieceFocus));
+    const toggle = this.pieceRow.querySelector<HTMLButtonElement>(".piece-toggle")!;
+    toggle.textContent = piece.on ? "an" : "aus";
+    toggle.setAttribute("aria-pressed", String(piece.on));
+    toggle.setAttribute("aria-label", piece.on ? "Das Stück spielt: ausschalten" : "Nach dem Stück spielen");
+
+    this.ringBox.hidden = app.pieceFocus;
+    this.pieceBox.hidden = !app.pieceFocus;
+    // The piece is painted on the wheel: where the list sits below it, bring the wheel into view.
+    if (app.pieceFocus && !this.pieceFocused) byId("stage").scrollIntoView({ block: "nearest" });
+    this.pieceFocused = app.pieceFocus;
+    if (!app.pieceFocus) return;
+    const parts = this.pieceParts;
+    parts.info.textContent = describePiece(piece, app.project.bpm);
+    parts.on.checked = piece.on;
+    parts.bars.textContent = String(count);
+    for (const node of this.pieceBox.querySelectorAll<HTMLButtonElement>(".line .button")) {
+      if (node.textContent === "−") node.disabled = count <= MIN_BARS;
+      if (node.textContent === "+") node.disabled = count >= MAX_BARS;
+    }
+    const signature = piece.order.join("");
+    if (signature !== this.orderSignature) {
+      this.orderSignature = signature;
+      parts.order.replaceChildren(...piece.order.map((ring, place) => {
+        const info = trackInfo(ring);
+        const item = el("li", "entry");
+        item.style.setProperty("--c", info.color);
+        const earlier = button("button icon small", "↑", `${info.name} früher einsetzen lassen`);
+        earlier.setAttribute("aria-label", `${info.name} früher einsetzen lassen`);
+        earlier.disabled = place === 0;
+        earlier.addEventListener("click", () => app.moveEntry(ring, -1));
+        const later = button("button icon small", "↓", `${info.name} später einsetzen lassen`);
+        later.setAttribute("aria-label", `${info.name} später einsetzen lassen`);
+        later.disabled = place === piece.order.length - 1;
+        later.addEventListener("click", () => app.moveEntry(ring, 1));
+        item.append(el("span", "dot"), el("span", "name", info.name), earlier, later);
+        return item;
+      }));
+    }
   }
 
   /** The ring's own sound in the panel, the paint box and its shelf. */

@@ -39,6 +39,8 @@ declare global {
       where(track: number, step: number): { x: number; y: number };
       /** Where a point of the open paint box is on the page: time and height, both 0..1. */
       sheet(t: number, y: number): { x: number; y: number };
+      /** Where a bar of the piece's ring is on the page, at a tension of 0..1. */
+      bar(bar: number, height: number): { x: number; y: number };
     };
   }
 }
@@ -49,4 +51,5 @@ window.kreisel = {
   level: () => app.level(),
   where: (track, step) => ring.stepPosition(track, step),
   sheet: (t, y) => easel.position(t, y),
+  bar: (bar, height) => ring.barPosition(bar, height),
 };

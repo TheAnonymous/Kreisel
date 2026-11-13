@@ -1,5 +1,6 @@
-import { currentScene, MAX_NOTE_LENGTH, PITCH_MAX, PITCH_MIN, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Project, type Step } from "../model";
+import { currentScene, MAX_NOTE_LENGTH, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Project, type Step } from "../model";
 import { chordAt, chordName, pitchName } from "../music";
+import { entry } from "../piece";
 
 /*
  * The Kreisel itself: seven rings on a canvas, a ring of chords and the hub
@@ -39,9 +40,36 @@ export interface RingHost {
   setValue(track: number, step: number, tool: Tool, value: number, gesture: string): void;
   rotate(track: number, by: number): void;
   endGesture(): void;
+  /** The piece's ring is in focus instead of one of the seven. */
+  readonly pieceFocus: boolean;
+  /** The bar a piece starts from, and the bar the keyboard points at on its ring (or `null`). */
+  readonly pieceStart: number;
+  readonly pieceKey: number | null;
+  /** Where a playing piece is, in bars with fractions; `null` when none plays. */
+  piecePlayhead(): number | null;
+  focusPiece(): void;
+  paintTension(bar: number, tension: number, gesture: string): void;
+  /** Lays the scene on the table onto a bar of the piece. */
+  paintScene(bar: number, gesture: string): void;
+  rotatePiece(by: number): void;
+  seekPiece(bar: number): void;
 }
 
-type Spot = { kind: "hub" } | { kind: "chord"; index: number } | { kind: "ring"; track: number; step: number };
+type Spot =
+  | { kind: "hub" }
+  | { kind: "chord"; index: number }
+  | { kind: "ring"; track: number; step: number }
+  /** The piece's ring: the bar, how high in its band (0..1), and whether on the strip of scenes at its inner edge. */
+  | { kind: "piece"; bar: number; height: number; lane: boolean };
+
+/** A stroke on the piece's ring. */
+interface PieceDrag {
+  pointer: number;
+  lane: boolean;
+  last: number;
+  height: number;
+  gesture: string;
+}
 
 interface Drag {
   pointer: number;
@@ -71,13 +99,19 @@ interface Palette {
 const TAU = Math.PI * 2;
 const TOP = -Math.PI / 2;
 const FOCUS = 3.1;
+/** The piece's ring among the weights, and how wide it is while another ring is in focus. */
+const PIECE = TRACK_COUNT;
+const PIECE_REST = 0.72;
+/** The share of the piece's band that holds the strip of scenes while it is in focus. */
+const LANE = 0.22;
 const CHANCE_ALPHA = [1, 0.72, 0.48, 0.28] as const;
 const lerp = (from: number, to: number, share: number): number => from + (to - from) * share;
 
 export class RingView {
   private readonly context: CanvasRenderingContext2D;
   private size = 0;
-  private readonly weights: number[] = Array.from({ length: TRACK_COUNT }, () => 1);
+  private readonly weights: number[] = [...Array.from({ length: TRACK_COUNT }, () => 1), PIECE_REST];
+  private pieceDrag: PieceDrag | null = null;
   private dirty = true;
   private drag: Drag | null = null;
   private gestures = 0;
@@ -157,7 +191,7 @@ export class RingView {
     this.dirty = true;
   }
 
-  private geometry(): { center: number; radius: number; hub: number; chordIn: number; chordOut: number; gap: number; rings: { inner: number; outer: number }[] } {
+  private geometry(): { center: number; radius: number; hub: number; chordIn: number; chordOut: number; gap: number; rings: { inner: number; outer: number }[]; piece: { inner: number; outer: number; base: number } } {
     const center = this.size / 2;
     const radius = center - Math.max(9, this.size * 0.028);
     const hub = radius * 0.165;
@@ -165,7 +199,7 @@ export class RingView {
     const chordOut = radius * 0.31;
     const gap = Math.max(2, radius * 0.011);
     const start = chordOut + gap * 2.5;
-    const room = radius - start - gap * (TRACK_COUNT - 1);
+    const room = radius - start - gap * TRACK_COUNT;
     const total = this.weights.reduce((sum, weight) => sum + weight, 0);
     let at = start;
     const rings = this.weights.map((weight) => {
@@ -174,15 +208,30 @@ export class RingView {
       at = outer + gap;
       return { inner, outer };
     });
-    return { center, radius, hub, chordIn, chordOut, gap, rings };
+    // The outermost band is the piece. In focus, its inner edge holds the strip of scenes; the tension rises from `base`.
+    const band = rings.pop() ?? { inner: radius, outer: radius };
+    const focus = Math.max(0, Math.min(1, ((this.weights[PIECE] ?? PIECE_REST) - PIECE_REST) / (FOCUS - PIECE_REST)));
+    const piece = { ...band, base: band.inner + (band.outer - band.inner) * LANE * focus };
+    return { center, radius, hub, chordIn, chordOut, gap, rings, piece };
+  }
+
+  /** Where a bar of the piece is on the page at a tension (0..1): for the browser tests. */
+  barPosition(bar: number, height: number): { x: number; y: number } {
+    const geometry = this.geometry();
+    const count = this.host.project.piece.tension.length;
+    const angle = TOP + ((bar + 0.5) / count) * TAU;
+    const radius = geometry.piece.base + (geometry.piece.outer - geometry.piece.base) * height;
+    const box = this.canvas.getBoundingClientRect();
+    const scale = box.width / Math.max(1, this.size);
+    return { x: box.left + (geometry.center + Math.cos(angle) * radius) * scale, y: box.top + (geometry.center + Math.sin(angle) * radius) * scale };
   }
 
   // ---- drawing ----------------------------------------------------------------
 
   private frame(): void {
     let moving = false;
-    for (let track = 0; track < TRACK_COUNT; track += 1) {
-      const target = track === this.host.selected ? FOCUS : 1;
+    for (let track = 0; track <= TRACK_COUNT; track += 1) {
+      const target = track === PIECE ? (this.host.pieceFocus ? FOCUS : PIECE_REST) : track === this.host.selected && !this.host.pieceFocus ? FOCUS : 1;
       const now = this.weights[track] ?? 1;
       if (Math.abs(target - now) > 0.004) {
         this.weights[track] = this.calm.matches ? target : lerp(now, target, 0.24);
@@ -341,7 +390,7 @@ export class RingView {
 
       // What the mouse or the keyboard points at.
       const pointed = this.hover?.kind === "ring" && this.hover.track === track ? this.hover.step : null;
-      const cursor = track === host.selected ? host.keyCursor : null;
+      const cursor = track === host.selected && !host.pieceFocus ? host.keyCursor : null;
       for (const [step, dashed] of [[pointed, false], [cursor, true]] as const) {
         if (step === null || step >= length) continue;
         this.sector(band.inner + 1, band.outer - 1, TOP + step * cell, TOP + (step + 1) * cell);
@@ -409,8 +458,10 @@ export class RingView {
     }
     context.fill();
 
+    this.drawPiece(geometry, playhead !== null);
+
     // A small mark where every ring begins.
-    const outer = geometry.rings[TRACK_COUNT - 1]?.outer ?? geometry.radius;
+    const outer = geometry.piece.outer;
     context.fillStyle = ink;
     context.beginPath();
     context.moveTo(center, center - outer - 1.5);
@@ -418,6 +469,155 @@ export class RingView {
     context.lineTo(center + 4.5, center - outer - 8.5);
     context.closePath();
     context.fill();
+  }
+
+  /** The piece's ring: a bar chart bent into a circle, with the lines at which the rings come in. */
+  private drawPiece(geometry: ReturnType<RingView["geometry"]>, playing: boolean): void {
+    const context = this.context;
+    const host = this.host;
+    const piece = host.project.piece;
+    const { center } = geometry;
+    const { inner, outer, base } = geometry.piece;
+    const { bg, ink } = this.palette;
+    const count = piece.tension.length;
+    const cell = TAU / count;
+    const focus = Math.max(0, Math.min(1, ((this.weights[PIECE] ?? PIECE_REST) - PIECE_REST) / (FOCUS - PIECE_REST)));
+    const middle = (inner + outer) / 2;
+
+    context.lineCap = "butt";
+    context.lineWidth = outer - inner;
+    context.strokeStyle = ink;
+    context.globalAlpha = 0.05 + focus * 0.04;
+    context.beginPath();
+    context.arc(center, center, middle, 0, TAU);
+    context.stroke();
+
+    // The tension, bar by bar, as a stack of the rings that play there: each ring's colour from the height at which
+    // it comes in up to the next one's. A piece that is switched off is only hinted at.
+    const span = outer - base;
+    const pad = count > 72 ? 0 : Math.min(cell * 0.12, 0.7 / middle);
+    const places = piece.order.length;
+    context.globalAlpha = piece.on ? 1 : 0.3;
+    piece.tension.forEach((tension, bar) => {
+      if (tension <= 0) return;
+      const height = tension / TENSION_MAX;
+      const from = TOP + bar * cell + pad;
+      const to = TOP + (bar + 1) * cell - pad;
+      // Below the first ring's line nothing plays yet: a pale foot.
+      this.sector(base, base + span * Math.min(height, entry(0)), from, to);
+      context.fillStyle = ink;
+      context.globalAlpha = (piece.on ? 1 : 0.3) * 0.35;
+      context.fill();
+      context.globalAlpha = piece.on ? 1 : 0.3;
+      for (let place = 0; place < places; place += 1) {
+        const low = entry(place);
+        if (height <= low) break;
+        const high = place === places - 1 ? 1 : entry(place + 1);
+        this.sector(base + span * low, base + span * Math.min(height, high), from, to);
+        context.fillStyle = trackInfo(piece.order[place] ?? 0).color;
+        context.fill();
+      }
+    });
+    context.globalAlpha = 1;
+
+    // In focus: faint lines where the next rings would come in, and the scenes along the inner edge.
+    if (focus > 0.25) {
+      context.lineWidth = 1;
+      context.strokeStyle = ink;
+      context.globalAlpha = focus * 0.13;
+      for (let place = 0; place < places; place += 1) {
+        context.beginPath();
+        context.arc(center, center, base + span * entry(place), 0, TAU);
+        context.stroke();
+      }
+      context.globalAlpha = 1;
+      const lane = base - inner;
+      if (lane > 5) {
+        context.font = `700 ${Math.max(8, Math.min(11, lane * 0.8))}px ${this.font}`;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        let start = 0;
+        for (let bar = 1; bar <= count; bar += 1) {
+          if (bar < count && piece.scenes[bar] === piece.scenes[start]) continue;
+          const from = TOP + start * cell;
+          const to = TOP + bar * cell;
+          this.sector(inner + 1, base - 1.5, from + 1 / middle, to - 1 / middle);
+          context.fillStyle = ink;
+          context.globalAlpha = focus * ((piece.scenes[start] ?? 0) % 2 === 0 ? 0.14 : 0.3);
+          context.fill();
+          if ((to - from) * middle > 16) {
+            const angle = (from + to) / 2;
+            const radius = (inner + base) / 2;
+            context.globalAlpha = focus;
+            context.fillText(SCENE_NAMES[piece.scenes[start] ?? 0] ?? "", center + Math.cos(angle) * radius, center + Math.sin(angle) * radius + 0.5);
+          }
+          start = bar;
+        }
+        context.globalAlpha = 1;
+      }
+    }
+
+    // Every fourth bar a line, every sixteenth a stronger one.
+    context.strokeStyle = bg;
+    for (let bar = 0; bar < count; bar += 4) {
+      const angle = TOP + bar * cell;
+      context.lineWidth = bar % 16 === 0 ? 2 : 1;
+      context.beginPath();
+      context.moveTo(center + Math.cos(angle) * inner, center + Math.sin(angle) * inner);
+      context.lineTo(center + Math.cos(angle) * outer, center + Math.sin(angle) * outer);
+      context.stroke();
+    }
+    context.lineCap = "round";
+
+    if (focus > 0.05) {
+      context.globalAlpha = focus;
+      context.strokeStyle = ink;
+      context.lineWidth = 1.5;
+      for (const radius of [inner, outer]) {
+        context.beginPath();
+        context.arc(center, center, radius, 0, TAU);
+        context.stroke();
+      }
+      context.globalAlpha = 1;
+    }
+
+    // Where the piece is, or where it will start.
+    const at = host.piecePlayhead();
+    const mark = at ?? (piece.on ? host.pieceStart : null);
+    if (mark !== null) {
+      const angle = TOP + ((mark % count) / count) * TAU;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      context.strokeStyle = ink;
+      context.fillStyle = ink;
+      context.lineWidth = 2.5;
+      context.globalAlpha = at === null ? 0.45 : 1;
+      context.beginPath();
+      context.moveTo(center + cos * (inner + 1), center + sin * (inner + 1));
+      context.lineTo(center + cos * (outer - 1), center + sin * (outer - 1));
+      context.stroke();
+      if (playing || at === null) {
+        context.beginPath();
+        context.arc(center + cos * outer, center + sin * outer, 3.5, 0, TAU);
+        context.fill();
+      }
+      context.globalAlpha = 1;
+    }
+
+    // What the mouse or the keyboard points at.
+    const pointed = this.hover?.kind === "piece" ? this.hover.bar : null;
+    const cursor = host.pieceFocus ? host.pieceKey : null;
+    for (const [bar, dashed] of [[pointed, false], [cursor, true]] as const) {
+      if (bar === null || bar >= count) continue;
+      this.sector(inner + 1, outer - 1, TOP + bar * cell, TOP + (bar + 1) * cell);
+      context.strokeStyle = ink;
+      context.lineWidth = dashed ? 2 : 1.25;
+      context.globalAlpha = dashed ? 0.9 : 0.5;
+      if (dashed) context.setLineDash([4, 3]);
+      context.stroke();
+      context.setLineDash([]);
+      context.globalAlpha = 1;
+    }
   }
 
   // ---- pointing ---------------------------------------------------------------
@@ -454,7 +654,33 @@ export class RingView {
         return { kind: "ring", track, step: this.stepOf(track, x, y) };
       }
     }
+    const band = geometry.piece;
+    if (distance >= band.inner - geometry.gap / 2 && distance <= geometry.center) {
+      const count = this.host.project.piece.tension.length;
+      const height = Math.max(0, Math.min(1, (distance - band.base) / Math.max(1, band.outer - band.base)));
+      return { kind: "piece", bar: Math.min(count - 1, Math.floor(this.turn(x, y) * count)), height, lane: distance < band.base - 0.5 };
+    }
     return null;
+  }
+
+  /** Paints the piece from the last bar of the stroke to this one, bar by bar the shorter way round. */
+  private paintPiece(drag: PieceDrag, spot: { bar: number; height: number }): void {
+    const count = this.host.project.piece.tension.length;
+    let delta = spot.bar - drag.last;
+    if (delta > count / 2) delta -= count;
+    if (delta < -count / 2) delta += count;
+    const steps = Math.abs(delta);
+    for (let walked = steps === 0 ? 0 : 1; walked <= steps; walked += 1) {
+      const bar = (((drag.last + Math.sign(delta) * walked) % count) + count) % count;
+      if (drag.lane) {
+        this.host.paintScene(bar, drag.gesture);
+      } else {
+        const height = steps === 0 ? spot.height : lerp(drag.height, spot.height, walked / steps);
+        this.host.paintTension(bar, Math.round(height * TENSION_MAX), drag.gesture);
+      }
+    }
+    drag.last = spot.bar;
+    drag.height = spot.height;
   }
 
   private down(event: PointerEvent): void {
@@ -472,8 +698,30 @@ export class RingView {
       this.host.openChord(spot.index);
       return;
     }
+    if (spot.kind === "piece") {
+      const focused = this.host.pieceFocus;
+      this.host.focusPiece();
+      this.hideTip();
+      if (event.button === 2) {
+        // The right button has nothing to erase here: it sends the piece to this bar.
+        this.host.seekPiece(spot.bar);
+        return;
+      }
+      if (event.pointerType !== "mouse" && !focused) return;
+      event.preventDefault();
+      try {
+        this.canvas.setPointerCapture(event.pointerId);
+      } catch {
+        // A pointer the browser no longer tracks: the stroke still works while it stays on the canvas.
+      }
+      this.gestures += 1;
+      this.pieceDrag = { pointer: event.pointerId, lane: spot.lane && focused, last: spot.bar, height: spot.height, gesture: `bogen${this.gestures}` };
+      this.paintPiece(this.pieceDrag, spot);
+      this.dirty = true;
+      return;
+    }
     const { track, step } = spot;
-    const picked = this.host.selected === track;
+    const picked = this.host.selected === track && !this.host.pieceFocus;
     this.host.select(track, step);
     // A finger first picks the ring (the thin ones are too narrow to aim at), a mouse paints at once.
     if (event.pointerType !== "mouse" && !picked) return;
@@ -521,6 +769,17 @@ export class RingView {
 
   private move(event: PointerEvent): void {
     const { x, y } = this.point(event);
+    const stroke = this.pieceDrag;
+    if (stroke && stroke.pointer === event.pointerId) {
+      // The stroke stays on the piece's ring wherever the pointer wanders: only angle and distance count.
+      const { center, piece } = this.geometry();
+      const count = this.host.project.piece.tension.length;
+      const distance = Math.hypot(x - center, y - center);
+      const height = Math.max(0, Math.min(1, (distance - piece.base) / Math.max(1, piece.outer - piece.base)));
+      this.paintPiece(stroke, { bar: Math.min(count - 1, Math.floor(this.turn(x, y) * count)), height });
+      this.dirty = true;
+      return;
+    }
     const drag = this.drag;
     if (!drag || drag.pointer !== event.pointerId) {
       if (event.pointerType === "mouse") this.pointAt(this.locate(x, y), event);
@@ -572,6 +831,12 @@ export class RingView {
   }
 
   private up(event: PointerEvent): void {
+    if (this.pieceDrag?.pointer === event.pointerId) {
+      this.pieceDrag = null;
+      this.host.endGesture();
+      this.dirty = true;
+      return;
+    }
     const drag = this.drag;
     if (!drag || drag.pointer !== event.pointerId) return;
     // A plain click on a hit takes it away again.
@@ -593,13 +858,14 @@ export class RingView {
   private wheel(event: WheelEvent): void {
     const { x, y } = this.point(event);
     const spot = this.locate(x, y);
-    if (spot?.kind !== "ring") return;
+    if (spot?.kind !== "ring" && spot?.kind !== "piece") return;
     event.preventDefault();
     this.wheelRest += event.deltaMode === 1 ? event.deltaY * 30 : event.deltaY;
     const notches = Math.trunc(this.wheelRest / 45);
     if (notches === 0) return;
     this.wheelRest -= notches * 45;
-    this.host.rotate(spot.track, notches);
+    if (spot.kind === "piece") this.host.rotatePiece(notches);
+    else this.host.rotate(spot.track, notches);
   }
 
   private pointAt(spot: Spot | null, event: PointerEvent): void {
@@ -618,6 +884,12 @@ export class RingView {
       text = this.host.playing ? "Anhalten (Leertaste)" : "Starten (Leertaste)";
     } else if (spot.kind === "chord") {
       text = `Takt ${spot.index + 1}: ${chordName(project.root, project.scale, scene.chords[spot.index] ?? 0)} · klicken zum Ändern`;
+    } else if (spot.kind === "piece") {
+      const piece = project.piece;
+      const tension = Math.round(((piece.tension[spot.bar] ?? 0) / TENSION_MAX) * 100);
+      text = spot.lane && this.host.pieceFocus
+        ? `Szene ${SCENE_NAMES[project.scene]} hierher malen · Takt ${spot.bar + 1}`
+        : `Stück · Takt ${spot.bar + 1} von ${piece.tension.length} · ${tension} % Spannung · Szene ${SCENE_NAMES[piece.scenes[spot.bar] ?? 0]} · Rechtsklick spielt ab hier`;
     } else {
       const pattern = scene.patterns[spot.track];
       const note = pattern ? stepAt(pattern, spot.step) : null;

@@ -69,6 +69,33 @@ The Kreisel keeps playing while you paint, so every stroke is heard in the
 groove. Pictures are part of the project: they travel in the link (a few
 dozen bytes a stroke), are rendered into the WAV and can be undone.
 
+## Part three: the piece
+
+The outermost ring is the whole piece: one turn of it is as many bars as the
+piece is long (4 to 128). Only one thing is painted into it, the tension:
+far out means a lot is going on, far in means little. The Kreisel arranges by
+that line, bar by bar:
+
+- **Who plays.** The rings come in one after another as the tension rises,
+  in an order the piece keeps ("Wer zuerst einsetzt"). Each bar is drawn as
+  the stack of the rings that play in it, so the ring shows who plays when.
+- **How firmly.** A ring that has only just come in plays a little quieter
+  and leaves its quiet steps out.
+- **How open.** The master lowpass follows the line: dull when little is
+  going on, open from about two thirds up, opening through a bar towards a
+  higher one.
+- **Run-ups and landings.** Before a steep rise the Kreisel takes a run-up of
+  rising noise and lands with a crash; before a steep fall the last beat is
+  thrown into the echo.
+- **Scenes.** The inner edge of the ring holds the scenes: pick one on the
+  left and paint it there.
+
+The right button sends a playing piece to a bar, the wheel turns it, dice
+give it the form of a track (climb, perhaps a break, a peak, a fade), and
+"Glätten" rounds the line off. The rules are plain arithmetic on the line
+(`src/piece.ts`), the same live and in the WAV, which holds the piece once
+round. A piece is one byte a bar in the link.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the
@@ -91,6 +118,7 @@ run locally; see [AGENTS.md](AGENTS.md).
 | `src/codec.ts`, `src/store.ts` | the project as a link and in the browser's storage; undo |
 | `src/bild.ts`, `src/imitate.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes |
 | `src/collection.ts` | the shelf of kept pictures |
+| `src/piece.ts` | the piece: what a bar's tension asks for, and shaping the line |
 | `src/audio/` | the 28 built-in sounds, painted sounds (`bild.ts`), listening (`listen.ts`), the mixer, the player (live and offline), effects, recording |
 | `src/ui/ring.ts` | the wheel: drawing and every gesture on it |
 | `src/ui/easel.ts` | the paint box: drawing pictures and painting them |
