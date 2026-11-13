@@ -39,7 +39,8 @@ const FIRST_PITCH = [0, 0, 0, 0, 0, 0, 4];
 export class App implements RingHost {
   readonly store = new Store();
   readonly engine: Engine;
-  selected = 4;
+  /** The ring in focus; a first visit starts on the melody, the widest ring to aim at. */
+  selected = 6;
   tool: Tool = "setzen";
   solo: number | null = null;
   keyCursor: number | null = null;

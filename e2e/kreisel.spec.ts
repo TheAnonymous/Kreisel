@@ -51,7 +51,7 @@ test.describe("am Laptop", () => {
 
   test("zeigt den Werks-Kreisel, malt, radiert und nimmt zurück", async ({ page }) => {
     const problems = await open(page);
-    await expect(status(page)).toHaveText("Bass: 6 Schläge auf 1, 4, 7, 9, 12, 15 von 16");
+    await expect(status(page)).toHaveText("Melodie: 7 Schläge auf 1, 4, 7, 9, 11, 13, 15 von 16");
 
     // A click on another ring picks it and paints at once.
     let spot = await where(page, 0, 2);
@@ -198,6 +198,7 @@ test.describe("am Laptop", () => {
     await page.mouse.click(5, 300);
     await expect(menu).toBeHidden();
 
+    await page.keyboard.press("5");
     await page.locator(".chips .chip", { hasText: "Acid" }).click();
     await expect(page.locator(".track.selected .sound")).toHaveText("Acid");
     await page.locator("#scale").selectOption("dur");
@@ -273,7 +274,7 @@ test.describe("am Laptop", () => {
     const before = await state(page);
     await page.waitForTimeout(600);
     await page.reload();
-    await expect(status(page)).toContainText("Bass:");
+    await expect(status(page)).toContainText("Melodie:");
     expect(await state(page)).toBe(before);
   });
 
@@ -313,7 +314,7 @@ test.describe("am Laptop", () => {
     await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.ready).active?.state), { timeout: 10_000 }).toBe("activated");
     await context.setOffline(true);
     await page.reload();
-    await expect(status(page)).toContainText("Bass: 6 Schläge");
+    await expect(status(page)).toContainText("Melodie: 7 Schläge");
     await context.setOffline(false);
   });
 });

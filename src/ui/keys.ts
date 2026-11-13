@@ -25,7 +25,8 @@ export function bindKeys(app: App, panels: Panels): void {
     const command = event.ctrlKey || event.metaKey;
 
     if (command) {
-      if (code === "KeyZ" || event.key.toLowerCase() === "z") {
+      // By what is printed on the key here: Z and Y swap places between QWERTZ and QWERTY.
+      if (event.key.toLowerCase() === "z") {
         event.preventDefault();
         if (event.shiftKey) app.redo();
         else app.undo();
@@ -46,6 +47,7 @@ export function bindKeys(app: App, panels: Panels): void {
       return;
     }
     if (event.key === "Escape") {
+      panels.closeMenu();
       app.closeChord();
       app.hideCursor();
       return;

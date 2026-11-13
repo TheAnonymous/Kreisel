@@ -202,7 +202,7 @@ export class Panels {
     repeats.addEventListener("change", () => app.setGlobal({ repeats: Number(repeats.value) }));
   }
 
-  private closeMenu(): void {
+  closeMenu(): void {
     byId("menu").hidden = true;
     byId("more").setAttribute("aria-expanded", "false");
   }
