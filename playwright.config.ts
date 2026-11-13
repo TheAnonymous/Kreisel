@@ -1,0 +1,29 @@
+import { defineConfig, devices } from "@playwright/test";
+
+const port = Number.parseInt(process.env.KREISEL_E2E_PORT ?? "4309", 10);
+
+export default defineConfig({
+  testDir: "./e2e",
+  fullyParallel: false,
+  workers: 1,
+  forbidOnly: Boolean(process.env.CI),
+  retries: 0,
+  reporter: "list",
+  use: {
+    baseURL: `http://127.0.0.1:${port}/Kreisel/`,
+    trace: "on-first-retry",
+  },
+  webServer: {
+    command: `npm run preview -- --host 127.0.0.1 --port ${port} --strictPort`,
+    port,
+    reuseExistingServer: false,
+  },
+  // Kreisel is built for the laptop first and has to work on a phone too.
+  // Firefox takes a second look at everything it can: it cannot be granted the
+  // clipboard, and its offline switch does not reach service workers.
+  projects: [
+    { name: "laptop", use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 768 } } },
+    { name: "phone", use: { ...devices["Pixel 7"] } },
+    { name: "firefox", use: { ...devices["Desktop Firefox"], viewport: { width: 1366, height: 768 } }, grepInvert: /teilt den Kreisel|ohne Netz|am Handy/ },
+  ],
+});
