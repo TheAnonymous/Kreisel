@@ -582,9 +582,9 @@ test.describe("am Laptop", () => {
     }
     expect(loudest).toBeLessThan(0.01);
     await expect(page.locator(".scene.current")).toHaveText("A");
-    // The second half: everyone plays, in scene B.
-    await expect.poll(() => page.evaluate(() => window.kreisel.level()), { timeout: 9000 }).toBeGreaterThan(0.05);
-    expect(await page.evaluate(() => window.kreisel.app.piecePlayhead() ?? 0)).toBeGreaterThanOrEqual(4);
+    // The second half: everyone plays, in scene B. (The bar before it is no longer silent: it takes the run-up.)
+    await expect.poll(() => page.evaluate(() => window.kreisel.app.piecePlayhead() ?? 0), { timeout: 9000 }).toBeGreaterThan(4.3);
+    await expect.poll(() => page.evaluate(() => window.kreisel.level())).toBeGreaterThan(0.05);
     await expect(page.locator(".scene.current")).toHaveText("B");
 
     // The right button sends the piece to a bar; "Von vorn" to its first.
