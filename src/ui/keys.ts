@@ -51,6 +51,7 @@ export function bindKeys(app: App, panels: Panels): void {
       app.closeChord();
       app.hideCursor();
       app.closeEasel();
+      app.look(null);
       return;
     }
     // While the paint box is open, the top row holds the brushes and Enter puts the sheet away.

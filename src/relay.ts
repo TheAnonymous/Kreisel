@@ -1,0 +1,85 @@
+import { TRACK_COUNT, type Relay } from "./model";
+
+/*
+ * "Reihum": what belongs to a turn. Turns are compared in their packed form
+ * (the one that travels in the link), so "what did this turn change" needs
+ * no knowledge of the project beyond where a ring's things are kept: its
+ * settings in `t`, its patterns in every scene's `p`.
+ */
+
+export const RULES = [
+  { name: "Frei", hint: "Jeder Zug darf alles verändern." },
+  { name: "Ein Ring", hint: "Pro Zug wird nur ein Ring angefasst. Tempo, Tonart, Akkorde und Stück sind frei." },
+  { name: "Stille Post", hint: "Ein Ring pro Zug, und du hörst nur den Ring der Person vor dir. Erst beim Aufdecken hören alle alles. Am besten mit einem leeren Kreisel beginnen." },
+] as const;
+
+/** Colours for the people of a round: apart from the rings' own, and from each other. */
+export const PEOPLE = ["#d7263d", "#1b998b", "#f4a300", "#5d5fef", "#2e86de", "#ef5da8", "#6ab04c", "#8d6e63"] as const;
+
+interface PackedLike {
+  t?: unknown;
+  c?: unknown;
+}
+
+const tracksOf = (state: unknown): unknown[] => {
+  const tracks = (state as PackedLike | null)?.t;
+  return Array.isArray(tracks) ? tracks : [];
+};
+
+/** Ring `ring`'s pattern in every scene of a packed state (`null` where there is no scene). */
+const patternsOf = (state: unknown, ring: number): (string | null)[] => {
+  const scenes = (state as PackedLike | null)?.c;
+  return (Array.isArray(scenes) ? scenes : []).map((scene) => {
+    const patterns = (scene as { p?: unknown } | null)?.p;
+    return Array.isArray(patterns) ? JSON.stringify(patterns[ring] ?? null) : null;
+  });
+};
+
+/** Whether a packed pattern ([length, step, step …]) has a hit. */
+const hasHits = (pattern: string | null): boolean => {
+  if (pattern === null) return false;
+  const steps: unknown = JSON.parse(pattern);
+  return Array.isArray(steps) && steps.slice(1).some((step) => step !== 0);
+};
+
+/** The rings that have anything to play in a packed state. */
+export function ringsWithContent(state: unknown): number[] {
+  return Array.from({ length: TRACK_COUNT }, (_, ring) => ring).filter((ring) => patternsOf(state, ring).some(hasHits));
+}
+
+/**
+ * The rings a turn touched: their sound or mix changed, or one of their
+ * patterns did. A scene that is new counts only where a ring plays something
+ * in it that it played in no scene before (copying a scene touches nothing).
+ * Without a state before, every ring with content counts.
+ */
+export function changedRings(before: unknown, after: unknown): number[] {
+  if (before === null || before === undefined) return ringsWithContent(after);
+  const changed: number[] = [];
+  for (let ring = 0; ring < TRACK_COUNT; ring += 1) {
+    const settings = JSON.stringify(tracksOf(before)[ring] ?? null) !== JSON.stringify(tracksOf(after)[ring] ?? null);
+    const old = patternsOf(before, ring);
+    const known = new Set(old);
+    const patterns = patternsOf(after, ring).some((pattern, scene) => {
+      if (pattern === null) return false;
+      const was = old[scene] ?? null;
+      return was === null ? !known.has(pattern) && hasHits(pattern) : was !== pattern;
+    });
+    if (settings || patterns) changed.push(ring);
+  }
+  return changed;
+}
+
+/** The colour of the person who took turn `index`: the same person keeps their colour through the round. */
+export function turnColor(relay: Relay, index: number): string {
+  const names = [...new Set(relay.turns.map((turn) => turn.name.toLowerCase()))];
+  const place = names.indexOf(relay.turns[index]?.name.toLowerCase() ?? "");
+  return PEOPLE[Math.max(0, place) % PEOPLE.length] ?? PEOPLE[0];
+}
+
+/** A name as it may travel in a link: no control characters, not too long, never empty. */
+export function cleanName(value: unknown, limit: number): string {
+  const text = typeof value === "string" ? value : "";
+  const clean = text.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, limit);
+  return clean || "Jemand";
+}

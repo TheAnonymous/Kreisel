@@ -109,6 +109,28 @@ export interface Piece {
   order: number[];
 }
 
+export const MAX_TURNS = 12;
+export const MAX_NAME = 16;
+
+/** One turn of a Kreisel that goes from hand to hand: who took it, and the Kreisel as they passed it on. */
+export interface Turn {
+  name: string;
+  /** The project after the turn, packed as in a link (without its own history). */
+  state: unknown;
+}
+
+/**
+ * "Reihum": the Kreisel travels as a link, everyone adds a turn, and every
+ * turn stays in the link to be listened to again.
+ */
+export interface Relay {
+  /** 0 anything goes, 1 one ring a turn, 2 "Stille Post": one ring a turn, hearing only the ring before. */
+  rule: number;
+  /** Stille Post has been revealed: everyone sees and hears everything. */
+  open: boolean;
+  turns: Turn[];
+}
+
 export interface Project {
   v: 1;
   bpm: number;
@@ -129,6 +151,8 @@ export interface Project {
   /** How often each scene plays its chords in the chain. */
   repeats: number;
   piece: Piece;
+  /** The turns of a Kreisel that is passed around; `null` for one that is not. */
+  relay: Relay | null;
 }
 
 export interface TrackInfo {
@@ -240,6 +264,7 @@ export function factoryProject(): Project {
     chain: false,
     repeats: 1,
     piece: firstPiece(),
+    relay: null,
   };
 }
 

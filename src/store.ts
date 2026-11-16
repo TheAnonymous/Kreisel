@@ -20,6 +20,9 @@ export class Store {
   private lastAt = 0;
   private readonly listeners = new Set<() => void>();
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** While locked (looking back at an old turn), nothing can be changed; `refused` hears every attempt. */
+  locked = false;
+  refused: () => void = () => undefined;
 
   constructor(project?: Project) {
     this.project = project ?? Store.load() ?? factoryProject();
@@ -41,6 +44,10 @@ export class Store {
 
   /** Changes the project; edits with the same `key` less than `within` ms apart are one undo step. */
   edit(change: (project: Project) => void, key?: string, within = COALESCE_MS): void {
+    if (this.locked) {
+      this.refused();
+      return;
+    }
     const now = Date.now();
     const sameGesture = key !== undefined && key === this.lastKey && now - this.lastAt < within;
     if (!sameGesture) this.remember();
@@ -70,6 +77,10 @@ export class Store {
   }
 
   undo(): boolean {
+    if (this.locked) {
+      this.refused();
+      return false;
+    }
     const previous = this.past.pop();
     if (previous === undefined) return false;
     this.future.push(serialize(this.project));
@@ -78,6 +89,10 @@ export class Store {
   }
 
   redo(): boolean {
+    if (this.locked) {
+      this.refused();
+      return false;
+    }
     const next = this.future.pop();
     if (next === undefined) return false;
     this.past.push(serialize(this.project));

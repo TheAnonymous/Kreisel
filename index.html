@@ -39,12 +39,14 @@
         <div class="actions">
           <button id="undo" class="button icon" type="button" title="Rückgängig (Strg+Z)" aria-label="Rückgängig"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 12h-2" transform="translate(0 -3)"/></svg></button>
           <button id="redo" class="button icon" type="button" title="Wiederholen (Strg+Umschalt+Z)" aria-label="Wiederholen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 12h2" transform="translate(0 -3)"/></svg></button>
-          <button id="share" class="button" type="button" title="Den ganzen Kreisel als Link kopieren" aria-label="Link teilen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="label">Link teilen</span></button>
+          <button id="share" class="button" type="button" title="Den ganzen Kreisel als Link kopieren" aria-label="Link teilen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="label">Teilen</span></button>
+          <button id="relay" class="button" type="button" title="Reihum: Der Kreisel wandert als Link von Hand zu Hand, jeder baut einen Zug">Reihum</button>
           <button id="record" class="button rec" type="button" aria-pressed="false" title="Aufnehmen, was du hörst"><span class="lamp" aria-hidden="true"></span><span class="label">Aufnehmen</span></button>
           <div class="more">
             <button id="more" class="button icon" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menu" aria-label="Mehr"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
             <div id="menu" class="menu" hidden>
               <label class="field slide"><span>Lautstärke</span><input id="volume" type="range" min="0" max="100" step="1"></label>
+              <button type="button" data-do="relay">Reihum: von Hand zu Hand</button>
               <button type="button" data-do="wav">Als WAV speichern</button>
               <button type="button" data-do="clear-scene">Diese Szene leeren</button>
               <button type="button" data-do="empty">Leerer Kreisel</button>
@@ -113,7 +115,29 @@
         <section class="side right panel" id="panel" aria-label="Der gewählte Ring"></section>
       </main>
 
+      <div id="lookback" class="lookback" role="status" hidden></div>
       <div id="toast" class="toast" role="status" hidden></div>
+
+      <dialog id="reihum" class="help reihum" aria-labelledby="reihum-title">
+        <form method="dialog">
+          <header><h2 id="reihum-title">Reihum</h2><button class="button icon" aria-label="Schließen" value="close">×</button></header>
+          <div class="reihum-body">
+            <p>Ein Kreisel wandert von Hand zu Hand: Du baust einen Zug und schickst den Link weiter, die nächste Person baut weiter und schickt ihn zurück oder an jemand Dritten. Alle Züge bleiben im Link und lassen sich wieder anhören. Es gibt kein Konto und keinen Upload.</p>
+            <label class="field"><span>Dein Name (reist im Link mit)</span><input id="relay-name" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="z. B. Jodie"></label>
+            <fieldset id="relay-rules" class="rules"><legend>Spielregel</legend></fieldset>
+            <p id="relay-rule" class="info"></p>
+            <h3 id="relay-turns-title">Züge</h3>
+            <ol id="relay-turns" class="turns" aria-labelledby="relay-turns-title"></ol>
+            <p id="relay-now" class="relay-now"></p>
+            <p id="relay-message" class="relay-message" role="alert" hidden></p>
+            <div class="doing">
+              <button id="relay-send" class="button go" type="button">Zug abschließen und Link kopieren</button>
+              <button id="relay-reveal" class="button" type="button" hidden>Aufdecken</button>
+              <button id="relay-end" class="button small" type="button" hidden title="Die Züge vergessen; der Kreisel bleibt, wie er ist">Reihum beenden</button>
+            </div>
+          </div>
+        </form>
+      </dialog>
 
       <dialog id="help" class="help" aria-labelledby="help-title">
         <form method="dialog">
@@ -137,6 +161,11 @@
               </dl>
             </section>
             <section>
+              <h3>Reihum</h3>
+              <p>Unter „Reihum“ wandert ein Kreisel als Link von Hand zu Hand. Jeder Zug hinterlässt in der Mitte einen Ring in der Farbe der Person, wie Jahresringe. Im Reihum-Fenster hörst du jeden alten Zug wieder an oder baust von dort neu weiter.</p>
+              <p>Spielregeln: frei, ein Ring pro Zug, oder Stille Post. Bei der Stillen Post hörst du nur den Ring der Person vor dir und baust deinen blind dazu, bis jemand aufdeckt.</p>
+            </section>
+            <section>
               <h3>Das Stück</h3>
               <p>Der äußerste Ring ist das ganze Stück: Eine Runde dauert so viele Takte, wie du willst. Du malst nur die Spannung hinein, außen viel, innen wenig. Mit steigender Linie setzen die Ringe nacheinander ein, der Klang wird heller, und vor einem steilen Anstieg nimmt der Kreisel Anlauf.</p>
               <p>Die farbigen Linien im Ring zeigen, ab wo ein Ring mitspielt; die Reihenfolge stellst du im Feld des Stücks ein. Am inneren Rand legst du Szenen ab. „an“ in der Ring-Liste schaltet zwischen Stück und Loop um.</p>
@@ -152,7 +181,7 @@
             </section>
             <section>
               <h3>Gut zu wissen</h3>
-              <p>Dein Kreisel bleibt im Speicher dieses Browsers. „Link teilen“ packt ihn ganz in einen Link, ohne Upload: Wer ihn öffnet, bekommt eine eigene Kopie. Eine leere Szene wird beim Anklicken zur Kopie der aktuellen, so baust du aus einem Loop ein Stück.</p>
+              <p>Dein Kreisel bleibt im Speicher dieses Browsers. „Teilen“ packt ihn ganz in einen Link, ohne Upload: Wer ihn öffnet, bekommt eine eigene Kopie. Eine leere Szene wird beim Anklicken zur Kopie der aktuellen, so baust du aus einem Loop ein Stück.</p>
               <p id="version" class="version"></p>
             </section>
           </div>

@@ -1,6 +1,7 @@
-import { clamp, emptyStep, HEIGHT_MAX, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_STROKES, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Pattern, type Piece, type Project, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
+import { clamp, emptyStep, HEIGHT_MAX, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Pattern, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { soundPiece } from "./piece";
+import { cleanName } from "./relay";
 
 /*
  * A Kreisel as text: small enough for a link. Steps are packed into one
@@ -118,11 +119,14 @@ interface Packed {
   k: number;
   n: number;
   z?: [number, string, string];
+  /** Reihum: the rule, whether it is revealed, and the turns as [name, the project then]. */
+  y?: { r: number; o: number; t: [string, unknown][] };
 }
 
 const round = (value: number): number => Math.round(value * 100) / 100;
 
-export function pack(project: Project): Packed {
+/** The project without the turns it has been through: what one turn keeps of it. */
+export function packState(project: Project): Packed {
   return {
     v: 1,
     b: project.bpm,
@@ -152,6 +156,29 @@ export function pack(project: Project): Packed {
     n: project.repeats,
     z: packPiece(project.piece),
   };
+}
+
+export function pack(project: Project): Packed {
+  const packed = packState(project);
+  const relay = project.relay;
+  if (relay) packed.y = { r: relay.rule, o: relay.open ? 1 : 0, t: relay.turns.map((turn) => [turn.name, turn.state]) };
+  return packed;
+}
+
+/** The turns from untrusted data. Every turn's state is unpacked and packed again, so only sound states are kept; turns that are none are left out. */
+function unpackRelay(value: unknown): Relay | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { r, o, t } = value as { r?: unknown; o?: unknown; t?: unknown };
+  const turns: Relay["turns"] = [];
+  for (const item of (Array.isArray(t) ? t : []).slice(-MAX_TURNS)) {
+    const [name, state] = Array.isArray(item) ? item : [];
+    try {
+      turns.push({ name: cleanName(name, MAX_NAME), state: packState(unpack(state, true)) });
+    } catch {
+      // Not a Kreisel: this turn is lost, the others stay.
+    }
+  }
+  return { rule: integer(r, 0, 2, 0), open: o === 1, turns };
 }
 
 const number = (value: unknown, low: number, high: number, fallback: number): number =>
@@ -193,8 +220,11 @@ function unpackTrack(value: unknown): Track {
   };
 }
 
-/** A project from untrusted data; throws when it is not a Kreisel at all. */
-export function unpack(value: unknown): Project {
+/**
+ * A project from untrusted data; throws when it is not a Kreisel at all.
+ * `inTurn` unpacks the state of a turn: that never has turns of its own, whatever it claims.
+ */
+export function unpack(value: unknown, inTurn = false): Project {
   if (typeof value !== "object" || value === null) throw new Error("kein Kreisel");
   const data = value as Partial<Record<keyof Packed, unknown>>;
   if (data.v !== 1) throw new Error("unbekannte Version");
@@ -220,6 +250,7 @@ export function unpack(value: unknown): Project {
     chain: data.k === 1,
     repeats: [1, 2, 4].includes(data.n as number) ? (data.n as number) : 1,
     piece,
+    relay: inTurn ? null : unpackRelay(data.y),
   };
 }
 

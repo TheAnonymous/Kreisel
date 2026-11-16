@@ -96,6 +96,33 @@ give it the form of a track (climb, perhaps a break, a peak, a fade), and
 (`src/piece.ts`), the same live and in the WAV, which holds the piece once
 round. A piece is one byte a bar in the link.
 
+## Part four: Reihum
+
+A Kreisel already fits in a link. "Reihum" makes that a game for several,
+with no account and no server: you build a turn and pass the link on, the next
+person builds on and passes it back or to a third.
+
+- **Every turn stays.** The link carries the Kreisel as it was after each
+  turn, with the name of who took it. The turns show as rings in the hub, like
+  a tree's, each in its person's colour; the Reihum window lists them.
+- **Looking back.** Any turn can be listened to again: the wheel shows and
+  plays the Kreisel as it was then, and nothing can be changed. From there one
+  can return to now, or go on building from that turn (the later turns are
+  dropped; undo brings them back).
+- **Rules.** The first person picks one: anything goes; one ring a turn (the
+  window says which rings the turn has touched and refuses a second); or
+  *Stille Post*, where a turn is one ring and one hears only the ring of the
+  person before. Rings built earlier are under a cloth, out of sight, hearing
+  and reach, until someone reveals the round.
+
+A turn's state is the packed project without its own history
+(`packState`), and the whole link is deflated at once, so a turn costs about a
+hundred characters: twelve turns (the most a round keeps) stay under 2500.
+What a turn touched is worked out from two packed states (`src/relay.ts`):
+a ring's settings and its patterns, where copying a scene touches nothing.
+Whatever a link claims is unpacked and packed again turn by turn; a turn
+that is no Kreisel is left out, and a turn never has turns of its own.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the
@@ -119,6 +146,7 @@ run locally; see [AGENTS.md](AGENTS.md).
 | `src/bild.ts`, `src/imitate.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes |
 | `src/collection.ts` | the shelf of kept pictures |
 | `src/piece.ts` | the piece: what a bar's tension asks for, and shaping the line |
+| `src/relay.ts` | Reihum: what a turn touched, people's colours, names |
 | `src/audio/` | the 28 built-in sounds, painted sounds (`bild.ts`), listening (`listen.ts`), the mixer, the player (live and offline), effects, recording |
 | `src/ui/ring.ts` | the wheel: drawing and every gesture on it |
 | `src/ui/easel.ts` | the paint box: drawing pictures and painting them |

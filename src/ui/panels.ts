@@ -6,6 +6,7 @@ import { clamp, currentScene, MAX_BARS, MAX_CHORDS, MAX_STEPS, MIN_BARS, MIN_STE
 import { chordName, chordRoman, NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
 import { activeSteps, describe } from "../patterns";
 import { barCount, describePiece } from "../piece";
+import { RULES, turnColor } from "../relay";
 import { renderThumb, type EaselView } from "./easel";
 import type { RingView, Tool } from "./ring";
 
@@ -99,12 +100,15 @@ export class Panels {
   private thumbSignature = "";
   private shelfSignature = "noch nicht gebaut";
   private easelOpen = false;
-  private readonly ringBox = el("div", "panel-box");
-  private readonly pieceBox = el("div", "panel-box");
+  private readonly ringBox = el("div", "panel-box panel-ring");
+  private readonly pieceBox = el("div", "panel-box panel-piece");
   private readonly pieceRow = el("li", "track piece-row");
   private readonly pieceParts = { info: el("p", "info"), on: el("input"), bars: el("output"), order: el("ol", "entries") };
   private orderSignature = "";
   private pieceFocused = false;
+  private readonly veilBox = el("div", "panel-box panel-veil");
+  private readonly ruleInputs: HTMLInputElement[] = [];
+  private turnsSignature = "";
   private closeCoach: () => void = () => undefined;
   private readonly panel = { name: el("h2"), info: el("p", "info"), pad: el("div", "pad"), puck: el("span", "puck"), axisX: el("span", "axis x"), axisY: el("span", "axis y"), steps: el("output"), spread: el("input"), spreadValue: el("output") };
   private chordSignature = "";
@@ -120,6 +124,7 @@ export class Panels {
     this.buildFx();
     this.buildPanel();
     this.buildPiece();
+    this.buildRelay();
     this.buildCoach();
     this.buildHelp();
     document.addEventListener("pointerdown", (event) => this.outside(event), true);
@@ -128,6 +133,19 @@ export class Panels {
       const target = event.target instanceof Element ? event.target.closest("button") : null;
       if (target && event.detail > 0 && !target.closest("dialog")) target.blur();
     });
+    // A window that closes hands the keyboard back to the button that opened it. For someone working with the
+    // mouse that button would then swallow the space bar, so it is let go again; with the Tab key in use it stays.
+    let tabbing = false;
+    document.addEventListener("pointerdown", () => { tabbing = false; }, true);
+    document.addEventListener("keydown", (event) => { if (event.key === "Tab") tabbing = true; }, true);
+    for (const dialog of document.querySelectorAll("dialog")) {
+      dialog.addEventListener("close", () => {
+        queueMicrotask(() => {
+          const active = document.activeElement;
+          if (!tabbing && active instanceof HTMLButtonElement) active.blur();
+        });
+      });
+    }
     void this.readKeyboard();
     app.subscribe(() => this.sync());
     this.sync();
@@ -224,6 +242,7 @@ export class Panels {
       else if (action === "empty") app.newProject(true);
       else if (action === "factory") app.newProject(false);
       else if (action === "help") this.showHelp();
+      else if (action === "relay") this.showRelay();
     });
 
     const chain = byId<HTMLInputElement>("chain");
@@ -484,7 +503,141 @@ export class Panels {
     mixSlider("Echo", "echo");
 
     this.ringBox.append(head, parts.info, doing, sounds, own, pad, ringGroup, mix);
-    holder.append(this.ringBox, this.pieceBox);
+    this.veilBox.append(
+      el("header", "panel-head"),
+      el("p", "veil-text", "Stille Post: Dieser Ring ist verdeckt. Jemand hat hier schon gebaut, aber du hörst und siehst nur den Ring der Person vor dir. Bau deinen eigenen dazu: Nimm einen Ring, der noch leer ist. Wenn alle fertig sind, deckt ihr im Reihum-Fenster auf."),
+    );
+    this.veilBox.querySelector("header")!.append(el("span", "dot"), el("h2"));
+    holder.append(this.ringBox, this.pieceBox, this.veilBox);
+  }
+
+  /** Reihum: the button in the bar, the window with the turns, and the bar shown while looking back. */
+  private buildRelay(): void {
+    const app = this.app;
+    const dialog = byId<HTMLDialogElement>("reihum");
+    byId("relay").addEventListener("click", () => this.showRelay());
+    const name = byId<HTMLInputElement>("relay-name");
+    name.addEventListener("input", () => app.setName(name.value));
+    const rules = byId("relay-rules");
+    RULES.forEach((rule, index) => {
+      const label = el("label", "check");
+      const input = el("input");
+      input.type = "radio";
+      input.name = "relay-rule";
+      input.value = String(index);
+      input.addEventListener("change", () => app.setRule(index));
+      label.append(input, el("span", "", rule.name));
+      rules.append(label);
+      this.ruleInputs.push(input);
+    });
+    const message = byId("relay-message");
+    byId("relay-send").addEventListener("click", () => {
+      void app.finishTurn().then((done) => {
+        if (done) {
+          dialog.close();
+          return;
+        }
+        // Why the turn did not count is said here, in the window, not on the page behind it.
+        message.textContent = app.toast?.text ?? "";
+        message.hidden = message.textContent === "";
+        app.dismiss();
+      });
+    });
+    dialog.addEventListener("input", () => { message.hidden = true; });
+    byId("relay-reveal").addEventListener("click", () => {
+      app.revealRelay();
+      dialog.close();
+    });
+    byId("relay-end").addEventListener("click", () => {
+      app.endRelay();
+      dialog.close();
+    });
+  }
+
+  showRelay(): void {
+    const dialog = byId<HTMLDialogElement>("reihum");
+    byId<HTMLInputElement>("relay-name").value = this.app.name;
+    byId("relay-message").hidden = true;
+    this.turnsSignature = "";
+    // Open first: the window's contents are only kept up to date while it is open.
+    if (!dialog.open) dialog.showModal();
+    this.syncRelay();
+  }
+
+  /** The turns in the bar's button, the window, the look-back bar, and the cloth over veiled rings. */
+  private syncRelay(): void {
+    const app = this.app;
+    const relay = app.relay;
+    const turns = relay?.turns ?? [];
+    const veils = relay !== null && relay.rule === 2 && !relay.open && turns.length > 0;
+    const relayButton = byId("relay");
+    relayButton.textContent = turns.length > 0 ? `Reihum · ${turns.length + 1}` : "Reihum";
+    relayButton.setAttribute("aria-label", turns.length > 0 ? `Reihum: Zug ${turns.length + 1} ist deiner` : "Reihum");
+
+    const bar = byId("lookback");
+    const looked = app.lookBack;
+    bar.hidden = looked === null;
+    if (looked !== null && bar.dataset.turn !== String(looked)) {
+      bar.dataset.turn = String(looked);
+      const now = button("button small", "Zurück zu jetzt");
+      now.addEventListener("click", () => app.look(null));
+      const from = button("button small", "Von hier weiterbauen", "Der Kreisel wird wieder, was er nach diesem Zug war; die späteren Züge fallen weg");
+      from.addEventListener("click", () => app.continueFrom(looked));
+      bar.replaceChildren(el("span", "", `Rückblick: Zug ${looked + 1} von ${turns[looked]?.name ?? ""}`), now, from);
+    }
+    if (looked === null) bar.dataset.turn = "";
+
+    this.trackRows.forEach((row, track) => {
+      const veiled = app.veiled(track);
+      row.classList.toggle("veiled", veiled);
+      if (veiled) row.querySelector(".sound")!.textContent = "verdeckt";
+      for (const node of row.querySelectorAll<HTMLButtonElement>(".mute, .roll")) node.disabled = veiled;
+    });
+    const veiled = !app.pieceFocus && app.veiled(app.selected);
+    this.veilBox.hidden = !veiled;
+    if (veiled) {
+      this.ringBox.hidden = true;
+      this.veilBox.style.setProperty("--c", trackInfo(app.selected).color);
+      this.veilBox.querySelector("h2")!.textContent = trackInfo(app.selected).name;
+    }
+
+    if (!byId<HTMLDialogElement>("reihum").open) return;
+    const rule = relay ? relay.rule : app.rule;
+    byId("relay-rules").hidden = turns.length > 0;
+    this.ruleInputs.forEach((input, index) => { input.checked = index === rule; });
+    byId("relay-rule").textContent = turns.length > 0
+      ? `Spielregel dieser Runde: ${RULES[rule]?.name ?? ""}. ${RULES[rule]?.hint ?? ""}${relay?.rule === 2 && relay.open ? " (Aufgedeckt.)" : ""}`
+      : (RULES[rule]?.hint ?? "");
+    byId("relay-turns-title").hidden = turns.length === 0;
+
+    const signature = `${veils}|${turns.map((turn) => turn.name).join("|")}`;
+    if (signature !== this.turnsSignature) {
+      this.turnsSignature = signature;
+      byId("relay-turns").replaceChildren(...turns.map((turn, index) => {
+        const item = el("li", "turn");
+        item.style.setProperty("--c", relay ? turnColor(relay, index) : "currentColor");
+        const hear = button("button small", "Anhören", veils ? "Erst nach dem Aufdecken" : `Den Kreisel hören, wie er nach Zug ${index + 1} war`);
+        hear.disabled = veils;
+        hear.addEventListener("click", () => {
+          app.look(index);
+          byId<HTMLDialogElement>("reihum").close();
+        });
+        const from = button("button small", "Von hier weiter", veils ? "Erst nach dem Aufdecken" : "Von diesem Zug aus neu weiterbauen; die späteren Züge fallen weg");
+        from.disabled = veils;
+        from.addEventListener("click", () => {
+          app.continueFrom(index);
+          byId<HTMLDialogElement>("reihum").close();
+        });
+        item.append(el("span", "dot"), el("span", "name", `Zug ${index + 1} · ${turn.name}`), hear, from);
+        return item;
+      }));
+    }
+    const touched = turns.length > 0 ? app.turnRings.map((ring) => trackInfo(ring).name) : [];
+    byId("relay-now").textContent = turns.length === 0
+      ? "Noch kein Zug. Der erste Zug ist der Kreisel, wie er jetzt ist."
+      : touched.length > 0 ? `Dein Zug (Nr. ${turns.length + 1}): ${touched.join(", ")} angefasst.` : `Dein Zug (Nr. ${turns.length + 1}): noch nichts an den Ringen verändert.`;
+    byId("relay-reveal").hidden = !veils;
+    byId("relay-end").hidden = relay === null;
   }
 
   /** The panel of the piece: what the outermost ring is, its length, and the order in which the rings come in. */
@@ -690,8 +843,10 @@ export class Panels {
       if (node.textContent === "+") node.disabled = pattern.len >= MAX_STEPS;
     }
 
+    this.syncRelay();
     byId("status").textContent = app.pieceFocus
       ? `Stück: ${describePiece(project.piece, project.bpm)}${project.piece.on ? "" : " (aus)"}`
+      : app.veiled(selected) ? `${info.name}: verdeckt (Stille Post)`
       : app.easel ? `Klangmalerei ${info.name}: ${describeBild(settings.bild)}` : `${info.name}: ${describe(pattern)}`;
     this.syncChordMenu();
     this.syncToast();

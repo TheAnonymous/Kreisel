@@ -1,6 +1,7 @@
-import { currentScene, MAX_NOTE_LENGTH, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Project, type Step } from "../model";
+import { currentScene, MAX_NOTE_LENGTH, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Project, type Relay, type Step } from "../model";
 import { chordAt, chordName, pitchName } from "../music";
 import { entry } from "../piece";
+import { turnColor } from "../relay";
 
 /*
  * The Kreisel itself: seven rings on a canvas, a ring of chords and the hub
@@ -40,6 +41,11 @@ export interface RingHost {
   setValue(track: number, step: number, tool: Tool, value: number, gesture: string): void;
   rotate(track: number, by: number): void;
   endGesture(): void;
+  /** Reihum: the turns this Kreisel has been through, and the one being looked back at. */
+  readonly relay: Relay | null;
+  readonly lookBack: number | null;
+  /** Stille Post: this ring is out of sight and hearing for now. */
+  veiled(track: number): boolean;
   /** The piece's ring is in focus instead of one of the seven. */
   readonly pieceFocus: boolean;
   /** The bar a piece starts from, and the bar the keyboard points at on its ring (or `null`). */
@@ -281,6 +287,34 @@ export class RingView {
       const since = host.sinceStruck(track);
       const flash = host.playing || since < 0.4 ? Math.max(0, 1 - since / 0.24) : 0;
 
+      if (host.veiled(track)) {
+        // Stille Post: someone built here, and it stays under a cloth until the round is revealed.
+        context.lineCap = "butt";
+        context.strokeStyle = ink;
+        context.lineWidth = thickness;
+        context.globalAlpha = 0.11;
+        context.beginPath();
+        context.arc(center, center, middle, 0, TAU);
+        context.stroke();
+        context.lineWidth = Math.max(1.5, thickness * 0.14);
+        context.globalAlpha = 0.3;
+        context.setLineDash([2, 7]);
+        context.beginPath();
+        context.arc(center, center, middle, 0, TAU);
+        context.stroke();
+        context.setLineDash([]);
+        context.globalAlpha = focus;
+        context.lineWidth = 1.5;
+        for (const radius of [band.inner, band.outer]) {
+          context.beginPath();
+          context.arc(center, center, radius, 0, TAU);
+          context.stroke();
+        }
+        context.globalAlpha = 1;
+        context.lineCap = "round";
+        continue;
+      }
+
       // The band, a little stronger for every second beat so the eye finds its way.
       context.lineCap = "butt";
       context.lineWidth = thickness;
@@ -444,6 +478,34 @@ export class RingView {
       context.lineWidth = 3;
       context.strokeStyle = TRACK_INFO[TRACK_KINDS[host.selected] ?? "kick"].color;
       context.stroke();
+    }
+    // Reihum: every turn left a ring in the hub, like a tree's, the newest outermost, each in its person's colour.
+    const turns = host.relay?.turns.length ?? 0;
+    if (host.relay && turns > 0) {
+      const width = Math.min(size * 0.085, (size * 0.44) / turns);
+      context.lineCap = "butt";
+      for (let turn = 0; turn < turns; turn += 1) {
+        const radius = size - width * 0.5 - 1.5 - (turns - 1 - turn) * width;
+        const looked = host.lookBack === turn;
+        context.strokeStyle = turnColor(host.relay, turn);
+        context.lineWidth = Math.max(1, width - 1);
+        context.globalAlpha = host.lookBack === null || looked ? 1 : 0.35;
+        context.beginPath();
+        context.arc(center, center, radius, 0, TAU);
+        context.stroke();
+        if (looked) {
+          context.globalAlpha = 1;
+          context.strokeStyle = bg;
+          context.lineWidth = 1.25;
+          for (const edge of [radius - width / 2, radius + width / 2]) {
+            context.beginPath();
+            context.arc(center, center, edge, 0, TAU);
+            context.stroke();
+          }
+        }
+      }
+      context.globalAlpha = 1;
+      context.lineCap = "round";
     }
     context.fillStyle = bg;
     const icon = hub * 0.42;
@@ -723,6 +785,8 @@ export class RingView {
     const { track, step } = spot;
     const picked = this.host.selected === track && !this.host.pieceFocus;
     this.host.select(track, step);
+    // Under the cloth nothing is painted: picking the ring shows why.
+    if (this.host.veiled(track)) return;
     // A finger first picks the ring (the thin ones are too narrow to aim at), a mouse paints at once.
     if (event.pointerType !== "mouse" && !picked) return;
     event.preventDefault();
@@ -894,8 +958,8 @@ export class RingView {
       const pattern = scene.patterns[spot.track];
       const note = pattern ? stepAt(pattern, spot.step) : null;
       const info = trackInfo(spot.track);
-      text = `${info.name} · Schritt ${spot.step + 1}`;
-      if (note?.on) text += ` · ${pitchName(project, spot.track, note.pitch, chordAt(scene, this.host.playhead() ?? 0))}`;
+      text = this.host.veiled(spot.track) ? `${info.name} · verdeckt (Stille Post)` : `${info.name} · Schritt ${spot.step + 1}`;
+      if (note?.on && !this.host.veiled(spot.track)) text += ` · ${pitchName(project, spot.track, note.pitch, chordAt(scene, this.host.playhead() ?? 0))}`;
     }
     this.tip.textContent = text;
     this.tip.hidden = false;

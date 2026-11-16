@@ -1,13 +1,14 @@
 import { Engine, renderWav, type FxName } from "./audio/engine";
 import { canListen, listen } from "./audio/listen";
 import { diceBild, emptyBild, makeStroke, snapHeight, type RawPoint } from "./bild";
-import { decodeLink, encodeLink, unpackBild } from "./codec";
+import { decodeLink, encodeLink, packState, unpack, unpackBild } from "./codec";
 import { framesToBild } from "./imitate";
 import { keep, loadKept, saveKept, type Kept } from "./collection";
-import { BAR, clamp, clone, currentScene, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Project, type Step, type Track } from "./model";
+import { BAR, clamp, clone, currentScene, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NAME, MAX_NOTE_LENGTH, MAX_STEPS, MAX_TURNS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Project, type Relay, type Step, type Track } from "./model";
 import { chordAt } from "./music";
 import { activeSteps, clear, dice, resize, rotate, seeded, spread, transpose, vary } from "./patterns";
 import { barCount, dicePiece, moveInOrder, resizePiece, rotatePiece, smoothPiece } from "./piece";
+import { changedRings, ringsWithContent } from "./relay";
 import { Store } from "./store";
 import type { EaselHost } from "./ui/easel";
 import type { RingHost, Tool } from "./ui/ring";
@@ -65,6 +66,15 @@ export class App implements RingHost, EaselHost {
   toast: Toast | null = null;
   /** 0..1 while a WAV is being rendered. */
   exporting: number | null = null;
+  /** Reihum: the name this person plays under (kept in this browser), and the rule a new round would start with. */
+  name = readName();
+  rule = 0;
+  /** The turn being looked back at; `null` for the Kreisel as it is now. */
+  lookBack: number | null = null;
+  private oldTurn: Project | null = null;
+  /** Counts the project's changes: what was worked out about the turn in progress holds until the next one. */
+  private stamp = 0;
+  private turnMemo: { stamp: number; mine: number[]; heard: number[]; taken: number[] } | null = null;
   /** The piece's ring is in focus instead of one of the seven. */
   pieceFocus = false;
   /** The bar a piece starts from. */
@@ -92,15 +102,25 @@ export class App implements RingHost, EaselHost {
     this.engine = new Engine(() => this.store.project, {
       audible: (track) => this.audible(track),
       onScene: (scene) => {
-        if (this.store.project.scene !== scene) this.store.touch((project) => { project.scene = scene; });
+        if (this.oldTurn) {
+          // Looking back, the old turn's scenes come up on the table, not today's.
+          if (this.oldTurn.scene !== scene && this.oldTurn.scenes[scene]) {
+            this.oldTurn.scene = scene;
+            this.notify();
+          }
+        } else if (this.store.project.scene !== scene) {
+          this.store.touch((project) => { project.scene = scene; });
+        }
       },
       onState: () => this.notify(),
       pieceStart: () => (this.project.piece.on ? this.pieceStart % barCount(this.project.piece) : 0),
     });
     this.store.subscribe(() => {
+      this.stamp += 1;
       this.engine.sync();
       this.notify();
     });
+    this.store.refused = () => this.say("Das ist ein Rückblick auf einen alten Zug: Hier lässt sich nichts ändern. Geh zurück zu jetzt oder bau von hier weiter.");
     window.addEventListener("pagehide", () => this.store.save());
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") this.store.save();
@@ -109,8 +129,9 @@ export class App implements RingHost, EaselHost {
 
   // ---- reading ----------------------------------------------------------------
 
+  /** The Kreisel on the table: the project, or an old turn of it while looking back. */
   get project(): Project {
-    return this.store.project;
+    return this.oldTurn ?? this.store.project;
   }
 
   get playing(): boolean {
@@ -130,6 +151,7 @@ export class App implements RingHost, EaselHost {
   }
 
   audible(track: number): boolean {
+    if (this.veiled(track)) return false;
     return this.solo === null ? !this.project.tracks[track]?.mute : this.solo === track;
   }
 
@@ -211,6 +233,7 @@ export class App implements RingHost, EaselHost {
   }
 
   addNote(track: number, step: number, values: Partial<Step>, gesture: string): void {
+    if (this.refuse(track)) return;
     this.store.edit((project) => {
       Object.assign(stepAt(patternOf(project, track), step), { ...emptyStep(), on: true, pitch: this.pitches[track] ?? 0, ...values });
     }, gesture, Infinity);
@@ -218,11 +241,13 @@ export class App implements RingHost, EaselHost {
   }
 
   removeNote(track: number, step: number, gesture: string): void {
+    if (this.refuse(track)) return;
     if (!this.note(track, step).on) return;
     this.store.edit((project) => { stepAt(patternOf(project, track), step).on = false; }, gesture, Infinity);
   }
 
   setPitch(track: number, step: number, pitch: number, gesture: string): void {
+    if (this.refuse(track)) return;
     const target = clamp(pitch, PITCH_MIN, PITCH_MAX);
     if (this.note(track, step).pitch === target) return;
     this.pitches[track] = target;
@@ -231,12 +256,14 @@ export class App implements RingHost, EaselHost {
   }
 
   setLength(track: number, step: number, length: number, gesture: string): void {
+    if (this.refuse(track)) return;
     const target = clamp(length, 1, MAX_NOTE_LENGTH);
     if (this.note(track, step).len === target) return;
     this.store.edit((project) => { stepAt(patternOf(project, track), step).len = target; }, gesture, Infinity);
   }
 
   bump(track: number, step: number, tool: Tool, gesture: string): number {
+    if (this.refuse(track)) return 0;
     const note = this.note(track, step);
     const fresh = !note.on;
     let value = 0;
@@ -252,6 +279,7 @@ export class App implements RingHost, EaselHost {
   }
 
   setValue(track: number, step: number, tool: Tool, value: number, gesture: string): void {
+    if (this.refuse(track)) return;
     this.store.edit((project) => {
       const target = stepAt(patternOf(project, track), step);
       if (tool === "betonen") target.vel = value;
@@ -286,6 +314,7 @@ export class App implements RingHost, EaselHost {
 
   /** Bends the note under the keyboard cursor, or the whole ring when there is none. */
   nudgePitch(by: number, whole: boolean): void {
+    if (this.refuse(this.selected)) return;
     const track = this.selected;
     const step = this.keyCursor;
     if (!whole && step !== null && this.note(track, step).on) {
@@ -298,19 +327,23 @@ export class App implements RingHost, EaselHost {
   // ---- whole rings --------------------------------------------------------------
 
   rotate(track: number, by: number): void {
+    if (this.refuse(track)) return;
     this.store.edit((project) => rotate(patternOf(project, track), by), `drehen${track}`);
   }
 
   resizeRing(track: number, length: number): void {
+    if (this.refuse(track)) return;
     this.store.edit((project) => resize(patternOf(project, track), clamp(length, MIN_STEPS, MAX_STEPS)), `schritte${track}`);
     if (this.keyCursor !== null) this.keyCursor = Math.min(this.keyCursor, patternOf(this.project, track).len - 1);
   }
 
   spreadRing(track: number, hits: number): void {
+    if (this.refuse(track)) return;
     this.store.edit((project) => spread(patternOf(project, track), hits), `verteilen${track}`);
   }
 
   diceRing(track: number): void {
+    if (this.refuse(track)) return;
     this.store.edit((project) => {
       const scene = currentScene(project);
       scene.patterns[track] = dice(track, patternOf(project, track).len, this.random);
@@ -318,15 +351,21 @@ export class App implements RingHost, EaselHost {
   }
 
   varyRing(track: number): void {
+    if (this.refuse(track)) return;
     this.store.edit((project) => vary(track, patternOf(project, track), this.random));
   }
 
   clearRing(track: number): void {
+    if (this.refuse(track)) return;
     if (activeSteps(patternOf(this.project, track)).length === 0) return;
     this.store.edit((project) => clear(patternOf(project, track)));
   }
 
   diceAll(): void {
+    if (Array.from({ length: TRACK_COUNT }, (_, track) => track).some((track) => this.veiled(track))) {
+      this.say("Stille Post: Solange Ringe verdeckt sind, würfelt niemand alle auf einmal.");
+      return;
+    }
     this.store.edit((project) => {
       const scene = currentScene(project);
       scene.patterns = scene.patterns.map((pattern, track) => dice(track, pattern.len, this.random));
@@ -337,6 +376,7 @@ export class App implements RingHost, EaselHost {
   // ---- sound and mix ------------------------------------------------------------
 
   setTrack(track: number, change: Partial<Track>, key?: string): void {
+    if (this.refuse(track)) return;
     this.store.edit((project) => { Object.assign(trackOf(project, track), change); }, key ? `${key}${track}` : undefined);
   }
 
@@ -365,6 +405,175 @@ export class App implements RingHost, EaselHost {
 
   setGlobal(change: Partial<Pick<Project, "bpm" | "swing" | "root" | "scale" | "pump" | "volume" | "chain" | "repeats">>, key?: string): void {
     this.store.edit((project) => { Object.assign(project, change); }, key);
+  }
+
+  // ---- Reihum: a Kreisel that goes from hand to hand ---------------------------------
+
+  /** The turns the Kreisel on the table has been through (also while looking back at one of them). */
+  get relay(): Relay | null {
+    return this.store.project.relay;
+  }
+
+  /** What the turn in progress has touched, what the turn before it touched, and which rings were taken by then. */
+  private turnState(): { mine: number[]; heard: number[]; taken: number[] } {
+    const turns = this.relay?.turns ?? [];
+    const last = turns[turns.length - 1];
+    if (!last) return { mine: [], heard: [], taken: [] };
+    if (this.turnMemo?.stamp !== this.stamp) {
+      this.turnMemo = {
+        stamp: this.stamp,
+        mine: changedRings(last.state, packState(this.store.project)),
+        heard: changedRings(turns[turns.length - 2]?.state ?? null, last.state),
+        taken: ringsWithContent(last.state),
+      };
+    }
+    return this.turnMemo;
+  }
+
+  /** The rings touched in the turn in progress. */
+  get turnRings(): number[] {
+    return this.turnState().mine;
+  }
+
+  /** Stille Post, not yet revealed: a ring someone built earlier, other than the one just before, is out of sight and hearing. */
+  veiled(track: number): boolean {
+    const relay = this.relay;
+    if (!relay || relay.rule !== 2 || relay.open || relay.turns.length === 0 || this.oldTurn) return false;
+    const { mine, heard, taken } = this.turnState();
+    return taken.includes(track) && !heard.includes(track) && !mine.includes(track);
+  }
+
+  private refuse(track: number): boolean {
+    if (!this.veiled(track)) return false;
+    this.say("Stille Post: Dieser Ring ist verdeckt, da hat schon jemand gebaut. Nimm einen, der noch leer ist.");
+    return true;
+  }
+
+  setName(name: string): void {
+    this.name = name.slice(0, MAX_NAME);
+    try {
+      localStorage.setItem("kreisel.name", this.name);
+    } catch {
+      // No storage: the name lasts for this visit.
+    }
+  }
+
+  /** The rule of a round that has not begun; once the first turn is finished, the round keeps its rule. */
+  setRule(rule: number): void {
+    this.rule = clamp(rule, 0, 2);
+    this.notify();
+  }
+
+  /**
+   * Finishes the turn: the Kreisel as it is now joins the turns, and the link with all of them is copied.
+   * Returns whether the turn counted (a rule may say no).
+   */
+  async finishTurn(): Promise<boolean> {
+    if (this.oldTurn) {
+      this.say("Geh erst zurück zu jetzt: Ein Rückblick ist kein Zug.");
+      return false;
+    }
+    const name = this.name.trim();
+    if (!name) {
+      this.say("Trag erst deinen Namen ein, damit die anderen wissen, von wem der Zug ist.");
+      return false;
+    }
+    const relay = this.relay;
+    const rule = relay ? relay.rule : this.rule;
+    const state = packState(this.store.project);
+    const last = relay?.turns[relay.turns.length - 1]?.state ?? null;
+    const touched = last === null ? ringsWithContent(state) : changedRings(last, state);
+    const names = touched.map((ring) => trackInfo(ring).name).join(", ");
+    if (last !== null && JSON.stringify(last) === JSON.stringify(state)) {
+      this.say("Du hast noch nichts verändert. Bau erst etwas, dann ist es ein Zug.");
+      return false;
+    }
+    if (rule >= 1 && last !== null && touched.length > 1) {
+      this.say(`Die Regel sagt: ein Ring pro Zug. Du hast ${touched.length} angefasst (${names}). Nimm mit Strg+Z etwas zurück.`);
+      return false;
+    }
+    if (rule === 2 && touched.length !== 1) {
+      this.say(touched.length === 0 ? "Stille Post: Bau erst deinen Ring." : `Stille Post beginnt mit einem einzigen Ring, hier spielen ${touched.length} (${names}). Fang mit einem leeren Kreisel an.`);
+      return false;
+    }
+    this.store.edit((project) => {
+      project.relay ??= { rule, open: false, turns: [] };
+      project.relay.turns.push({ name, state });
+      if (project.relay.turns.length > MAX_TURNS) project.relay.turns.shift();
+    });
+    const count = this.relay?.turns.length ?? 1;
+    const link = `${location.origin}${location.pathname}#k=${await encodeLink(this.store.project)}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      this.say(`Zug ${count} ist abgeschlossen und der Link kopiert. Schick ihn an die nächste Person.`);
+    } catch {
+      history.replaceState(null, "", link);
+      this.say(`Zug ${count} ist abgeschlossen. Der Link steht in der Adresszeile: von dort kopieren und weiterschicken.`);
+    }
+    return true;
+  }
+
+  /** Stille Post is over: everyone sees and hears everything. */
+  revealRelay(): void {
+    if (!this.relay || this.relay.open) return;
+    this.store.edit((project) => {
+      if (project.relay) project.relay.open = true;
+    });
+    this.say("Aufgedeckt! Jetzt hören alle alles.");
+  }
+
+  /** Forgets the turns; the Kreisel stays as it is. */
+  endRelay(): void {
+    if (!this.relay) return;
+    this.look(null);
+    this.store.edit((project) => { project.relay = null; });
+    this.say("Reihum ist beendet, die Züge sind vergessen.", { label: "Zurück", run: () => this.undo() });
+  }
+
+  /** Looks back at the Kreisel as it was after turn `index`, or returns to now (`null`). Nothing can be changed while looking back. */
+  look(index: number | null): void {
+    const relay = this.relay;
+    const turn = index === null ? null : relay?.turns[index];
+    if (index !== null && relay?.rule === 2 && !relay.open) {
+      this.say("Stille Post: Zurückhören geht erst nach dem Aufdecken.");
+      return;
+    }
+    if (!turn) {
+      if (this.oldTurn === null) return;
+      this.oldTurn = null;
+      this.lookBack = null;
+    } else {
+      try {
+        this.oldTurn = unpack(turn.state, true);
+      } catch {
+        return;
+      }
+      this.lookBack = index;
+      this.easel = false;
+    }
+    this.store.locked = this.oldTurn !== null;
+    this.stamp += 1;
+    this.engine.sync();
+    if (this.playing) this.engine.queueScene(this.project.scene);
+    this.notify();
+  }
+
+  /** Goes on building from an old turn: the Kreisel becomes what it was then, and the later turns are dropped. */
+  continueFrom(index: number): void {
+    const relay = this.relay;
+    const turn = relay?.turns[index];
+    if (!relay || !turn) return;
+    this.look(null);
+    let project: Project;
+    try {
+      project = unpack(turn.state, true);
+    } catch {
+      return;
+    }
+    project.relay = { rule: relay.rule, open: relay.open, turns: relay.turns.slice(0, index + 1) };
+    this.store.replace(project);
+    if (this.playing) this.engine.queueScene(project.scene);
+    this.say(`Du baust von Zug ${index + 1} weiter. Die späteren Züge sind abgezweigt.`, { label: "Zurück", run: () => this.undo() });
   }
 
   // ---- the piece ------------------------------------------------------------------
@@ -456,6 +665,7 @@ export class App implements RingHost, EaselHost {
 
   /** Opens the paint box on the ring in focus; a ring without a picture gets a first one to start from. */
   openEasel(): void {
+    if (this.refuse(this.selected)) return;
     const track = this.selected;
     const settings = trackOf(this.project, track);
     if (!settings.bild) {
@@ -537,6 +747,7 @@ export class App implements RingHost, EaselHost {
   }
 
   diceOwn(): void {
+    if (this.refuse(this.selected)) return;
     const track = this.selected;
     this.store.edit((project) => { Object.assign(trackOf(project, track), { bild: diceBild(track, this.random), sound: OWN_SOUND }); });
     this.preview(track);
@@ -568,6 +779,7 @@ export class App implements RingHost, EaselHost {
 
   /** Takes a picture from the shelf into the ring in focus. */
   useKept(index: number): void {
+    if (this.refuse(this.selected)) return;
     const bild = unpackBild(this.kept[index]?.bild);
     if (!bild) return;
     const track = this.selected;
@@ -666,6 +878,14 @@ export class App implements RingHost, EaselHost {
   /** A filled scene comes up at the next bar; an empty one becomes a copy of the one on the table. */
   pickScene(index: number): void {
     if (index < 0 || index >= SCENE_COUNT) return;
+    if (this.oldTurn) {
+      // Looking back: move through the old turn's scenes, nothing more.
+      if (!this.oldTurn.scenes[index]) return;
+      if (this.playing && !this.oldTurn.piece.on) this.engine.queueScene(index);
+      else this.oldTurn.scene = index;
+      this.notify();
+      return;
+    }
     if (!this.project.scenes[index]) {
       const from = SCENE_NAMES[this.project.scene];
       this.store.edit((project) => { project.scenes[index] = clone(currentScene(project)); });
@@ -712,7 +932,7 @@ export class App implements RingHost, EaselHost {
   }
 
   async share(): Promise<void> {
-    const link = `${location.origin}${location.pathname}#k=${await encodeLink(this.project)}`;
+    const link = `${location.origin}${location.pathname}#k=${await encodeLink(this.store.project)}`;
     try {
       await navigator.clipboard.writeText(link);
       this.say("Link kopiert. Wer ihn öffnet, bekommt eine eigene Kopie deines Kreisels.");
@@ -729,9 +949,15 @@ export class App implements RingHost, EaselHost {
     history.replaceState(null, "", `${location.pathname}${location.search}`);
     try {
       const project = await decodeLink(text);
+      this.look(null);
       this.store.backup();
       this.store.replace(project);
-      this.say("Ein geteilter Kreisel. Deiner ist nicht weg.", { label: "Zurück zu meinem", run: () => this.undo() });
+      const relay = project.relay;
+      const last = relay?.turns[relay.turns.length - 1];
+      const back = { label: "Zurück zu meinem", run: () => this.undo() };
+      if (!relay || !last) this.say("Ein geteilter Kreisel. Deiner ist nicht weg.", back);
+      else if (relay.rule === 2 && !relay.open) this.say(`Stille Post von ${last.name}: Du hörst nur den Ring davor. Bau deinen dazu und schick den Link weiter.`, back);
+      else this.say(`Reihum: ${last.name} hat Zug ${relay.turns.length} gemacht. Du bist dran.`, back);
     } catch {
       this.say("Dieser Link ließ sich nicht öffnen.");
     }
@@ -784,6 +1010,7 @@ export class App implements RingHost, EaselHost {
   /** A key of the home row: plays scale step `degree` on the ring in focus, and writes it down while live. */
   playKey(degree: number): void {
     const track = this.selected;
+    if (this.veiled(track)) return;
     const pitch = clamp(degree, PITCH_MIN, PITCH_MAX);
     const note: Step = { ...emptyStep(), on: true, pitch, len: trackInfo(track).melodic ? 2 : 1 };
     void this.engine.audition(track, note, this.chordNow());
@@ -807,6 +1034,14 @@ export class App implements RingHost, EaselHost {
   dismiss(): void {
     this.toast = null;
     this.notify();
+  }
+}
+
+function readName(): string {
+  try {
+    return (localStorage.getItem("kreisel.name") ?? "").slice(0, MAX_NAME);
+  } catch {
+    return "";
   }
 }
 
