@@ -219,7 +219,9 @@ export class ContextMenu {
           hint.textContent = row.hint;
           button.append(hint);
         }
-        button.addEventListener("click", () => {
+        button.addEventListener("click", (event) => {
+          // Pressed with the mouse or a finger, a row does not take the keyboard: the space bar still starts and stops.
+          if (event.detail > 0) button.blur();
           const keep = row.keep ?? false;
           if (!keep) this.close();
           row.run();
@@ -245,7 +247,8 @@ export class ContextMenu {
             button.setAttribute("aria-label", option.title);
           }
           button.disabled = option.disabled ?? false;
-          button.addEventListener("click", () => {
+          button.addEventListener("click", (event) => {
+            if (event.detail > 0) button.blur();
             if (option.close) this.close();
             option.run();
           });

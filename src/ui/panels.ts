@@ -134,6 +134,13 @@ export class Panels {
       const target = event.target instanceof Element ? event.target.closest("button") : null;
       if (target && event.detail > 0 && !target.closest("dialog")) target.blur();
     });
+    // The right button sends no click, so its button is let go when the button comes up: a latched effect
+    // must not keep the space bar.
+    document.addEventListener("mouseup", (event) => {
+      if (event.button !== 2) return;
+      const target = event.target instanceof Element ? event.target.closest("button") : null;
+      if (target && target === document.activeElement && !target.closest("dialog, #context")) target.blur();
+    });
     // A window that closes hands the keyboard back to the button that opened it. For someone working with the
     // mouse that button would then swallow the space bar, so it is let go again; with the Tab key in use it stays.
     let tabbing = false;

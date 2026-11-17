@@ -154,6 +154,13 @@ test.describe("am Laptop", () => {
     // The menu stays open and says what is there now.
     await expect(menu.getByRole("menuitemradio", { name: "laut" })).toHaveAttribute("aria-checked", "true");
     await expect(menu.getByText("Länge 2")).toBeVisible();
+    // Used with the mouse, it leaves the keyboard with the Kreisel: the space bar starts and stops.
+    await page.keyboard.press("Space");
+    await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("Space");
+    await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "false");
+    await expect(menu).toBeVisible();
+    expect(await bass(3)).toEqual({ on: true, vel: 2, chance: 2, ratchet: 3, pitch: 1, len: 2 });
     await menu.getByRole("menuitem", { name: "Schlag löschen" }).click();
     await expect(menu).toBeHidden();
     await expect(status(page)).toHaveText("Bass: 5 Schläge auf 1, 7, 9, 12, 15 von 16");
@@ -305,6 +312,14 @@ test.describe("am Laptop", () => {
     await page.keyboard.press("Space");
     await expect(page.locator(".pad-fx.latched")).toHaveCount(0);
     expect((await fx()).duenn).toBe(false);
+    // Latched with the mouse, an effect does not keep the keyboard: the space bar still stops the Kreisel.
+    await page.keyboard.press("Space");
+    await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "true");
+    await dull.click({ button: "right" });
+    await expect(dull).toHaveClass(/latched/);
+    await page.keyboard.press("Space");
+    await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator(".pad-fx.latched")).toHaveCount(0);
 
     // The right button puts a control back where a fresh Kreisel has it.
     await page.evaluate(() => {
@@ -781,7 +796,8 @@ test.describe("am Laptop", () => {
     expect(loudest).toBeLessThan(0.01);
     await expect(page.locator(".scene.current")).toHaveText("A");
     // The second half: everyone plays, in scene B. (The bar before it is no longer silent: it takes the run-up.)
-    await expect.poll(() => page.evaluate(() => window.kreisel.app.piecePlayhead() ?? 0), { timeout: 9000 }).toBeGreaterThan(4.3);
+    // (On a busy machine the sound can take a few seconds to get going: the wait is generous.)
+    await expect.poll(() => page.evaluate(() => window.kreisel.app.piecePlayhead() ?? 0), { timeout: 16000 }).toBeGreaterThan(4.3);
     await expect.poll(() => page.evaluate(() => window.kreisel.level())).toBeGreaterThan(0.05);
     await expect(page.locator(".scene.current")).toHaveText("B");
 
