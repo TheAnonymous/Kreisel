@@ -5,7 +5,8 @@ import { decodeLink, encodeLink, packState, unpack, unpackBild } from "./codec";
 import { framesToBild } from "./imitate";
 import { keep, loadKept, saveKept, type Kept } from "./collection";
 import { cleanBody, diceBody } from "./body";
-import { BAR, BODY_SOUND, clamp, clone, currentScene, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NAME, MAX_NOTE_LENGTH, MAX_STEPS, MAX_TURNS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Body, type Pattern, type Project, type Relay, type Step, type Track } from "./model";
+import { diceRumble, hasRumble, RUMBLE_SHAPES, rumbleShape, shakes, SHAPE_ROLL, shapeOf } from "./rumble";
+import { BAR, BODY_SOUND, clamp, clone, currentScene, emptyRumble, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NAME, MAX_NOTE_LENGTH, MAX_STEPS, MAX_TURNS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Body, type Pattern, type Project, type Relay, type Step, type Track } from "./model";
 import { chordAt } from "./music";
 import { activeSteps, clear, dice, resize, rotate, seeded, spread, transpose, vary } from "./patterns";
 import { barCount, dicePiece, moveInOrder, resizePiece, rotatePiece, smoothPiece } from "./piece";
@@ -121,6 +122,8 @@ export class App implements RingHost, EaselHost {
   private readonly pitches = [...FIRST_PITCH];
   private readonly listeners = new Set<() => void>();
   private random = seeded(Date.now() >>> 0);
+  /** The shape the Nachbeben's dice threw last. */
+  private lastShape = -1;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private notified = false;
 
@@ -372,7 +375,11 @@ export class App implements RingHost, EaselHost {
     }
     const track = this.selected;
     const note = this.note(track, step);
-    if (this.tool === "setzen" || (this.tool === "laenge" && !note.on)) {
+    if (shakes(track, this.tool)) {
+      // On the kick's ring this tool paints the Nachbeben: nothing, half, all.
+      const now = currentScene(this.project).rumble[step] ?? 0;
+      this.paintRumble(step, now === 0 ? 0.6 : now < RUMBLE_MAX ? 1 : 0, "beben-taste");
+    } else if (this.tool === "setzen" || (this.tool === "laenge" && !note.on)) {
       if (note.on && this.tool === "setzen") this.removeNote(track, step, "taste");
       else this.addNote(track, step, {}, "taste");
     } else if (this.tool === "laenge") {
@@ -388,6 +395,10 @@ export class App implements RingHost, EaselHost {
     if (this.refuse(this.selected)) return;
     const track = this.selected;
     const step = this.keyCursor;
+    if (!whole && step !== null && shakes(track, this.tool)) {
+      this.nudgeRumble(by);
+      return;
+    }
     if (!whole && step !== null && this.note(track, step).on) {
       this.setPitch(track, step, this.note(track, step).pitch + by, "tonhoehe");
     } else {
@@ -399,7 +410,15 @@ export class App implements RingHost, EaselHost {
 
   rotate(track: number, by: number): void {
     if (this.refuse(track)) return;
-    this.store.edit((project) => rotate(patternOf(project, track), by), `drehen${track}`);
+    this.store.edit((project) => {
+      const pattern = patternOf(project, track);
+      rotate(pattern, by);
+      if (track !== 0) return;
+      // The kick's ring turns with its Nachbeben.
+      const scene = currentScene(project);
+      const line = scene.rumble.slice(0, pattern.len);
+      line.forEach((value, step) => { scene.rumble[(((step + by) % pattern.len) + pattern.len) % pattern.len] = value; });
+    }, `drehen${track}`);
   }
 
   resizeRing(track: number, length: number): void {
@@ -428,8 +447,84 @@ export class App implements RingHost, EaselHost {
 
   clearRing(track: number): void {
     if (this.refuse(track)) return;
-    if (activeSteps(patternOf(this.project, track)).length === 0) return;
-    this.store.edit((project) => clear(patternOf(project, track)));
+    const shaking = track === 0 && hasRumble(currentScene(this.project));
+    if (activeSteps(patternOf(this.project, track)).length === 0 && !shaking) return;
+    this.store.edit((project) => {
+      clear(patternOf(project, track));
+      // An empty kick ring has no Nachbeben either.
+      if (track === 0) currentScene(project).rumble = emptyRumble();
+    });
+  }
+
+  // ---- the Nachbeben under the kick ---------------------------------------------------
+
+  /** Paints how much the ground shakes at a step of the kick's ring, 0..1. */
+  paintRumble(step: number, share: number, gesture: string): void {
+    if (this.refuse(0)) return;
+    if (step < 0 || step >= patternOf(this.project, 0).len) return;
+    const value = clamp(Math.round(share * RUMBLE_MAX), 0, RUMBLE_MAX);
+    if (currentScene(this.project).rumble[step] === value) return;
+    this.store.edit((project) => { currentScene(project).rumble[step] = value; }, gesture, Infinity);
+  }
+
+  /** Lays one of the usual shapes around the kicks and sets how much it rolls; −1 takes the Nachbeben away. */
+  shapeRumble(shape: number): void {
+    if (this.refuse(0)) return;
+    const kicks = activeSteps(patternOf(this.project, 0)).length;
+    this.store.edit((project) => {
+      const scene = currentScene(project);
+      scene.rumble = shape < 0 ? emptyRumble() : rumbleShape(patternOf(project, 0), shape);
+      if (shape >= 0) project.roll = SHAPE_ROLL[shape] ?? project.roll;
+    });
+    if (shape >= 0) this.rumbleHint(kicks);
+  }
+
+  /** The dice: the next of the usual shapes, a little different every time. */
+  diceRumble(): void {
+    if (this.refuse(0)) return;
+    const pattern = patternOf(this.project, 0);
+    const now = shapeOf(pattern, currentScene(this.project).rumble);
+    this.lastShape = ((now >= 0 ? now : this.lastShape) + 1) % RUMBLE_SHAPES.length;
+    const shape = this.lastShape;
+    this.store.edit((project) => {
+      currentScene(project).rumble = diceRumble(patternOf(project, 0), shape, this.random);
+      project.roll = SHAPE_ROLL[shape] ?? project.roll;
+    });
+    this.rumbleHint(activeSteps(pattern).length, `Nachbeben: ${RUMBLE_SHAPES[shape]}.`);
+  }
+
+  private rumbleHint(kicks: number, text = ""): void {
+    if (kicks === 0) this.say("Ohne Kick bebt nichts: Setz zuerst Schläge in den Kick-Ring.");
+    else if (!this.playing) this.say(`${text ? `${text} ` : ""}Starte den Kreisel, dann hörst du das Nachbeben zwischen den Kicks.`);
+    else if (text) this.say(text);
+  }
+
+  /** The Nachbeben's character: how dirty it is, how much it rolls. */
+  setRumble(change: Partial<Pick<Project, "dirt" | "roll">>, key?: string): void {
+    if (this.refuse(0)) return;
+    this.store.edit((project) => {
+      if (change.dirt !== undefined) project.dirt = clamp(change.dirt, 0, 1);
+      if (change.roll !== undefined) project.roll = clamp(change.roll, 0, 1);
+    }, key);
+  }
+
+  resetRumble(field: "dirt" | "roll"): void {
+    this.setRumble({ [field]: factoryProject()[field] });
+  }
+
+  /** Picks the kick's ring and the tool that paints its Nachbeben. */
+  paintTheRumble(): void {
+    this.select(0);
+    this.setTool("laenge");
+    this.say("Zieh einmal mit der Maus um den Kick-Ring: außen bebt es stark, innen gar nicht. Die rechte Taste radiert.");
+  }
+
+  /** The keyboard on the Nachbeben: a step up or down at the cursor. */
+  nudgeRumble(by: number): void {
+    const step = this.keyCursor;
+    if (step === null) return;
+    const now = currentScene(this.project).rumble[step] ?? 0;
+    this.paintRumble(step, clamp(now + by * 2, 0, RUMBLE_MAX) / RUMBLE_MAX, "beben-taste");
   }
 
   diceAll(): void {

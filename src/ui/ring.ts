@@ -1,5 +1,6 @@
-import { currentScene, MAX_NOTE_LENGTH, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Project, type Relay, type Step } from "../model";
+import { currentScene, MAX_NOTE_LENGTH, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Pattern, type Project, type Relay, type Step } from "../model";
 import { chordAt, chordName, pitchName } from "../music";
+import { shakes } from "../rumble";
 import { LONG_PRESS_MS, LONG_PRESS_SLACK } from "./menu";
 import { entry } from "../piece";
 import { turnColor } from "../relay";
@@ -46,6 +47,8 @@ export interface RingHost {
   openContext(target: { kind: "ring"; track: number; step: number | null } | { kind: "piece"; bar: number | null } | { kind: "chord"; slot: number } | { kind: "hub" }, x: number, y: number): void;
   /** Takes back what a gesture has done so far (a touch that turned out to be a long press). */
   cancelGesture(gesture: string): void;
+  /** Paints how much the ground shakes at a step of the kick's ring, 0..1. */
+  paintRumble(step: number, share: number, gesture: string): void;
   /** Reihum: the turns this Kreisel has been through, and the one being looked back at. */
   readonly relay: Relay | null;
   readonly lookBack: number | null;
@@ -135,6 +138,8 @@ export class RingView {
   private pieceDrag: PieceDrag | null = null;
   private dirty = true;
   private drag: Drag | null = null;
+  /** A stroke on the Nachbeben; with the right button it erases, and until it moves on it may still mean the menu. */
+  private shake: { pointer: number; last: number; erase: boolean; pending: boolean; gesture: string } | null = null;
   private press: Press | null = null;
   private gestures = 0;
   private wheelRest = 0;
@@ -365,6 +370,8 @@ export class RingView {
         context.stroke();
       }
       context.globalAlpha = 1;
+
+      if (track === 0) this.drawRumble(scene.rumble, pattern, center, band, focus, audible, playhead);
 
       // The hits.
       const tile = lerp(thickness * 0.74, Math.max(8, thickness * 0.23), focus);
@@ -817,6 +824,15 @@ export class RingView {
     } catch {
       // A pointer the browser no longer tracks: the stroke still works while it stays on the canvas.
     }
+    if (shakes(track, this.host.tool)) {
+      // On the kick's ring this tool paints the Nachbeben: how far out the pointer is says how much the ground shakes.
+      this.gestures += 1;
+      this.shake = { pointer: event.pointerId, last: step, erase: context, pending: context, gesture: `beben${this.gestures}` };
+      if (!context) this.host.paintRumble(step, this.shakeAt(x, y), this.shake.gesture);
+      this.hideTip();
+      this.dirty = true;
+      return;
+    }
     const melodic = trackInfo(track).melodic;
     const tool: Tool = context || (this.host.tool === "laenge" && !melodic) ? "setzen" : this.host.tool;
     const pattern = currentScene(this.host.project).patterns[track];
@@ -852,6 +868,72 @@ export class RingView {
     this.dirty = true;
   }
 
+  /** Where on the page a share of the Nachbeben is painted at a step of the kick's ring: for the browser tests. */
+  rumblePosition(step: number, share: number): { x: number; y: number } {
+    const { center, rings } = this.geometry();
+    const band = rings[0] ?? { inner: 0, outer: 1 };
+    const length = currentScene(this.host.project).patterns[0]?.len ?? 16;
+    const angle = TOP + ((step + 0.5) / length) * TAU;
+    const radius = band.inner + (0.12 + 0.76 * share) * (band.outer - band.inner);
+    const box = this.canvas.getBoundingClientRect();
+    const scale = box.width / Math.max(1, this.size);
+    return { x: box.left + (center + Math.cos(angle) * radius) * scale, y: box.top + (center + Math.sin(angle) * radius) * scale };
+  }
+
+  /** How much Nachbeben a point of the kick's ring means: nothing at its inner edge, all of it at the outer one. */
+  private shakeAt(x: number, y: number): number {
+    const { center, rings } = this.geometry();
+    const band = rings[0] ?? { inner: 0, outer: 1 };
+    const share = (Math.hypot(x - center, y - center) - band.inner) / Math.max(1, band.outer - band.inner);
+    return Math.max(0, Math.min(1, (share - 0.12) / 0.76));
+  }
+
+  /** The Nachbeben: a dark mass at the inner edge of the kick's ring, as high as the ground shakes, pushed down by every kick. */
+  private drawRumble(line: readonly number[], pattern: Pattern, center: number, band: { inner: number; outer: number }, focus: number, audible: boolean, playhead: number | null): void {
+    const length = pattern.len;
+    if (!line.slice(0, length).some((value) => value > 0)) return;
+    const context = this.context;
+    const reach = (band.outer - band.inner) * lerp(0.62, 0.86, focus);
+    const cell = TAU / length;
+    const at = playhead === null ? -1 : playhead % length;
+    const now = performance.now() / 1000;
+    const parts = 4;
+    context.beginPath();
+    for (let index = 0; index <= length * parts; index += 1) {
+      const place = index / parts;
+      const step = Math.floor(place) % length;
+      const within = place - Math.floor(place);
+      // The line runs from the middle of one step to the middle of the next.
+      const here = line[step] ?? 0;
+      const beside = (within < 0.5 ? line[(step - 1 + length) % length] : line[(step + 1) % length]) ?? 0;
+      const lean = Math.abs(within - 0.5);
+      let share = (here * (1 - lean) + beside * lean) / RUMBLE_MAX;
+      // A kick pushes it away and lets it come back within its step.
+      if (stepAt(pattern, step).on) share *= 0.08 + 0.92 * within ** 1.5;
+      let height = share * reach;
+      if (at >= 0 && share > 0) {
+        // Where the Kreisel is right now, the ground is seen to shake.
+        let away = Math.abs(place - at);
+        away = Math.min(away, length - away);
+        if (away < 1.6 && !this.calm.matches) height += Math.sin(now * 46 + index * 1.7) * 1.8 * (1 - away / 1.6) * Math.min(1, share * 2);
+      }
+      const angle = TOP + place * cell;
+      const radius = band.inner + Math.max(0, height);
+      if (index === 0) context.moveTo(center + Math.cos(angle) * radius, center + Math.sin(angle) * radius);
+      else context.lineTo(center + Math.cos(angle) * radius, center + Math.sin(angle) * radius);
+    }
+    context.strokeStyle = this.palette.ink;
+    context.fillStyle = this.palette.ink;
+    context.lineWidth = 1.5;
+    context.globalAlpha = audible ? 0.75 : 0.3;
+    context.stroke();
+    context.arc(center, center, band.inner, TOP + TAU, TOP, true);
+    context.closePath();
+    context.globalAlpha = audible ? 0.38 : 0.15;
+    context.fill();
+    context.globalAlpha = 1;
+  }
+
   /** Starts waiting for a finger to rest long enough to mean "what can I do here?". */
   private arm(event: PointerEvent, spot: Spot & { kind: "ring" | "piece" }): void {
     const target = spot.kind === "ring" ? { kind: "ring" as const, track: spot.track, step: spot.step } : { kind: "piece" as const, bar: spot.bar };
@@ -876,6 +958,10 @@ export class RingView {
       this.host.cancelGesture(this.pieceDrag.gesture);
       this.pieceDrag = null;
     }
+    if (this.shake?.pointer === press.pointer) {
+      this.host.cancelGesture(this.shake.gesture);
+      this.shake = null;
+    }
     this.host.endGesture();
     this.dirty = true;
     if (press.target.kind === "ring" && this.host.veiled(press.target.track)) return;
@@ -893,6 +979,31 @@ export class RingView {
       const distance = Math.hypot(x - center, y - center);
       const height = Math.max(0, Math.min(1, (distance - piece.base) / Math.max(1, piece.outer - piece.base)));
       this.paintPiece(stroke, { bar: Math.min(count - 1, Math.floor(this.turn(x, y) * count)), height });
+      this.dirty = true;
+      return;
+    }
+    const shake = this.shake;
+    if (shake && shake.pointer === event.pointerId) {
+      // The stroke stays on the kick's ring wherever the pointer wanders: the angle says which step, the distance how much.
+      const length = currentScene(this.host.project).patterns[0]?.len ?? 16;
+      const step = this.stepOf(0, x, y);
+      if (shake.pending) {
+        // The right button stays where it is: the menu is still to come. Pulled on to another step, it erases.
+        if (step === shake.last) return;
+        shake.pending = false;
+        this.host.paintRumble(shake.last, 0, shake.gesture);
+      }
+      const share = shake.erase ? 0 : this.shakeAt(x, y);
+      let delta = step - shake.last;
+      if (delta > length / 2) delta -= length;
+      if (delta < -length / 2) delta += length;
+      const direction = Math.sign(delta);
+      for (let walked = 0; walked !== delta; walked += direction) {
+        this.host.paintRumble((((shake.last + walked + direction) % length) + length) % length, share, shake.gesture);
+      }
+      // Pulled in or out within a step, the step follows.
+      if (delta === 0) this.host.paintRumble(step, share, shake.gesture);
+      shake.last = step;
       this.dirty = true;
       return;
     }
@@ -960,6 +1071,15 @@ export class RingView {
       this.dirty = true;
       return;
     }
+    if (this.shake?.pointer === event.pointerId) {
+      const shake = this.shake;
+      this.shake = null;
+      this.host.endGesture();
+      this.dirty = true;
+      // The right button let go where it came down: the menu, as on any ring.
+      if (shake.pending && event.type === "pointerup") this.host.openContext({ kind: "ring", track: 0, step: shake.last }, event.clientX, event.clientY);
+      return;
+    }
     const drag = this.drag;
     if (!drag || drag.pointer !== event.pointerId) return;
     // A plain click on a hit takes it away again.
@@ -1021,7 +1141,9 @@ export class RingView {
       const note = pattern ? stepAt(pattern, spot.step) : null;
       const info = trackInfo(spot.track);
       text = this.host.veiled(spot.track) ? `${info.name} · verdeckt (Stille Post)` : `${info.name} · Schritt ${spot.step + 1}`;
-      if (note?.on && !this.host.veiled(spot.track)) text += ` · ${pitchName(project, spot.track, note.pitch, chordAt(scene, this.host.playhead() ?? 0))}`;
+      if (shakes(spot.track, this.host.tool) && !this.host.veiled(spot.track)) {
+        text = `Nachbeben · Schritt ${spot.step + 1} · ${Math.round(((scene.rumble[spot.step] ?? 0) / RUMBLE_MAX) * 100)} % · ziehen malt (außen stark), die rechte Taste radiert`;
+      } else if (note?.on && !this.host.veiled(spot.track)) text += ` · ${pitchName(project, spot.track, note.pitch, chordAt(scene, this.host.playhead() ?? 0))}`;
     }
     this.tip.textContent = text;
     this.tip.hidden = false;

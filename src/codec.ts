@@ -1,5 +1,6 @@
 import { cleanBody } from "./body";
-import { BODY_SOUND, clamp, emptyStep, HEIGHT_MAX, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Body, type Pattern, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
+import { cleanRumble } from "./rumble";
+import { BODY_SOUND, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Body, type Pattern, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { soundPiece } from "./piece";
 import { cleanName } from "./relay";
@@ -106,6 +107,12 @@ export function unpackPiece(value: unknown, fallbackScene: number): Piece {
   return soundPiece(on === 1, Array.from(bytes, (byte) => byte & 31), Array.from(bytes, (byte) => byte >> 5), typeof order === "string" ? Array.from(order, Number) : [], fallbackScene);
 }
 
+interface PackedScene {
+  h: number[];
+  p: number[][];
+  q?: string;
+}
+
 interface Packed {
   v: 1;
   b: number;
@@ -115,7 +122,9 @@ interface Packed {
   p: number;
   o: number;
   t: (number | string)[][];
-  c: ({ h: number[]; p: number[][] } | 0)[];
+  c: (PackedScene | 0)[];
+  /** The Nachbeben's character: dirt and roll, in hundredths. */
+  w?: [number, number];
   i: number;
   k: number;
   n: number;
@@ -145,7 +154,7 @@ export function packState(project: Project): Packed {
     }),
     c: project.scenes.map((scene) => {
       if (!scene) return 0;
-      return {
+      const packed: PackedScene = {
         h: scene.chords,
         p: scene.patterns.map((pattern) => {
           const steps = pattern.steps.map(packStep);
@@ -153,7 +162,12 @@ export function packState(project: Project): Packed {
           return [pattern.len, ...steps];
         }),
       };
+      // The Nachbeben: one hex digit a step, without the still steps at the end; left out where nothing shakes.
+      const line = scene.rumble.map((value) => value.toString(16)).join("").replace(/0+$/, "");
+      if (line) packed.q = line;
+      return packed;
     }),
+    w: [Math.round(project.dirt * 100), Math.round(project.roll * 100)],
     i: project.scene,
     k: project.chain ? 1 : 0,
     n: project.repeats,
@@ -195,14 +209,21 @@ function unpackPattern(value: unknown): Pattern {
   return { len: integer(list[0], MIN_STEPS, MAX_STEPS, 16), steps };
 }
 
+/** The Nachbeben's line from its hex digits; anything else shakes nowhere. */
+export function unpackRumble(value: unknown): number[] {
+  if (typeof value !== "string" || !/^[0-9a-f]{1,32}$/.test(value)) return emptyRumble();
+  return cleanRumble([...value].map((digit) => Number.parseInt(digit, 16)));
+}
+
 function unpackScene(value: unknown): Scene | null {
   if (typeof value !== "object" || value === null) return null;
-  const { h, p } = value as { h?: unknown; p?: unknown };
+  const { h, p, q } = value as { h?: unknown; p?: unknown; q?: unknown };
   const chords = (Array.isArray(h) ? h : []).slice(0, MAX_CHORDS).map((chord) => integer(chord, 0, 6, 0));
   const patterns = Array.isArray(p) ? p : [];
   return {
     chords: chords.length > 0 ? chords : [0],
     patterns: Array.from({ length: TRACK_COUNT }, (_, index) => unpackPattern(patterns[index])),
+    rumble: unpackRumble(q),
   };
 }
 
@@ -257,6 +278,8 @@ export function unpack(value: unknown, inTurn = false): Project {
     root: integer(data.r, 0, 11, 9),
     scale: SCALE_IDS.includes(data.m as ScaleId) ? (data.m as ScaleId) : "moll",
     pump: number(data.p, 0, 1, 0.3),
+    dirt: Array.isArray(data.w) ? number(Number(data.w[0]) / 100, 0, 1, 0.35) : 0.35,
+    roll: Array.isArray(data.w) ? number(Number(data.w[1]) / 100, 0, 1, 0.2) : 0.2,
     volume: number(data.o, 0, 1, 0.8),
     tracks: Array.from({ length: TRACK_COUNT }, (_, index) => unpackTrack(tracks[index])),
     scenes,

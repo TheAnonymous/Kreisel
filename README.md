@@ -164,6 +164,40 @@ material how each dies. The sound is worked out once as samples and kept per
 half octave (`src/audio/body.ts`); a ring has one body, so a new hit takes
 over from the one still ringing. A body is six small numbers in the link.
 
+## Part six: Nachbeben
+
+The rumble under the kick, as hard techno and acid techno have it. The usual
+way to build one is a chain: reverb, equaliser, distortion, sidechain. Here
+it is one line painted into the kick's ring.
+
+- **It comes from your kick.** Every kick, whatever its sound, also goes down
+  into a cellar: a long dark room and a row of echoes a sixteenth apart. What
+  comes back is the rumble, so it always suits the kick it came from.
+- **You paint where the ground shakes.** On the kick's ring the tool that
+  holds notes elsewhere (a drum has none to hold) paints the Nachbeben: one
+  stroke around the ring, far out is a lot, the inner edge is nothing; the
+  right button erases. It is drawn as a dark mass in the ring that trembles
+  where the Kreisel is.
+- **The kick punches through by itself.** Every kick pushes the Nachbeben
+  away for a moment (starting a few milliseconds early), so the kick is
+  always heard alone and the pumping comes for free.
+- **In key.** The loudness of what comes back from the cellar moves a deep
+  tone with it: the root of the bar's chord, brought down to between 38 and
+  76 Hz, with its octave for small speakers. Bar by bar the ground shakes at
+  the pitch of the chord, like a sub bass line the kick plays by itself.
+- **Character.** "Dreck" drives it from deep and clean into a growl,
+  "Rollen" breaks the swell into sixteenths. Dice lay the usual shapes
+  around the kicks that are there: off-beat swell, rolling, tail.
+
+The line is a number from 0 to 15 for each step of the kick's ring, kept
+with the scene (one hex digit a step in the link); the character is two
+numbers for the whole Kreisel. The shapes and the pitch are plain arithmetic
+(`src/rumble.ts`), the sound is a small graph of its own beside the rings'
+buses (`src/audio/rumble.ts`): convolver, echoes, an envelope follower made
+from a wave shaper and two slow filters that drives two sine oscillators, a
+shaper for the growl, and three gains for the line, the roll and the kick's
+push. It is the same live and in the saved file.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the

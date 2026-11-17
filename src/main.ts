@@ -75,6 +75,8 @@ declare global {
       /** Where a place on the body on the workbench is on the page (0 its middle, 1 its edge), and where its two grips are. */
       knock(where: number): { x: number; y: number };
       grip(what: "size" | "tight"): { x: number; y: number };
+      /** Where on the page a share (0..1) of the Nachbeben is painted at a step of the kick's ring. */
+      quake(step: number, share: number): { x: number; y: number };
     };
   }
 }
@@ -89,4 +91,5 @@ window.kreisel = {
   slot: (slot) => ring.slotPosition(slot),
   knock: (where) => bench.position(where),
   grip: (what) => bench.grip(what),
+  quake: (step, share) => ring.rumblePosition(step, share),
 };

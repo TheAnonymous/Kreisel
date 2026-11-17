@@ -35,6 +35,17 @@ const patternsOf = (state: unknown, ring: number): (string | null)[] => {
   });
 };
 
+/** The Nachbeben in every scene of a packed state (it belongs to the kick's ring), and its character. */
+const rumblesOf = (state: unknown): (string | null)[] => {
+  const scenes = (state as PackedLike | null)?.c;
+  return (Array.isArray(scenes) ? scenes : []).map((scene) => {
+    if (typeof scene !== "object" || scene === null) return null;
+    const line = (scene as { q?: unknown }).q;
+    return typeof line === "string" ? line : "";
+  });
+};
+const characterOf = (state: unknown): string => JSON.stringify((state as { w?: unknown } | null)?.w ?? null);
+
 /** Whether a packed pattern ([length, step, step …]) has a hit. */
 const hasHits = (pattern: string | null): boolean => {
   if (pattern === null) return false;
@@ -65,7 +76,13 @@ export function changedRings(before: unknown, after: unknown): number[] {
       const was = old[scene] ?? null;
       return was === null ? !known.has(pattern) && hasHits(pattern) : was !== pattern;
     });
-    if (settings || patterns) changed.push(ring);
+    // The kick's ring also has its Nachbeben: a line in every scene (a copied scene's is not new) and a character.
+    const shakes = ring === 0 && (characterOf(before) !== characterOf(after) || rumblesOf(after).some((line, scene) => {
+      if (line === null) return false;
+      const was = rumblesOf(before)[scene] ?? null;
+      return was === null ? line !== "" && !rumblesOf(before).includes(line) : was !== line;
+    }));
+    if (settings || patterns || shakes) changed.push(ring);
   }
   return changed;
 }

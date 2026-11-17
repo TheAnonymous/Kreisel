@@ -2,6 +2,7 @@ import type { App, ContextTarget } from "../app";
 import { BODY_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, trackInfo, trackOf } from "../model";
 import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
+import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
 import { barCount } from "../piece";
 import type { MenuRow, MenuSpec } from "./menu";
 
@@ -103,6 +104,16 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
         { label: "Bauen …", title: "Den Klangkörper dieses Rings bauen", close: true, run: () => { app.select(track); app.openBench(); } },
       ],
     },
+    ...(track === 0
+      ? [{
+          kind: "choice" as const,
+          label: "Nachbeben",
+          options: [
+            ...RUMBLE_SHAPES.map((label, shape) => ({ label, active: shapeOf(pattern, currentScene(project).rumble) === shape, title: `Nachbeben in der Form „${label}“ um die Kicks legen`, run: () => app.shapeRumble(shape) })),
+            { label: "Aus", active: !hasRumble(currentScene(project), pattern.len), title: "Das Nachbeben wegnehmen", run: () => app.shapeRumble(-1) },
+          ],
+        }]
+      : []),
     {
       kind: "choice",
       label: "Hören",

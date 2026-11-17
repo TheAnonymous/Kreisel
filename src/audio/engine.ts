@@ -25,6 +25,7 @@ import { seeded, type Random } from "../patterns";
 import { barCount, dropsQuiet, gateLevel, planBar, type BarPlan } from "../piece";
 import { playBild } from "./bild";
 import { playBody } from "./body";
+import { buildRumble, hitRumble, shadeRumble, stepRumble, stillRumble, type Rumble } from "./rumble";
 import { soundFile, type SoundFile } from "./opus";
 import { glides, playHit } from "./sounds";
 
@@ -52,6 +53,8 @@ export interface Graph {
   lowpass: BiquadFilterNode;
   highpass: BiquadFilterNode;
   analyser: AnalyserNode | null;
+  /** The Nachbeben under the kick. */
+  rumble: Rumble;
 }
 
 /** Evens out how loud the rings are at the same level setting. */
@@ -71,9 +74,12 @@ export function buildGraph(context: BaseAudioContext): Graph {
   const throwSend = kit.gain(0);
   mix.connect(throwSend).connect(echo.input);
   const buses = TRACK_KINDS.map(() => createBus(context, { level: 0, to: mix, sends: { hall: hall.input, echo: echo.input } }));
-  const inlets = buses.map((bus) => {
+  const rumble = buildRumble(kit, mix);
+  const inlets = buses.map((bus, index) => {
     const inlet = kit.gain(1);
     inlet.connect(bus.input);
+    // The kick also goes down into the cellar.
+    if (index === 0) inlet.connect(rumble.input);
     return inlet;
   });
   let analyser: AnalyserNode | null = null;
@@ -82,7 +88,7 @@ export function buildGraph(context: BaseAudioContext): Graph {
     analyser.fftSize = 1024;
     master.output.connect(analyser);
   }
-  return { context, kit, master, mix, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser };
+  return { context, kit, master, mix, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, rumble };
 }
 
 export const stepSeconds = (project: Project): number => 15 / project.bpm;
@@ -97,6 +103,9 @@ export function applyMix(graph: Graph, project: Project, audible: (track: number
     bus.sends.hall.gain.setTargetAtTime(track.hall, time, glideTime);
     bus.sends.echo.gain.setTargetAtTime(track.echo, time, glideTime);
   });
+  // The Nachbeben is as loud as the kick's ring is set, and silent with it.
+  const kick = project.tracks[0];
+  shadeRumble(graph.rumble, project.dirt, project.roll, kick && audible(0) ? kick.level ** 1.5 * (TRIM[0] ?? 1) : 0, time, glideTime);
   // A dotted eighth: the echo answers between the beats.
   const echoTime = Math.min(1.9, 3 * stepSeconds(project));
   graph.echo.left.delayTime.setTargetAtTime(echoTime, time, 0.05);
@@ -112,8 +121,10 @@ function hush(graph: Graph, time: number): void {
     const inlet = graph.kit.gain(1);
     const bus = graph.buses[index];
     if (bus) inlet.connect(bus.input);
+    if (index === 0) inlet.connect(graph.rumble.input);
     return inlet;
   });
+  stillRumble(graph.rumble, time);
 }
 
 /**
@@ -364,7 +375,13 @@ export class Player {
       if (gate <= 0 || (this.plan && step.vel === 0 && dropsQuiet(gate))) continue;
       fired |= 1 << track;
       this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1);
+      if (track === 0) hitRumble(this.graph.rumble, time, duration);
     }
+    // The Nachbeben: as much as the line in the kick's ring lets out at this step, at the pitch of the bar's chord.
+    // It is the kick's: silent where the kick is (muted, paused, not yet in the piece).
+    const kicks = scene.patterns[0];
+    const shaking = kicks && this.audible(0) && !this.pause && (!this.plan || (this.plan.gates[0] ?? 0) > 0);
+    stepRumble(this.graph.rumble, shaking ? (scene.rumble[position % kicks.len] ?? 0) : 0, midiToHz(bassMidi(project, chord, 0)), time, duration);
     const bar = this.plan ? this.barNow + (this.pieceSteps % BAR) / BAR : null;
     this.report({ position, local: this.local, scene: this.scene, chord, fired, time, duration, bar });
     this.local += 1;

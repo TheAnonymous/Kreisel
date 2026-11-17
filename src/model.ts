@@ -107,10 +107,15 @@ export interface Track {
   body: Body | null;
 }
 
+/** The most the ground shakes at one step of the Nachbeben. */
+export const RUMBLE_MAX = 15;
+
 export interface Scene {
   patterns: Pattern[];
   /** One chord per bar, as a degree of the scale (0 = tonic). */
   chords: number[];
+  /** The Nachbeben: how much the ground shakes at each step of the kick's ring, 0..RUMBLE_MAX (always MAX_STEPS of them). */
+  rumble: number[];
 }
 
 export const MIN_BARS = 4;
@@ -167,6 +172,9 @@ export interface Project {
   scale: ScaleId;
   /** How much the kick pushes bass, chords and melody down, 0..1. */
   pump: number;
+  /** The Nachbeben's character, both 0..1: from deep and clean to dirty, from one smooth swell to rolling sixteenths. */
+  dirt: number;
+  roll: number;
   volume: number;
   tracks: Track[];
   scenes: (Scene | null)[];
@@ -217,8 +225,12 @@ export function emptyPattern(len = 16): Pattern {
   return { len, steps: Array.from({ length: MAX_STEPS }, emptyStep) };
 }
 
+export function emptyRumble(): number[] {
+  return Array.from({ length: MAX_STEPS }, () => 0);
+}
+
 export function emptyScene(): Scene {
-  return { patterns: Array.from({ length: TRACK_COUNT }, () => emptyPattern()), chords: [0, 5, 2, 6] };
+  return { patterns: Array.from({ length: TRACK_COUNT }, () => emptyPattern()), chords: [0, 5, 2, 6], rumble: emptyRumble() };
 }
 
 export function clone<T>(value: T): T {
@@ -257,6 +269,7 @@ export function firstPiece(scene = 0): Piece {
 /** The groove a first visit starts with: A minor, four chords, one ring of twelve against the sixteens. */
 export function factoryProject(): Project {
   const scene: Scene = {
+    rumble: emptyRumble(),
     chords: [0, 5, 2, 6],
     patterns: [
       pattern(16, [[0, 0, 1, 2], 4, [8, 0, 1, 2], 12]),
@@ -275,6 +288,8 @@ export function factoryProject(): Project {
     root: 9,
     scale: "moll",
     pump: 0.3,
+    dirt: 0.35,
+    roll: 0.2,
     volume: 0.8,
     tracks: [
       { sound: 0, x: 0.5, y: 0.5, level: 0.85, hall: 0, echo: 0, mute: false, bild: null, body: null },

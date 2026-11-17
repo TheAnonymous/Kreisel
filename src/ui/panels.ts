@@ -2,6 +2,7 @@ import { BRUSH_TOOLS, FX, MALLETS, TOOLS, type App } from "../app";
 import type { FxName } from "../audio/engine";
 import { describeBild } from "../bild";
 import { BODY_NAMES, describeBody, materialName, TIGHT_NAMES } from "../body";
+import { describeRumble, hasRumble } from "../rumble";
 import { packBild, unpackBild } from "../codec";
 import { BODY_SOUND, clamp, currentScene, MAX_BARS, MAX_CHORDS, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, SCENE_COUNT, SCENE_NAMES, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
 import { chordName, chordRoman, NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
@@ -114,6 +115,7 @@ export class Panels {
   private readonly malletButtons: HTMLButtonElement[] = [];
   private readonly kindButtons: HTMLButtonElement[] = [];
   private readonly shape = { size: el("input"), tight: el("input"), material: el("input"), tightName: el("span", "label"), materialName: el("span", "label") };
+  private readonly quake = el("div", "group quake");
   private readonly sizeDots = el("span", "dots");
   private thumbSignature = "";
   private shelfSignature = "noch nicht gebaut";
@@ -608,6 +610,36 @@ export class Panels {
     spread.append(el("span", "label", "Verteilen"), parts.spread, parts.spreadValue);
     ringGroup.append(steps, turn, spread);
 
+    // The kick's ring has its Nachbeben: painted into the ring, with a character of its own.
+    const quake = this.quake;
+    const shaking = el("div", "line");
+    const paintIt = button("button small", "Malen", "Das Nachbeben in den Kick-Ring malen: außen bebt es stark, innen gar nicht (Werkzeug Beben)");
+    paintIt.id = "rumble-paint";
+    paintIt.addEventListener("click", () => app.paintTheRumble());
+    const throwIt = button("button small", "Würfeln", "Eine der üblichen Formen um die Kicks legen: Offbeat, rollend, Schweif");
+    throwIt.id = "rumble-dice";
+    throwIt.addEventListener("click", () => app.diceRumble());
+    const still = button("button small", "Aus", "Das Nachbeben wegnehmen");
+    still.id = "rumble-off";
+    still.addEventListener("click", () => app.shapeRumble(-1));
+    shaking.append(el("span", "label", "Nachbeben"), paintIt, throwIt, still);
+    const character = el("div", "line pair");
+    const characterSlider = (label: string, field: "dirt" | "roll", title: string): void => {
+      const half = el("label", "half");
+      const input = el("input");
+      input.type = "range";
+      input.min = "0";
+      input.max = "100";
+      input.id = `rumble-${field}`;
+      input.title = title;
+      this.slider(input, () => app.project[field], (value) => app.setRumble({ [field]: value }, field), () => app.resetRumble(field));
+      half.append(el("span", "label", label), input);
+      character.append(half);
+    };
+    characterSlider("Dreck", "dirt", "Von tief und sauber bis verzerrt und dreckig");
+    characterSlider("Rollen", "roll", "Von einem einzigen Schwellen bis zu rollenden Sechzehnteln");
+    quake.append(shaking, character);
+
     const mix = el("div", "group");
     const mixSlider = (label: string, field: "level" | "hall" | "echo"): void => {
       const line = el("label", "line");
@@ -623,7 +655,7 @@ export class Panels {
     mixSlider("Hall", "hall");
     mixSlider("Echo", "echo");
 
-    this.ringBox.append(head, parts.info, doing, sounds, own, built, pad, ringGroup, mix);
+    this.ringBox.append(head, parts.info, doing, sounds, own, built, pad, ringGroup, quake, mix);
     this.veilBox.append(
       el("header", "panel-head"),
       el("p", "veil-text", "Stille Post: Dieser Ring ist verdeckt. Jemand hat hier schon gebaut, aber du hörst und siehst nur den Ring der Person vor dir. Bau deinen eigenen dazu: Nimm einen Ring, der noch leer ist. Wenn alle fertig sind, deckt ihr im Reihum-Fenster auf."),
@@ -841,7 +873,7 @@ export class Panels {
       ["Leertaste", "Start und Stopp"],
       ["Menütaste", "das Menü für den Ring und den Schritt am Zeiger (auch Umschalt+F10)"],
       ["1 bis 7", "Ring wählen · mit Umschalt stumm"],
-      [`${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")}`, "Werkzeug: Setzen, Betonen, Zufall, Wirbel, Länge"],
+      [`${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")}`, "Werkzeug: Setzen, Betonen, Zufall, Wirbel, Länge (am Kick-Ring: Beben)"],
       [`${key("KeyA")} bis ${key("KeyK")}`, "den Ring von Hand spielen (acht Stufen)"],
       [key("KeyL"), "Einspielen: Gespieltes landet im Ring"],
       [`${key("KeyZ")} ${key("KeyX")} ${key("KeyC")} ${key("KeyV")} ${key("KeyB")} halten`, "Effekte: Dumpf, Dünn, Stotter, Echo, Pause · mit Umschalt rasten sie ein"],
@@ -937,8 +969,17 @@ export class Panels {
 
     for (const [tool, node] of this.toolButtons) {
       node.setAttribute("aria-checked", String(tool === app.tool));
-      node.disabled = tool === "laenge" && !info.melodic;
+      node.disabled = tool === "laenge" && !info.melodic && selected !== 0;
     }
+    // A drum has no notes to hold: on the kick's ring that tool paints the Nachbeben instead.
+    const hold = this.toolButtons.get("laenge");
+    if (hold && hold.dataset.shake !== String(selected === 0)) {
+      hold.dataset.shake = String(selected === 0);
+      hold.querySelector(".name")!.textContent = selected === 0 ? "Beben" : "Länge";
+      hold.querySelector("path")?.setAttribute("d", selected === 0 ? "M2 12h3l2-7 3 14 3-10 2 6 1.5-3H22" : "M4 12h16M4 8v8M20 8v8");
+      hold.title = selected === 0 ? "Am Kick-Ring entlang ziehen malt das Nachbeben: außen stark, innen nichts; die rechte Taste radiert" : "Am Ring entlang ziehen hält den Ton länger";
+    }
+    this.quake.hidden = selected !== 0;
     this.syncEasel();
     byId("live").setAttribute("aria-pressed", String(app.live));
     for (const [fx, node] of this.fxButtons) {
@@ -975,7 +1016,8 @@ export class Panels {
       ? `Stück: ${describePiece(project.piece, project.bpm)}${project.piece.on ? "" : " (aus)"}`
       : app.veiled(selected) ? `${info.name}: verdeckt (Stille Post)`
       : app.easel ? `Klangmalerei ${info.name}: ${describeBild(settings.bild)}`
-      : app.bench ? `Klangkörper ${info.name}: ${describeBody(settings.body)}` : `${info.name}: ${describe(pattern)}`;
+      : app.bench ? `Klangkörper ${info.name}: ${describeBody(settings.body)}`
+      : `${info.name}: ${describe(pattern)}${selected === 0 && hasRumble(currentScene(project), pattern.len) ? ` · ${describeRumble(currentScene(project), pattern)}` : ""}`;
     this.syncChordMenu();
     this.syncToast();
     this.ring.invalidate();
