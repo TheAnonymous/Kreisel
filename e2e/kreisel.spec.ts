@@ -1012,8 +1012,9 @@ test.describe("am Laptop", () => {
     await expect.poll(() => page.evaluate(() => Math.floor(window.kreisel.app.piecePlayhead() ?? 9)), { timeout: 4000 }).toBe(0);
     // Switched off while it plays, the Kreisel goes back to its loop and is heard at once.
     await page.locator(".piece-toggle").click();
+    // (The loop takes over at the next step; what is heard a moment before may still be the piece ringing out.)
+    await expect.poll(() => page.evaluate(() => window.kreisel.app.piecePlayhead()), { timeout: 6000 }).toBeNull();
     await expect.poll(() => page.evaluate(() => window.kreisel.level()), { timeout: 6000 }).toBeGreaterThan(0.05);
-    expect(await page.evaluate(() => window.kreisel.app.piecePlayhead())).toBeNull();
     await page.keyboard.press("Space");
     expect(problems).toEqual([]);
   });
