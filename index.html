@@ -47,7 +47,7 @@
             <div id="menu" class="menu" hidden>
               <label class="field slide"><span>Lautstärke</span><input id="volume" type="range" min="0" max="100" step="1"></label>
               <button type="button" data-do="relay">Reihum: von Hand zu Hand</button>
-              <button type="button" data-do="wav">Als WAV speichern</button>
+              <button type="button" data-do="save">Als Opus speichern</button>
               <button type="button" data-do="clear-scene">Diese Szene leeren</button>
               <button type="button" data-do="empty">Leerer Kreisel</button>
               <button type="button" data-do="factory">Werks-Kreisel laden</button>
@@ -73,6 +73,7 @@
         <section class="wheel" aria-label="Kreisel">
           <div id="tools" class="tools" role="radiogroup" aria-label="Werkzeug"></div>
           <div id="brushes" class="tools" role="radiogroup" aria-label="Pinsel" hidden></div>
+          <div id="mallets" class="tools" role="radiogroup" aria-label="Womit der Körper angeregt wird" hidden></div>
           <div class="stage" id="stage">
             <canvas id="kreisel" tabindex="0" role="application" aria-label="Der Kreisel: sieben Ringe aus Schritten. Pfeiltasten bewegen den Zeiger, Eingabe setzt einen Schlag." aria-describedby="status"></canvas>
             <div id="tip" class="tip" hidden></div>
@@ -101,6 +102,23 @@
                 </div>
                 <p class="easel-hint">Links fängt der Klang an, oben ist hoch. Wo du ansetzt, ist der Strich am lautesten, dann geht dem Pinsel die Farbe aus. Von rechts nach links gemalt schwillt er an.</p>
                 <div id="shelf" class="shelf" aria-label="Regal: gemerkte Klänge"></div>
+              </div>
+            </div>
+            <div id="bench" class="easel bench" hidden>
+              <div class="easel-card" role="dialog" aria-labelledby="bench-title">
+                <header class="easel-head">
+                  <span class="dot"></span>
+                  <h2 id="bench-title">Klangkörper</h2>
+                  <span class="spacer"></span>
+                  <button id="bench-dice" class="button small" type="button" title="Einen neuen Körper für diesen Ring würfeln (N)">Würfeln</button>
+                  <button id="bench-done" class="button small done" type="button" title="Zurück zum Kreisel (Esc)">Fertig</button>
+                </header>
+                <div id="bench-kinds" class="bench-kinds" role="group" aria-label="Was für ein Körper"></div>
+                <div class="bench-stage">
+                  <canvas id="koerper" tabindex="0" aria-label="Der Klangkörper. Ein Klick klopft ihn an: Wo du triffst, schlägt ihn auch der Ring an. Pfeil links und rechts verschieben die Stelle, Eingabe klopft." aria-describedby="status"></canvas>
+                </div>
+                <div id="bench-shape" class="bench-shape"></div>
+                <p class="easel-hint">Klopf auf den Körper: Wo du triffst, klingt er anders, und dort schlägt ihn auch der Ring an. Der rechte Griff macht ihn größer, der linke spannt ihn. Links wählst du, womit er angeregt wird.</p>
               </div>
             </div>
             <div id="coach" class="coach" hidden>
@@ -178,6 +196,11 @@
               <h3>Eigene Klänge malen</h3>
               <p>„Malen“ im Feld des Rings öffnet den Malkasten. Das Bild ist der Klang: Links fängt er an, oben ist hoch. Jeder Strich ist ein Ton, am lautesten dort, wo du ansetzt; von rechts nach links gemalt schwillt er an. Summen ist weich, Sägen scharf, Zischen ist Rauschen.</p>
               <p>Bei Bass, Akkorden und Melodie bleiben Striche auf den Linien in der Stimmung. „Ton halten“ lässt lange Noten an der Linie stehen. Der Kreisel läuft beim Malen weiter.</p>
+            </section>
+            <section>
+              <h3>Klangkörper bauen</h3>
+              <p>„Bauen“ im Feld des Rings öffnet die Werkbank. Dort steht ein Ding, das klingt: ein Fell, eine Saite, ein Stab, ein Rohr oder eine Schale. Klopf darauf: In der Mitte klingt es anders als am Rand, und wo du zuletzt getroffen hast, schlägt es auch der Ring an.</p>
+              <p>Groß klingt tief und lang, straff hell und kurz. Holz verklingt schnell, Metall und Glas klingen nach. Schlägel, Zupfen, Streichen und Blasen wählst du links; gestrichen und geblasen klingt ein Körper so lange, wie die Note dauert.</p>
             </section>
             <section>
               <h3>Tasten</h3>

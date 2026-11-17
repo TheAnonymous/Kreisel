@@ -1,12 +1,14 @@
-import { BRUSH_TOOLS, FX, TOOLS, type App } from "../app";
+import { BRUSH_TOOLS, FX, MALLETS, TOOLS, type App } from "../app";
 import type { FxName } from "../audio/engine";
 import { describeBild } from "../bild";
+import { BODY_NAMES, describeBody, materialName, TIGHT_NAMES } from "../body";
 import { packBild, unpackBild } from "../codec";
-import { clamp, currentScene, MAX_BARS, MAX_CHORDS, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, SCENE_COUNT, SCENE_NAMES, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
+import { BODY_SOUND, clamp, currentScene, MAX_BARS, MAX_CHORDS, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, SCENE_COUNT, SCENE_NAMES, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
 import { chordName, chordRoman, NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
 import { activeSteps, describe } from "../patterns";
 import { barCount, describePiece } from "../piece";
 import { RULES, turnColor } from "../relay";
+import { renderBodyThumb, type BenchView } from "./bench";
 import { renderThumb, type EaselView } from "./easel";
 import { onContext } from "./menu";
 import type { RingView, Tool } from "./ring";
@@ -31,6 +33,15 @@ const TOOL_ICONS: Record<Tool, string> = {
   wirbel: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6v12M10 6v12M15 6v12M20 6v12"/></svg>',
   laenge: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M4 8v8M20 8v8"/></svg>',
 };
+
+/** What sets a body going: soft mallet, hard mallet, a plucking pick, a bow, breath. */
+const MALLET_ICONS = [
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 13.5 20 4"/><circle cx="7.5" cy="16.5" r="4.4"/></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16 20 4"/><circle cx="6.5" cy="17.5" r="2.6" class="fill"/></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5 6 9.5c2-4.6 10-4.6 12 0z"/></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.5 21 6.5M4.5 20.5 21 10.5"/></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h10.5a2.8 2.8 0 1 0-2.8-2.8M3 15h13.5a2.8 2.8 0 1 1-2.8 2.8M3 12h6"/></svg>',
+];
 
 const BRUSH_ICONS = [
   '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12c3-7 6-7 9 0s6 7 9 0"/></svg>',
@@ -97,6 +108,12 @@ export class Panels {
   private readonly soundButtons: HTMLButtonElement[] = [];
   private readonly brushButtons: HTMLButtonElement[] = [];
   private readonly own = { pick: button("own-pick", ""), thumb: el("canvas", "thumb"), label: el("span", "own-label") };
+  private readonly built = { pick: button("own-pick", ""), thumb: el("canvas", "thumb"), label: el("span", "own-label") };
+  private builtSignature = "";
+  private benchOpen = false;
+  private readonly malletButtons: HTMLButtonElement[] = [];
+  private readonly kindButtons: HTMLButtonElement[] = [];
+  private readonly shape = { size: el("input"), tight: el("input"), material: el("input"), tightName: el("span", "label"), materialName: el("span", "label") };
   private readonly sizeDots = el("span", "dots");
   private thumbSignature = "";
   private shelfSignature = "noch nicht gebaut";
@@ -116,12 +133,13 @@ export class Panels {
   private recordTimer: ReturnType<typeof setInterval> | null = null;
   private lastPreview = 0;
 
-  constructor(private readonly app: App, private readonly ring: RingView, private readonly easel: EaselView) {
+  constructor(private readonly app: App, private readonly ring: RingView, private readonly easel: EaselView, private readonly bench: BenchView) {
     this.buildBar();
     this.buildTracks();
     this.buildScenes();
     this.buildTools();
     this.buildEasel();
+    this.buildBench();
     this.buildFx();
     this.buildPanel();
     this.buildPiece();
@@ -190,10 +208,12 @@ export class Panels {
       const key = this.fxButtons.get(fx.id)?.querySelector(".key");
       if (key) key.textContent = this.keyLabel(FX_CODES[index] ?? "");
     });
-    this.brushButtons.forEach((node, index) => {
-      const key = node.querySelector(".key");
-      if (key) key.textContent = this.keyLabel(TOOL_CODES[index] ?? "");
-    });
+    for (const nodes of [this.brushButtons, this.malletButtons]) {
+      nodes.forEach((node, index) => {
+        const key = node.querySelector(".key");
+        if (key) key.textContent = this.keyLabel(TOOL_CODES[index] ?? "");
+      });
+    }
     this.buildHelp();
   }
 
@@ -255,7 +275,7 @@ export class Panels {
       const action = event.target instanceof HTMLElement ? event.target.dataset.do : undefined;
       if (!action) return;
       this.closeMenu();
-      if (action === "wav") void app.exportWav();
+      if (action === "save") void app.exportSound();
       else if (action === "clear-scene") app.clearScene(app.project.scene);
       else if (action === "empty") app.newProject(true);
       else if (action === "factory") app.newProject(false);
@@ -386,6 +406,58 @@ export class Panels {
     });
   }
 
+  /** The workbench: the kinds of body, the three ways to shape one, and what sets it going (in the tools' place). */
+  private buildBench(): void {
+    const app = this.app;
+    const mallets = byId("mallets");
+    MALLETS.forEach((mallet, index) => {
+      const node = button("tool", "", mallet.hint);
+      node.innerHTML = MALLET_ICONS[index] ?? "";
+      node.append(el("span", "name", mallet.name), el("kbd", "key"));
+      node.setAttribute("role", "radio");
+      node.addEventListener("click", () => {
+        app.shapeBody({ exciter: index });
+        app.hearBody();
+      });
+      mallets.append(node);
+      this.malletButtons.push(node);
+    });
+    const kinds = byId("bench-kinds");
+    BODY_NAMES.forEach((name, kind) => {
+      const chip = button("chip", name);
+      chip.addEventListener("click", () => {
+        app.shapeBody({ kind });
+        app.hearBody();
+      });
+      kinds.append(chip);
+      this.kindButtons.push(chip);
+    });
+
+    const holder = byId("bench-shape");
+    const shaper = (input: HTMLInputElement, label: HTMLElement, field: "size" | "tight" | "material", title: string): void => {
+      const line = el("label", "line");
+      input.type = "range";
+      input.min = "0";
+      input.max = "100";
+      input.title = title;
+      this.slider(input, () => app.body?.[field] ?? 0.5, (value) => app.shapeBody({ [field]: value }, field), () => app.shapeBody({ [field]: 0.5 }));
+      // Let go of the slider, the body says how it sounds now.
+      input.addEventListener("change", () => app.hearBody());
+      line.append(label, input);
+      holder.append(line);
+    };
+    shaper(this.shape.size, el("span", "label", "Größe"), "size", "Groß klingt tief und lang, klein hoch und kurz (auch mit dem Mausrad über dem Körper)");
+    shaper(this.shape.tight, this.shape.tightName, "tight", "Straffer, dicker, enger: heller und kürzer (auch mit Umschalt und Mausrad)");
+    shaper(this.shape.material, this.shape.materialName, "material", "Material, von Holz über Metall zu Glas: wie lange es nachklingt");
+
+    byId("bench-done").addEventListener("click", () => app.closeBench());
+    byId("bench-dice").addEventListener("click", () => app.diceBody());
+    // A click beside the bench puts it away, like a click beside any open box.
+    byId("bench").addEventListener("pointerdown", (event) => {
+      if (event.target === event.currentTarget) app.closeBench();
+    });
+  }
+
   private buildFx(): void {
     const holder = byId("fx");
     for (const fx of FX) {
@@ -445,12 +517,23 @@ export class Panels {
     }
 
     const own = el("div", "own");
+    this.own.pick.id = "own-pick";
     this.own.pick.append(this.own.thumb, this.own.label);
     this.own.pick.addEventListener("click", () => app.useOwn());
     const paint = button("button small", "Malen", "Den eigenen Klang dieses Rings malen");
     paint.id = "paint";
     paint.addEventListener("click", () => app.openEasel());
     own.append(this.own.pick, paint);
+
+    // And its own body: a thing that rings, built on the workbench.
+    const built = el("div", "own");
+    this.built.pick.id = "built-pick";
+    this.built.pick.append(this.built.thumb, this.built.label);
+    this.built.pick.addEventListener("click", () => app.useBody());
+    const build = button("button small", "Bauen", "Den Klangkörper dieses Rings bauen");
+    build.id = "build";
+    build.addEventListener("click", () => app.openBench());
+    built.append(this.built.pick, build);
 
     const pad = parts.pad;
     pad.tabIndex = 0;
@@ -540,7 +623,7 @@ export class Panels {
     mixSlider("Hall", "hall");
     mixSlider("Echo", "echo");
 
-    this.ringBox.append(head, parts.info, doing, sounds, own, pad, ringGroup, mix);
+    this.ringBox.append(head, parts.info, doing, sounds, own, built, pad, ringGroup, mix);
     this.veilBox.append(
       el("header", "panel-head"),
       el("p", "veil-text", "Stille Post: Dieser Ring ist verdeckt. Jemand hat hier schon gebaut, aber du hörst und siehst nur den Ring der Person vor dir. Bau deinen eigenen dazu: Nimm einen Ring, der noch leer ist. Wenn alle fertig sind, deckt ihr im Reihum-Fenster auf."),
@@ -723,8 +806,8 @@ export class Panels {
 
     const hint = el("p", "easel-hint", "Mal die Spannung in den äußeren Ring: außen ist viel los, innen wenig. Die farbigen Linien zeigen, ab wo ein Ring mitspielt. Vor einem steilen Anstieg nimmt der Kreisel Anlauf. Am inneren Rand liegen die Szenen: links eine wählen, dann dort malen. Ein Rechtsklick auf einen Takt spielt ab dort, legt eine Szene hin oder ändert die Spannung.");
 
-    const save = button("button small", "Als WAV speichern", "Das Stück einmal rundherum als WAV");
-    save.addEventListener("click", () => void app.exportWav());
+    const save = button("button small", "Als Opus speichern", "Das Stück einmal rundherum als Opus-Datei");
+    save.addEventListener("click", () => void app.exportSound());
 
     this.pieceBox.append(head, parts.info, on, doing, length, order, hint, save);
   }
@@ -767,6 +850,7 @@ export class Panels {
       ["Eingabe", "am Zeiger setzen oder löschen"],
       ["+ −", "Ton am Zeiger höher oder tiefer"],
       [key("KeyN"), "Ring würfeln · mit Umschalt nur variieren"],
+      ["An der Werkbank", `${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")} Schlägel weich und hart, Zupfen, Streichen, Blasen · ${key("KeyN")} würfeln · Esc fertig`],
       ["Im Malkasten", `${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} Pinsel und Radierer · ${key("KeyT")} Dicke · ${key("KeyN")} würfeln · Entf nimmt den letzten Strich · Esc fertig`],
       [key("KeyM"), "Ring stumm · mit Umschalt allein hören"],
       [", .", "Szene zurück oder vor"],
@@ -836,7 +920,7 @@ export class Panels {
       row.classList.toggle("selected", track === selected && !app.pieceFocus);
       row.classList.toggle("silent", !app.audible(track));
       row.classList.toggle("solo", app.solo === track);
-      row.querySelector(".sound")!.textContent = trackInfo(track).sounds[one.sound] ?? "";
+      row.querySelector(".sound")!.textContent = one.sound === BODY_SOUND && one.body ? (BODY_NAMES[one.body.kind] ?? "") : (trackInfo(track).sounds[one.sound] ?? "Gemalt");
       row.querySelector(".pick")!.setAttribute("aria-pressed", String(track === selected && !app.pieceFocus));
       row.querySelector(".mute")!.setAttribute("aria-pressed", String(!app.audible(track)));
     });
@@ -890,11 +974,13 @@ export class Panels {
     byId("status").textContent = app.pieceFocus
       ? `Stück: ${describePiece(project.piece, project.bpm)}${project.piece.on ? "" : " (aus)"}`
       : app.veiled(selected) ? `${info.name}: verdeckt (Stille Post)`
-      : app.easel ? `Klangmalerei ${info.name}: ${describeBild(settings.bild)}` : `${info.name}: ${describe(pattern)}`;
+      : app.easel ? `Klangmalerei ${info.name}: ${describeBild(settings.bild)}`
+      : app.bench ? `Klangkörper ${info.name}: ${describeBody(settings.body)}` : `${info.name}: ${describe(pattern)}`;
     this.syncChordMenu();
     this.syncToast();
     this.ring.invalidate();
     this.easel.invalidate();
+    this.bench.invalidate();
   }
 
   /** The piece in the list of rings and in its panel. */
@@ -963,10 +1049,11 @@ export class Panels {
       renderThumb(this.own.thumb, bild, info.color);
     }
 
+    this.syncBench();
     const open = app.easel;
     byId("easel").hidden = !open;
     byId("brushes").hidden = !open;
-    byId("tools").hidden = open;
+    byId("tools").hidden = open || app.bench;
     if (open && !this.easelOpen) {
       // The first hint is about the rings, and where the panel sits below the wheel, the sheet opens out of sight.
       this.closeCoach();
@@ -1007,6 +1094,42 @@ export class Panels {
       });
       shelf.replaceChildren(...items);
     }
+  }
+
+  /** The ring's body in the panel, and the workbench. */
+  private syncBench(): void {
+    const app = this.app;
+    const track = app.selected;
+    const info = trackInfo(track);
+    const settings = trackOf(app.project, track);
+    const body = settings.body;
+    // A body that is gone (taken back) has no bench to stand on.
+    if (app.bench && !body) app.closeBench();
+
+    this.built.pick.setAttribute("aria-pressed", String(settings.sound === BODY_SOUND));
+    this.built.pick.title = body ? "Den Klangkörper dieses Rings spielen (noch ein Klick öffnet die Werkbank)" : "Einen Klangkörper für diesen Ring bauen";
+    this.built.label.textContent = body ? `Klangkörper: ${BODY_NAMES[body.kind]}` : "Klangkörper bauen";
+    const signature = `${track}|${body ? `${body.kind}.${body.material}.${body.tight}.${body.exciter}.${body.where}` : ""}`;
+    if (signature !== this.builtSignature) {
+      this.builtSignature = signature;
+      renderBodyThumb(this.built.thumb, body, info.color);
+    }
+
+    const open = app.bench && body !== null;
+    byId("bench").hidden = !open;
+    byId("mallets").hidden = !open;
+    if (open && !this.benchOpen) {
+      this.closeCoach();
+      byId("stage").scrollIntoView({ block: "nearest" });
+    }
+    this.benchOpen = open;
+    if (!open || !body) return;
+    byId("bench").style.setProperty("--c", info.color);
+    byId("bench-title").textContent = `Klangkörper: ${info.name}`;
+    this.malletButtons.forEach((node, index) => node.setAttribute("aria-checked", String(index === body.exciter)));
+    this.kindButtons.forEach((node, kind) => node.setAttribute("aria-pressed", String(kind === body.kind)));
+    this.shape.tightName.textContent = TIGHT_NAMES[body.kind] ?? "Spannung";
+    this.shape.materialName.textContent = `Material: ${materialName(body.material)}`;
   }
 
   private syncChordMenu(): void {
@@ -1061,7 +1184,7 @@ export class Panels {
     const node = byId("toast");
     if (app.exporting !== null) {
       node.hidden = false;
-      node.replaceChildren(el("span", "", `WAV wird gerechnet … ${Math.round(app.exporting * 100)} %`));
+      node.replaceChildren(el("span", "", `Opus wird gerechnet … ${Math.round(app.exporting * 100)} %`));
       node.dataset.text = "export";
       return;
     }

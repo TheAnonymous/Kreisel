@@ -1,4 +1,4 @@
-import { BRUSH_TOOLS, FX, TOOLS, type App } from "../app";
+import { BRUSH_TOOLS, FX, MALLETS, TOOLS, type App } from "../app";
 import { SCENE_COUNT, stepAt, patternOf, TRACK_COUNT } from "../model";
 import { FX_CODES, PLAY_CODES, TOOL_CODES, type Panels } from "./panels";
 
@@ -68,6 +68,7 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
       app.closeChord();
       app.hideCursor();
       app.closeEasel();
+      app.closeBench();
       app.look(null);
       return;
     }
@@ -95,6 +96,24 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
       }
       if (code === "KeyN") {
         app.diceOwn();
+        return;
+      }
+    }
+    // While the workbench is open, the top row holds what sets the body going, and Enter puts the bench away.
+    if (app.bench && !event.repeat) {
+      const mallet = TOOL_CODES.indexOf(code as (typeof TOOL_CODES)[number]);
+      if (mallet >= 0 && mallet < MALLETS.length) {
+        app.shapeBody({ exciter: mallet });
+        app.hearBody();
+        return;
+      }
+      if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        app.closeBench();
+        return;
+      }
+      if (code === "KeyN") {
+        app.diceBody();
         return;
       }
     }

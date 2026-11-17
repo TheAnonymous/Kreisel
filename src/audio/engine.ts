@@ -19,11 +19,13 @@ import {
   trimmedLength,
   type ChannelBus,
 } from "klangwerk";
-import { BAR, currentScene, OWN_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Project, type Step } from "../model";
+import { BAR, BODY_SOUND, currentScene, OWN_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Project, type Step } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
 import { barCount, dropsQuiet, gateLevel, planBar, type BarPlan } from "../piece";
 import { playBild } from "./bild";
+import { playBody } from "./body";
+import { soundFile, type SoundFile } from "./opus";
 import { glides, playHit } from "./sounds";
 
 /*
@@ -167,9 +169,14 @@ class Voices {
       const before = this.last[track];
       const glideFrom = glides(track, settings.sound) && before && before.until > at - 0.012 && before.hz !== frequency ? before.hz : null;
       const hit = { gain: (VELOCITY[step.vel] ?? 0.78) * (repeat === 0 ? 1 : 0.7) * level, accent: step.vel === 2, pitch: step.pitch, midis, duration, glideFrom };
-      // The ring's own sound is its picture; without one (or with an empty one) it is silent.
-      if (settings.sound !== OWN_SOUND) playHit(this.graph.kit, inlet, track, settings, at, hit);
-      else if (settings.bild) playBild(this.graph.kit, inlet, track, settings, at, hit, settings.bild);
+      // The ring's own sound is its picture or its body; without one (or with an empty picture) it is silent.
+      if (settings.sound === BODY_SOUND) {
+        if (settings.body) playBody(this.graph.kit, inlet, track, settings, at, hit, settings.body);
+      } else if (settings.sound !== OWN_SOUND) {
+        playHit(this.graph.kit, inlet, track, settings, at, hit);
+      } else if (settings.bild) {
+        playBild(this.graph.kit, inlet, track, settings, at, hit, settings.bild);
+      }
       this.last[track] = { hz: frequency, until: at + duration };
       if (track === 0 && project.pump > 0) {
         for (const pumped of [4, 5, 6]) {
@@ -590,14 +597,16 @@ export class Engine {
     return this.recorder?.seconds ?? 0;
   }
 
-  /** Starts recording what is heard; a second call ends it and returns the WAV (`null` if it was silent). */
-  async toggleRecording(): Promise<Blob | null> {
+  /** Starts recording what is heard; a second call ends it and returns the file (`null` if it was silent). */
+  async toggleRecording(): Promise<SoundFile | null> {
     if (this.recording && this.recorder) {
       const taken = await this.recorder.stop();
       this.recording = false;
       this.view.onState();
       const range = audibleRange(taken);
-      return range ? new Blob([encodePcm16Wav(taken, range.start, range.end)], { type: "audio/wav" }) : null;
+      if (!range) return null;
+      const float = (samples: Int16Array): Float32Array => Float32Array.from(samples.subarray(range.start, range.end), (sample) => sample / 0x8000);
+      return soundFile(float(taken.left), float(taken.right), taken.sampleRate, () => encodePcm16Wav(taken, range.start, range.end));
     }
     if (!(await this.wake())) return null;
     const context = this.host.audioContext;
@@ -635,8 +644,8 @@ export function renderPlan(project: Project): RenderPlan {
   return { steps, seconds: steps * stepSeconds(project) + 3 };
 }
 
-/** Renders the project faster than it plays, as a 16-bit WAV. */
-export async function renderWav(project: Project, onProgress: (share: number) => void = () => undefined, sampleRate = 44_100): Promise<Blob> {
+/** Renders the project faster than it plays and saves it as Opus (as a 16-bit WAV where the browser cannot write Opus). */
+export async function renderFile(project: Project, onProgress: (share: number) => void = () => undefined, sampleRate = 48_000): Promise<SoundFile> {
   const plan = renderPlan(project);
   const context = new OfflineAudioContext(2, Math.ceil(plan.seconds * sampleRate), sampleRate);
   const graph = buildGraph(context);
@@ -654,5 +663,6 @@ export async function renderWav(project: Project, onProgress: (share: number) =>
   });
   transport.begin(context, 0.05);
   const buffer = await renderInChunks(context, (until) => transport.renderUntil(until), plan.seconds, 2, onProgress);
-  return new Blob([encodeWav(buffer, trimmedLength(buffer, Math.round(plan.steps * stepSeconds(project) * sampleRate)))], { type: "audio/wav" });
+  const length = trimmedLength(buffer, Math.round(plan.steps * stepSeconds(project) * sampleRate));
+  return soundFile(buffer.getChannelData(0).subarray(0, length), buffer.getChannelData(1).subarray(0, length), sampleRate, () => encodeWav(buffer, length));
 }

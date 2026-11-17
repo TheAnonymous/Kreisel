@@ -67,8 +67,32 @@ export interface Bild {
   hold: number | null;
 }
 
+/** The ring's built sound: a body that rings when it is struck (see body.ts). */
+export const BODY_SOUND = 5;
+export const BODY_KIND_COUNT = 5;
+export const EXCITER_COUNT = 5;
+
+/**
+ * A Klangkörper: a thing that rings. What it is, how big, how tight and of
+ * what material it is, and what sets it going where.
+ */
+export interface Body {
+  /** 0 skin, 1 string, 2 bar, 3 tube, 4 bowl. */
+  kind: number;
+  /** 0..1: small to big. Big is low (on rings without notes) or full, and rings long. */
+  size: number;
+  /** 0..1: slack to tight. Tight is bright and short. */
+  tight: number;
+  /** 0..1: wood, then metal, then glass. How long it rings, and how its overtones die. */
+  material: number;
+  /** 0 soft mallet, 1 hard mallet, 2 plucked, 3 bowed, 4 blown. */
+  exciter: number;
+  /** 0..1: where it is set going, from its middle to its edge. */
+  where: number;
+}
+
 export interface Track {
-  /** Which of the ring's four sounds, or OWN_SOUND for its picture. */
+  /** Which of the ring's four sounds, OWN_SOUND for its picture or BODY_SOUND for its body. */
   sound: number;
   /** The two macros of the sound pad, 0..1. */
   x: number;
@@ -79,6 +103,8 @@ export interface Track {
   mute: boolean;
   /** The ring's own sound, once one was painted. */
   bild: Bild | null;
+  /** The ring's own body, once one was built. */
+  body: Body | null;
 }
 
 export interface Scene {
@@ -251,13 +277,13 @@ export function factoryProject(): Project {
     pump: 0.3,
     volume: 0.8,
     tracks: [
-      { sound: 0, x: 0.5, y: 0.5, level: 0.85, hall: 0, echo: 0, mute: false, bild: null },
-      { sound: 1, x: 0.5, y: 0.5, level: 0.78, hall: 0.25, echo: 0, mute: false, bild: null },
-      { sound: 0, x: 0.5, y: 0.5, level: 0.7, hall: 0.05, echo: 0, mute: false, bild: null },
-      { sound: 1, x: 0.5, y: 0.5, level: 0.6, hall: 0.2, echo: 0.25, mute: false, bild: null },
-      { sound: 3, x: 0.45, y: 0.4, level: 0.7, hall: 0, echo: 0, mute: false, bild: null },
-      { sound: 2, x: 0.45, y: 0.5, level: 0.7, hall: 0.3, echo: 0.15, mute: false, bild: null },
-      { sound: 0, x: 0.55, y: 0.45, level: 0.72, hall: 0.3, echo: 0.4, mute: false, bild: null },
+      { sound: 0, x: 0.5, y: 0.5, level: 0.85, hall: 0, echo: 0, mute: false, bild: null, body: null },
+      { sound: 1, x: 0.5, y: 0.5, level: 0.78, hall: 0.25, echo: 0, mute: false, bild: null, body: null },
+      { sound: 0, x: 0.5, y: 0.5, level: 0.7, hall: 0.05, echo: 0, mute: false, bild: null, body: null },
+      { sound: 1, x: 0.5, y: 0.5, level: 0.6, hall: 0.2, echo: 0.25, mute: false, bild: null, body: null },
+      { sound: 3, x: 0.45, y: 0.4, level: 0.7, hall: 0, echo: 0, mute: false, bild: null, body: null },
+      { sound: 2, x: 0.45, y: 0.5, level: 0.7, hall: 0.3, echo: 0.15, mute: false, bild: null, body: null },
+      { sound: 0, x: 0.55, y: 0.45, level: 0.72, hall: 0.3, echo: 0.4, mute: false, bild: null, body: null },
     ],
     scenes: [scene, null, null, null, null, null, null, null],
     scene: 0,

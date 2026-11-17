@@ -1,5 +1,5 @@
 import type { App, ContextTarget } from "../app";
-import { currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, trackInfo, trackOf } from "../model";
+import { BODY_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, trackInfo, trackOf } from "../model";
 import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
 import { barCount } from "../piece";
@@ -93,6 +93,14 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
       options: [
         { label: "Nehmen", active: settings.sound === OWN_SOUND, disabled: !settings.bild, title: settings.bild ? "Den gemalten Klang dieses Rings nehmen" : "Noch nicht gemalt", run: () => app.setSound(track, OWN_SOUND) },
         { label: "Malen …", title: "Den eigenen Klang dieses Rings malen", close: true, run: () => { app.select(track); app.openEasel(); } },
+      ],
+    },
+    {
+      kind: "choice",
+      label: "Klangkörper",
+      options: [
+        { label: "Nehmen", active: settings.sound === BODY_SOUND, disabled: !settings.body, title: settings.body ? "Den gebauten Klangkörper dieses Rings nehmen" : "Noch nicht gebaut", run: () => app.setSound(track, BODY_SOUND) },
+        { label: "Bauen …", title: "Den Klangkörper dieses Rings bauen", close: true, run: () => { app.select(track); app.openBench(); } },
       ],
     },
     {
@@ -208,7 +216,7 @@ function hubMenu(app: App, doors: MenuDoors): MenuSpec {
       { kind: "heading", label: "Weitergeben" },
       { kind: "action", label: "Link kopieren", run: () => void app.share() },
       { kind: "action", label: "Reihum …", run: () => doors.relay() },
-      { kind: "action", label: "Als WAV speichern", run: () => void app.exportWav() },
+      { kind: "action", label: "Als Opus speichern", run: () => void app.exportSound() },
       { kind: "heading", label: "Hilfe" },
       { kind: "action", label: "Hilfe und Tasten", hint: "?", run: () => doors.help() },
     ],

@@ -1,5 +1,6 @@
-import { readFileSync, statSync } from "node:fs";
-import { expect, test, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { expect, test, type Download, type Page } from "@playwright/test";
+import { readOggOpus } from "../src/ogg";
 
 /*
  * The built app behind the preview server, which sends the production
@@ -60,6 +61,26 @@ async function paint(page: Page, points: readonly (readonly [number, number])[])
     await page.mouse.move(spot.x, spot.y, { steps: 5 });
   }
   await page.mouse.up();
+}
+
+const bodyOf = (page: Page, track: number) => page.evaluate((ring) => window.kreisel.app.project.tracks[ring]!.body, track);
+/** Where a place on the body on the workbench is on the page (0 its middle, 1 its edge). */
+const knockAt = (page: Page, where: number): Promise<{ x: number; y: number }> => page.evaluate((place) => window.kreisel.knock(place), where);
+
+/** What a saved Opus file says about itself, and what the browser hears when it decodes it. */
+async function heard(page: Page, download: Download): Promise<{ seconds: number; channels: number; ended: boolean; decoded: number; peak: number; bytes: number }> {
+  const bytes = readFileSync(await download.path());
+  const file = readOggOpus(bytes);
+  expect(file).not.toBeNull();
+  const decoded = await page.evaluate(async (data) => {
+    const context = new AudioContext();
+    const buffer = await context.decodeAudioData(Uint8Array.from(data).buffer);
+    let peak = 0;
+    for (const sample of buffer.getChannelData(0)) peak = Math.max(peak, Math.abs(sample));
+    await context.close();
+    return { seconds: buffer.duration, peak };
+  }, [...bytes]);
+  return { seconds: file!.samples / 48_000, channels: file!.channels, ended: file!.ended, decoded: decoded.seconds, peak: decoded.peak, bytes: bytes.length };
 }
 
 const bildOf = (page: Page, track: number) => page.evaluate((ring) => window.kreisel.app.project.tracks[ring]!.bild, track);
@@ -529,23 +550,29 @@ test.describe("am Laptop", () => {
     expect(await state(page)).toBe(before);
   });
 
-  test("speichert ein WAV und eine Aufnahme", async ({ page }) => {
+  test("speichert als Opus: die Szene und eine Aufnahme", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => window.kreisel.app.setGlobal({ bpm: 180 }));
     await page.locator("#more").click();
     const rendered = page.waitForEvent("download");
-    await page.locator("#menu").getByText("Als WAV speichern").click();
-    const wav = await rendered;
-    expect(wav.suggestedFilename()).toBe("kreisel.wav");
-    const file = await wav.path();
-    // Eight bars at 180 BPM are a little over ten seconds of 16-bit stereo.
-    expect(statSync(file).size).toBeGreaterThan(1_500_000);
-    const bytes = readFileSync(file);
-    expect(bytes.subarray(0, 4).toString("latin1")).toBe("RIFF");
-    let peak = 0;
-    for (let offset = 44; offset + 1 < bytes.length; offset += 2) peak = Math.max(peak, Math.abs(bytes.readInt16LE(offset)));
-    expect(peak).toBeGreaterThan(6000);
-    expect(peak).toBeLessThan(32_500);
+    await page.locator("#menu").getByText("Als Opus speichern").click();
+    const saved = await rendered;
+    // The name stays an Opus file's, also in Firefox (which renames files whose type it thinks it knows better).
+    expect(saved.suggestedFilename()).toBe("kreisel.opus");
+    await expect(page.locator("#toast")).toContainText("Die Szene als Opus gespeichert");
+    const scene = await heard(page, saved);
+    // Eight bars at 180 BPM are a little over ten seconds, plus what rings out; in stereo, ended properly.
+    expect(scene.seconds).toBeGreaterThan(10.6);
+    expect(scene.seconds).toBeLessThan(14);
+    expect(scene.channels).toBe(2);
+    expect(scene.ended).toBe(true);
+    // The browser plays what it wrote: as long as the file says, and not silent.
+    expect(Math.abs(scene.decoded - scene.seconds)).toBeLessThan(0.05);
+    expect(scene.peak).toBeGreaterThan(0.2);
+    expect(scene.peak).toBeLessThanOrEqual(1);
+    // A tenth and less of what the WAV weighed.
+    expect(scene.bytes).toBeGreaterThan(60_000);
+    expect(scene.bytes).toBeLessThan(500_000);
 
     await page.locator("#record").click();
     await expect(page.locator("#record")).toHaveAttribute("aria-pressed", "true");
@@ -554,9 +581,182 @@ test.describe("am Laptop", () => {
     const taken = page.waitForEvent("download");
     await page.locator("#record").click();
     const take = await taken;
-    expect(take.suggestedFilename()).toBe("kreisel-aufnahme.wav");
-    expect(statSync(await take.path()).size).toBeGreaterThan(150_000);
+    expect(take.suggestedFilename()).toBe("kreisel-aufnahme.opus");
+    await expect(page.locator("#toast")).toContainText("Aufnahme als Opus gespeichert");
+    const recording = await heard(page, take);
+    expect(recording.seconds).toBeGreaterThan(1);
+    expect(recording.seconds).toBeLessThan(5);
+    expect(recording.peak).toBeGreaterThan(0.05);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
+    expect(problems).toEqual([]);
+  });
+
+  test("speichert ein WAV, wo der Browser kein Opus schreiben kann", async ({ page }) => {
+    await page.addInitScript(() => {
+      // A browser without the encoder, as older ones are.
+      delete (window as { AudioEncoder?: unknown }).AudioEncoder;
+    });
+    const problems = await open(page);
+    await page.evaluate(() => window.kreisel.app.setGlobal({ bpm: 180 }));
+    await page.locator("#more").click();
+    const rendered = page.waitForEvent("download");
+    await page.locator("#menu").getByText("Als Opus speichern").click();
+    const wav = await rendered;
+    expect(wav.suggestedFilename()).toBe("kreisel.wav");
+    await expect(page.locator("#toast")).toContainText("als WAV (dieser Browser schreibt kein Opus) gespeichert");
+    const bytes = readFileSync(await wav.path());
+    expect(bytes.subarray(0, 4).toString("latin1")).toBe("RIFF");
+    // Eight bars at 180 BPM are a little over ten seconds of 16-bit stereo.
+    expect(bytes.length).toBeGreaterThan(1_500_000);
+    let peak = 0;
+    for (let offset = 44; offset + 1 < bytes.length; offset += 2) peak = Math.max(peak, Math.abs(bytes.readInt16LE(offset)));
+    expect(peak).toBeGreaterThan(6000);
+    expect(peak).toBeLessThan(32_500);
+    expect(problems).toEqual([]);
+  });
+
+  test("baut einem Ring einen Klangkörper", async ({ page }) => {
+    const problems = await open(page);
+    const bench = page.locator("#bench");
+    await page.keyboard.press("7");
+    await page.locator("#build").click();
+    await expect(bench).toBeVisible();
+    await expect(page.locator("#mallets")).toBeVisible();
+    await expect(page.locator("#tools")).toBeHidden();
+    await expect(status(page)).toContainText("Klangkörper Melodie:");
+    // A ring without a body gets a first one that suits it, and plays it from then on.
+    expect(await bodyOf(page, 6)).not.toBeNull();
+    expect(await soundOf(page, 6)).toBe(5);
+
+    // Another kind of body; knocking on it is heard, and where it was last knocked is where the ring strikes it.
+    await bench.getByRole("button", { name: "Schale", exact: true }).click();
+    expect((await bodyOf(page, 6))!.kind).toBe(4);
+    await expect(page.locator(".track.selected .sound")).toHaveText("Schale");
+    let spot = await knockAt(page, 0.2);
+    await page.mouse.click(spot.x, spot.y);
+    expect((await bodyOf(page, 6))!.where).toBeCloseTo(0.2, 1);
+    await expect.poll(() => page.evaluate(() => window.kreisel.level())).toBeGreaterThan(0.02);
+    spot = await knockAt(page, 0.9);
+    await page.mouse.click(spot.x, spot.y);
+    expect((await bodyOf(page, 6))!.where).toBeCloseTo(0.9, 1);
+    await expect(status(page)).toContainText("Rand");
+
+    // What sets it going is on the top row of keys; a bowed body sounds on.
+    await page.keyboard.press("e");
+    expect((await bodyOf(page, 6))!.exciter).toBe(2);
+    await expect(page.locator("#mallets .tool").nth(2)).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("r");
+    await expect(status(page)).toContainText("gestrichen");
+    await expect.poll(() => page.evaluate(() => window.kreisel.level())).toBeGreaterThan(0.02);
+
+    // The right grip pulls it bigger, the left one tightens it; the wheel changes its size, too.
+    await bench.getByRole("button", { name: "Stab", exact: true }).click();
+    const before = (await bodyOf(page, 6))!;
+    const size = await page.evaluate(() => window.kreisel.grip("size"));
+    await page.mouse.move(size.x, size.y);
+    await page.mouse.down();
+    await page.mouse.move(size.x + (before.size > 0.5 ? -50 : 50), size.y, { steps: 5 });
+    await page.mouse.up();
+    const sized = (await bodyOf(page, 6))!;
+    expect(Math.abs(sized.size - before.size)).toBeGreaterThan(0.1);
+    const tight = await page.evaluate(() => window.kreisel.grip("tight"));
+    await page.mouse.move(tight.x, tight.y);
+    await page.mouse.down();
+    await page.mouse.move(tight.x, tight.y + (before.tight > 0.5 ? 45 : -45), { steps: 5 });
+    await page.mouse.up();
+    expect(Math.abs((await bodyOf(page, 6))!.tight - before.tight)).toBeGreaterThan(0.2);
+    spot = await knockAt(page, 0.3);
+    await page.mouse.move(spot.x, spot.y);
+    await page.mouse.wheel(0, sized.size > 0.5 ? 100 : -100);
+    expect(Math.abs((await bodyOf(page, 6))!.size - sized.size)).toBeGreaterThan(0.05);
+
+    // The material: a slider from wood to glass, and the right button puts it back in the middle.
+    const material = page.locator("#bench-shape input").nth(2);
+    await material.fill("100");
+    expect((await bodyOf(page, 6))!.material).toBe(1);
+    await expect(page.locator("#bench-shape .label").nth(2)).toHaveText("Material: Glas");
+    await material.fill("0");
+    await expect(page.locator("#bench-shape .label").nth(2)).toHaveText("Material: Holz");
+    await material.click({ button: "right" });
+    expect((await bodyOf(page, 6))!.material).toBe(0.5);
+
+    // Dice, one step back, and away with the bench.
+    const built = (await bodyOf(page, 6))!;
+    await page.keyboard.press("n");
+    expect(await bodyOf(page, 6)).not.toEqual(built);
+    await page.keyboard.press("Control+z");
+    expect(await bodyOf(page, 6)).toEqual(built);
+    await page.keyboard.press("Escape");
+    await expect(bench).toBeHidden();
+    await expect(page.locator("#tools")).toBeVisible();
+
+    // In the ring's field the body is one of its sounds: picked with a click, built further with the next.
+    const pick = page.locator("#built-pick");
+    await expect(pick).toHaveAttribute("aria-pressed", "true");
+    await expect(pick).toContainText("Klangkörper: Stab");
+    await page.locator(".panel-ring .chips .chip").nth(1).click();
+    expect(await soundOf(page, 6)).toBe(1);
+    await pick.click();
+    expect(await soundOf(page, 6)).toBe(5);
+    await expect(bench).toBeHidden();
+    await pick.click();
+    await expect(bench).toBeVisible();
+    await page.locator("#bench-done").click();
+
+    // The ring plays its body.
+    await page.evaluate(() => window.kreisel.app.toggleSolo(6));
+    await page.keyboard.press("Space");
+    await expect.poll(() => page.evaluate(() => window.kreisel.level()), { timeout: 8000 }).toBeGreaterThan(0.04);
+    await page.keyboard.press("Space");
+
+    // The right button on another ring leads to its bench; a ring that has no body yet has none to take.
+    const kick = await where(page, 0, 2);
+    await page.mouse.click(kick.x, kick.y, { button: "right" });
+    const menu = page.locator("#context");
+    await expect(menu.getByRole("menuitemradio", { name: "Noch nicht gebaut" })).toBeDisabled();
+    await menu.getByRole("menuitem", { name: "Den Klangkörper dieses Rings bauen" }).click();
+    await expect(bench).toBeVisible();
+    await expect(page.locator("#bench-title")).toHaveText("Klangkörper: Kick");
+    expect(await soundOf(page, 0)).toBe(5);
+    // A ring without a body has no bench: picking one puts it away.
+    await page.keyboard.press("2");
+    await expect(bench).toBeHidden();
+    expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
+    expect(problems).toEqual([]);
+  });
+
+  test("nimmt Klangkörper im Link und in der Datei mit", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const problems = await open(page);
+    // Only the kick is heard, and it plays a body.
+    await page.evaluate(() => {
+      const app = window.kreisel.app;
+      app.setGlobal({ bpm: 180 });
+      for (let track = 1; track < 7; track += 1) app.setTrack(track, { mute: true });
+      app.select(0);
+      app.openBench();
+      app.shapeBody({ kind: 0, size: 0.9, tight: 0.2, material: 0.1, exciter: 0, where: 0.1 });
+      app.closeBench();
+      app.dismiss();
+    });
+    const shared = await state(page);
+    await page.locator("#share").click();
+    await expect(page.locator("#toast")).toContainText("Link kopiert");
+    const link = await page.evaluate(() => navigator.clipboard.readText());
+    const other = await context.newPage();
+    await open(other);
+    await other.goto(link);
+    await expect(other.locator("#toast")).toContainText("Ein geteilter Kreisel");
+    expect(await state(other)).toBe(shared);
+    expect(await bodyOf(other, 0)).toEqual({ kind: 0, size: 0.9, tight: 0.2, material: 0.1, exciter: 0, where: 0.1 });
+    expect(await soundOf(other, 0)).toBe(5);
+
+    // The saved file holds the body's sound.
+    await other.locator("#more").click();
+    const rendered = other.waitForEvent("download");
+    await other.locator("#menu").getByText("Als Opus speichern").click();
+    const file = await heard(other, await rendered);
+    expect(file.peak).toBeGreaterThan(0.15);
     expect(problems).toEqual([]);
   });
 
@@ -569,7 +769,7 @@ test.describe("am Laptop", () => {
     await expect(page.locator("#tools")).toBeHidden();
     // A ring without a picture gets a first one to start from, and plays it at once.
     await expect(status(page)).toContainText(/Klangmalerei Kick: \d Strich/);
-    await expect(page.locator(".own-pick")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#own-pick")).toHaveAttribute("aria-pressed", "true");
     expect(await soundOf(page, 0)).toBe(4);
 
     await page.locator("#bild-clear").click();
@@ -603,11 +803,11 @@ test.describe("am Laptop", () => {
     // A built-in sound again; the picture waits, one click brings it back, another opens the paint box.
     await page.locator(".chips .chip", { hasText: "Hart" }).click();
     expect(await soundOf(page, 0)).toBe(1);
-    await expect(page.locator(".own-pick")).toHaveAttribute("aria-pressed", "false");
-    await page.locator(".own-pick").click();
+    await expect(page.locator("#own-pick")).toHaveAttribute("aria-pressed", "false");
+    await page.locator("#own-pick").click();
     expect(await soundOf(page, 0)).toBe(4);
     await expect(page.locator("#easel")).toBeHidden();
-    await page.locator(".own-pick").click();
+    await page.locator("#own-pick").click();
     await expect(page.locator("#easel")).toBeVisible();
     await page.locator("#easel-done").click();
     await expect(page.locator("#easel")).toBeHidden();
@@ -818,7 +1018,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("speichert das Stück als WAV und nimmt es im Link mit", async ({ page, context }) => {
+  test("speichert das Stück als Opus und nimmt es im Link mit", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await open(page);
     await page.evaluate(() => {
@@ -830,13 +1030,14 @@ test.describe("am Laptop", () => {
     });
     await page.keyboard.press("8");
     const rendered = page.waitForEvent("download");
-    await page.locator(".panel-piece").getByText("Als WAV speichern").click();
-    const wav = await rendered;
-    await expect(page.locator("#toast")).toContainText("Das ganze Stück als WAV gespeichert");
-    // Four bars at 200 BPM are 4.8 seconds of 16-bit stereo, plus what rings out: not the eight bars of a plain scene.
-    const size = statSync(await wav.path()).size;
-    expect(size).toBeGreaterThan(4.8 * 44_100 * 4);
-    expect(size).toBeLessThan(8.5 * 44_100 * 4);
+    await page.locator(".panel-piece").getByText("Als Opus speichern").click();
+    const saved = await rendered;
+    await expect(page.locator("#toast")).toContainText("Das ganze Stück als Opus gespeichert");
+    // Four bars at 200 BPM are 4.8 seconds, plus what rings out: not the eight bars of a plain scene.
+    const piece = await heard(page, saved);
+    expect(piece.seconds).toBeGreaterThan(4.8);
+    expect(piece.seconds).toBeLessThan(8.5);
+    expect(piece.peak).toBeGreaterThan(0.2);
 
     const shared = await state(page);
     await page.locator("#share").click();
@@ -1082,6 +1283,27 @@ test.describe("am Handy", () => {
     await expect(status(page)).toHaveText("Klangmalerei Kick: 1 Strich (1× Summen)");
     await page.locator("#easel-done").tap();
     await expect(page.locator("#easel")).toBeHidden();
+    expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
+    expect(problems).toEqual([]);
+  });
+
+  test("baut einen Klangkörper: die Werkbank passt aufs Handy, ein Finger klopft", async ({ page }) => {
+    const problems = await open(page);
+    await page.evaluate(() => window.kreisel.app.select(3));
+    await page.locator("#build").tap();
+    await expect(page.locator("#bench")).toBeVisible();
+    expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.locator("#bench").getByRole("button", { name: "Fell", exact: true }).tap();
+    await page.locator("#koerper").scrollIntoViewIfNeeded();
+    expect((await page.locator("#koerper").boundingBox())!.height).toBeGreaterThan(110);
+    const spot = await knockAt(page, 0.6);
+    await page.touchscreen.tap(spot.x, spot.y);
+    expect((await bodyOf(page, 3))!.where).toBeCloseTo(0.6, 1);
+    await page.locator("#mallets .tool").nth(0).tap();
+    expect((await bodyOf(page, 3))!.exciter).toBe(0);
+    await page.locator("#bench-done").tap();
+    await expect(page.locator("#bench")).toBeHidden();
+    expect(await soundOf(page, 3)).toBe(5);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });

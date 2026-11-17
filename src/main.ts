@@ -2,6 +2,7 @@ import "./style.css";
 import { App } from "./app";
 import { serialize } from "./codec";
 import { bindKeys } from "./ui/keys";
+import { BenchView } from "./ui/bench";
 import { EaselView } from "./ui/easel";
 import { ContextMenu } from "./ui/menu";
 import { buildMenu } from "./ui/menus";
@@ -16,9 +17,13 @@ if (!(canvas instanceof HTMLCanvasElement) || !tip) throw new Error("page withou
 const sheet = document.getElementById("bild");
 if (!(sheet instanceof HTMLCanvasElement)) throw new Error("page without a paint box");
 
+const stand = document.getElementById("koerper");
+if (!(stand instanceof HTMLCanvasElement)) throw new Error("page without a workbench");
+
 const ring = new RingView(canvas, app, tip);
 const easel = new EaselView(sheet, app);
-const panels = new Panels(app, ring, easel);
+const bench = new BenchView(stand, app);
+const panels = new Panels(app, ring, easel, bench);
 
 // The right button (or a long press) shows what can be done with the place it is on.
 const context = document.getElementById("context");
@@ -67,6 +72,9 @@ declare global {
       bar(bar: number, height: number): { x: number; y: number };
       /** Where a chord field is on the page. */
       slot(slot: number): { x: number; y: number };
+      /** Where a place on the body on the workbench is on the page (0 its middle, 1 its edge), and where its two grips are. */
+      knock(where: number): { x: number; y: number };
+      grip(what: "size" | "tight"): { x: number; y: number };
     };
   }
 }
@@ -79,4 +87,6 @@ window.kreisel = {
   sheet: (t, y) => easel.position(t, y),
   bar: (bar, height) => ring.barPosition(bar, height),
   slot: (slot) => ring.slotPosition(slot),
+  knock: (where) => bench.position(where),
+  grip: (what) => bench.grip(what),
 };

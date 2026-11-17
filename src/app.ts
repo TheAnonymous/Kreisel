@@ -1,10 +1,11 @@
-import { Engine, renderWav, type FxName } from "./audio/engine";
+import { Engine, renderFile, type FxName } from "./audio/engine";
 import { canListen, listen } from "./audio/listen";
 import { diceBild, emptyBild, makeStroke, snapHeight, type RawPoint } from "./bild";
 import { decodeLink, encodeLink, packState, unpack, unpackBild } from "./codec";
 import { framesToBild } from "./imitate";
 import { keep, loadKept, saveKept, type Kept } from "./collection";
-import { BAR, clamp, clone, currentScene, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NAME, MAX_NOTE_LENGTH, MAX_STEPS, MAX_TURNS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Pattern, type Project, type Relay, type Step, type Track } from "./model";
+import { cleanBody, diceBody } from "./body";
+import { BAR, BODY_SOUND, clamp, clone, currentScene, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NAME, MAX_NOTE_LENGTH, MAX_STEPS, MAX_TURNS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Body, type Pattern, type Project, type Relay, type Step, type Track } from "./model";
 import { chordAt } from "./music";
 import { activeSteps, clear, dice, resize, rotate, seeded, spread, transpose, vary } from "./patterns";
 import { barCount, dicePiece, moveInOrder, resizePiece, rotatePiece, smoothPiece } from "./piece";
@@ -60,6 +61,15 @@ export const BRUSH_TOOLS: readonly { name: string; hint: string }[] = [
 ];
 export const ERASER = 3;
 
+/** What sets a Klangkörper going: the tools of the workbench. */
+export const MALLETS: readonly { name: string; hint: string }[] = [
+  { name: "Weich", hint: "Ein weicher Schlägel: rund und dunkel" },
+  { name: "Hart", hint: "Ein harter Schlägel: hell, mit einem Klick" },
+  { name: "Zupfen", hint: "Mit dem Finger anreißen" },
+  { name: "Streichen", hint: "Mit dem Bogen: klingt, solange die Note dauert" },
+  { name: "Blasen", hint: "Mit dem Atem: klingt, solange die Note dauert" },
+];
+
 export class App implements RingHost, EaselHost {
   readonly store = new Store();
   readonly engine: Engine;
@@ -72,7 +82,7 @@ export class App implements RingHost, EaselHost {
   /** Notes played on the keyboard are written into the ring while it turns. */
   live = false;
   toast: Toast | null = null;
-  /** 0..1 while a WAV is being rendered. */
+  /** 0..1 while a file of the sound is being rendered. */
   exporting: number | null = null;
   /** Shows the menu for what a right click landed on, at that place of the page (set by whoever draws the menu). */
   onContext: (target: ContextTarget, x: number, y: number, fromKeyboard: boolean) => void = () => undefined;
@@ -97,6 +107,8 @@ export class App implements RingHost, EaselHost {
   pieceKey: number | null = null;
   /** The paint box is open: the ring in focus gets its own sound painted. */
   easel = false;
+  /** The workbench is open over the wheel: the Klangkörper of the ring in focus is being built. */
+  bench = false;
   brush = 0;
   brushSize = 1;
   /** Pictures kept on the shelf, across projects. */
@@ -235,6 +247,8 @@ export class App implements RingHost, EaselHost {
     this.selected = target;
     this.pieceFocus = false;
     this.pieceKey = null;
+    // The workbench shows the body of the ring in focus; a ring without one has nothing to show.
+    if (this.bench && !trackOf(this.project, target).body) this.bench = false;
     // A step comes from the pointer: then the mouse is in charge and the keyboard's cursor steps aside.
     if (step !== undefined) this.keyCursor = null;
     else if (this.keyCursor !== null) this.keyCursor = Math.min(this.keyCursor, patternOf(this.project, target).len - 1);
@@ -636,6 +650,7 @@ export class App implements RingHost, EaselHost {
       }
       this.lookBack = index;
       this.easel = false;
+      this.bench = false;
     }
     this.store.locked = this.oldTurn !== null;
     this.stamp += 1;
@@ -673,6 +688,7 @@ export class App implements RingHost, EaselHost {
     if (this.pieceFocus) return;
     this.pieceFocus = true;
     this.easel = false;
+    this.bench = false;
     this.openSlot = null;
     this.keyCursor = null;
     this.notify();
@@ -777,6 +793,7 @@ export class App implements RingHost, EaselHost {
       this.setTrack(track, { sound: OWN_SOUND });
     }
     this.easel = true;
+    this.bench = false;
     this.openSlot = null;
     this.notify();
     this.preview(track);
@@ -793,6 +810,74 @@ export class App implements RingHost, EaselHost {
     const settings = trackOf(this.project, this.selected);
     if (!settings.bild || settings.sound === OWN_SOUND) this.openEasel();
     else this.setSound(this.selected, OWN_SOUND);
+  }
+
+  // ---- building sounding bodies ----------------------------------------------------
+
+  /** The Klangkörper of the ring in focus, if it has one. */
+  get body(): Body | null {
+    return trackOf(this.project, this.selected).body;
+  }
+
+  /** Opens the workbench on the ring in focus; a ring without a body gets a first one to start from. */
+  openBench(): void {
+    if (this.refuse(this.selected)) return;
+    const track = this.selected;
+    const settings = trackOf(this.project, track);
+    if (!settings.body) {
+      this.store.edit((project) => { Object.assign(trackOf(project, track), { body: diceBody(track, this.random), sound: BODY_SOUND }); });
+    } else if (settings.sound !== BODY_SOUND) {
+      this.setTrack(track, { sound: BODY_SOUND });
+    }
+    this.bench = true;
+    this.easel = false;
+    this.openSlot = null;
+    this.notify();
+    this.hearBody();
+  }
+
+  closeBench(): void {
+    if (!this.bench) return;
+    this.bench = false;
+    this.notify();
+  }
+
+  /** The ring's body: picks it, or opens the workbench if it is picked already or not built yet. */
+  useBody(): void {
+    const settings = trackOf(this.project, this.selected);
+    if (!settings.body || settings.sound === BODY_SOUND) this.openBench();
+    else this.setSound(this.selected, BODY_SOUND);
+  }
+
+  /** Changes the body of the ring in focus; changes with the same `key` in quick succession are one step back. */
+  shapeBody(change: Partial<Body>, key?: string): void {
+    const track = this.selected;
+    if (this.refuse(track)) return;
+    const body = trackOf(this.project, track).body;
+    if (!body) return;
+    const next = cleanBody({ ...body, ...change });
+    if (JSON.stringify(next) === JSON.stringify(body) && trackOf(this.project, track).sound === BODY_SOUND) return;
+    this.store.edit((project) => { Object.assign(trackOf(project, track), { body: next, sound: BODY_SOUND }); }, key ? `${key}${track}` : undefined, key?.startsWith("koerper") ? Infinity : undefined);
+  }
+
+  /** One note on the body as it is now, also while the Kreisel plays: a knock on the workbench is always heard. */
+  hearBody(): void {
+    const track = this.selected;
+    if (this.veiled(track)) return;
+    void this.engine.audition(track, { ...emptyStep(), on: true, pitch: this.pitches[track] ?? 0, len: 2 }, this.chordNow());
+  }
+
+  /** Knocks on the body at `where`; from then on the ring strikes it there. */
+  strikeBody(where: number, gesture: string): void {
+    this.shapeBody({ where }, gesture);
+    this.hearBody();
+  }
+
+  diceBody(): void {
+    const track = this.selected;
+    if (this.refuse(track)) return;
+    this.store.edit((project) => { Object.assign(trackOf(project, track), { body: diceBody(track, this.random), sound: BODY_SOUND }); });
+    this.hearBody();
   }
 
   setBrush(brush: number): void {
@@ -1098,19 +1183,21 @@ export class App implements RingHost, EaselHost {
     }
   }
 
-  async exportWav(): Promise<void> {
+  /** Saves what the Kreisel plays as a file: Opus, or WAV where this browser cannot write Opus. */
+  async exportSound(): Promise<void> {
     if (this.exporting !== null) return;
     this.exporting = 0;
     this.notify();
     try {
-      const blob = await renderWav(clone(this.project), (share) => {
+      const file = await renderFile(clone(this.project), (share) => {
         this.exporting = share;
         this.notify();
       });
-      download(blob, "kreisel.wav");
-      this.say(this.project.piece.on ? "Das ganze Stück als WAV gespeichert." : this.project.chain ? "Die ganze Folge als WAV gespeichert." : "Die Szene als WAV gespeichert (zweimal durch die Akkorde).");
+      download(file.blob, `kreisel.${file.kind}`);
+      const what = this.project.piece.on ? "Das ganze Stück" : this.project.chain ? "Die ganze Folge" : "Die Szene";
+      this.say(`${what} als ${FORMATS[file.kind]} gespeichert${this.project.piece.on || this.project.chain ? "" : " (zweimal durch die Akkorde)"}.`);
     } catch {
-      this.say("Das WAV konnte nicht erzeugt werden.");
+      this.say("Die Datei konnte nicht erzeugt werden.");
     } finally {
       this.exporting = null;
       this.notify();
@@ -1119,17 +1206,17 @@ export class App implements RingHost, EaselHost {
 
   async toggleRecording(): Promise<void> {
     if (!Engine.canRecord) {
-      this.say("Dieser Browser kann hier nicht aufnehmen. Nimm „Als WAV speichern“ im Menü.");
+      this.say("Dieser Browser kann hier nicht aufnehmen. Nimm „Als Opus speichern“ im Menü.");
       return;
     }
     const wasRecording = this.engine.recording;
-    const blob = await this.engine.toggleRecording();
+    const file = await this.engine.toggleRecording();
     if (!wasRecording) {
       if (!this.playing) await this.engine.start();
       this.say("Aufnahme läuft: alles, was du hörst und spielst. Noch ein Klick speichert sie.");
-    } else if (blob) {
-      download(blob, "kreisel-aufnahme.wav");
-      this.say("Aufnahme als WAV gespeichert.");
+    } else if (file) {
+      download(file.blob, `kreisel-aufnahme.${file.kind}`);
+      this.say(`Aufnahme als ${FORMATS[file.kind]} gespeichert.`);
     } else {
       this.say("Die Aufnahme war still und wurde nicht gespeichert.");
     }
@@ -1180,8 +1267,12 @@ function readName(): string {
   }
 }
 
+/** How a saved file's format is named; a WAV says why it is not Opus. */
+const FORMATS = { opus: "Opus", wav: "WAV (dieser Browser schreibt kein Opus)" } as const;
+
 function download(blob: Blob, name: string): void {
-  const url = URL.createObjectURL(blob);
+  // Handed over without a type: Firefox looks into a file it knows the type of and renames an Opus file to ".ogx".
+  const url = URL.createObjectURL(new Blob([blob], { type: "application/octet-stream" }));
   const link = document.createElement("a");
   link.href = url;
   link.download = name;

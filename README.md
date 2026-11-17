@@ -46,7 +46,10 @@ and no knobs. So Kreisel has no knobs either:
   turning ring.
 - **The web's own tricks.** The whole Kreisel fits in a link (no upload: the
   link *is* the project), it starts offline, records what is heard and
-  renders a WAV faster than real time.
+  renders a file faster than real time. Both are saved as Opus: the browser's
+  own encoder (WebCodecs) makes the packets, `src/ogg.ts` wraps them into an
+  Ogg file any player knows, a tenth the size of a WAV. A browser without
+  the encoder still gets a WAV.
 
 ## Part two: Klangmalerei
 
@@ -76,7 +79,7 @@ painted. "Malen" opens the paint box on top of the turning wheel:
 
 The Kreisel keeps playing while you paint, so every stroke is heard in the
 groove. Pictures are part of the project: they travel in the link (a few
-dozen bytes a stroke), are rendered into the WAV and can be undone.
+dozen bytes a stroke), are rendered into the saved file and can be undone.
 
 ## Part three: the piece
 
@@ -102,7 +105,7 @@ that line, bar by bar:
 The right button sends a playing piece to a bar, the wheel turns it, dice
 give it the form of a track (climb, perhaps a break, a peak, a fade), and
 "Glätten" rounds the line off. The rules are plain arithmetic on the line
-(`src/piece.ts`), the same live and in the WAV, which holds the piece once
+(`src/piece.ts`), the same live and in the saved file, which holds the piece once
 round. A piece is one byte a bar in the link.
 
 ## Part four: Reihum
@@ -131,6 +134,35 @@ What a turn touched is worked out from two packed states (`src/relay.ts`):
 a ring's settings and its patterns, where copying a scene touches nothing.
 Whatever a link claims is unpacked and packed again turn by turn; a turn
 that is no Kreisel is left out, and a turn never has turns of its own.
+
+## Part five: Klangkörper
+
+The built-in sounds and the painted ones are synthesizer sounds. A
+Klangkörper is a *thing* that rings: a skin, a string, a bar, a tube or a
+bowl, built on a workbench ("Bauen" in the ring's panel).
+
+- **Knock on it.** The body is drawn as what it is. A click strikes it where
+  the pointer is, and that place is where the ring strikes it from then on:
+  the middle of a skin is round and deep, its rim full of overtones; a string
+  touched in its middle loses every second overtone.
+- **Shape it by pulling.** The grip on its right makes it bigger (lower and
+  longer on rings without notes, fuller on rings that play them), the one on
+  its left tightens it (brighter and shorter). A slider runs from wood over
+  metal to glass: how long it rings, and how fast its overtones die.
+- **What sets it going.** A soft or a hard mallet, a plucking finger, a bow,
+  breath (on the top row of keys). Bowed and blown, a body sounds for as long
+  as the note lasts.
+- **It moves.** While it sounds it is seen to: rings run over the skin, the
+  string swings widest where it was touched, the bowl's rim goes oval.
+
+A body is not a recording. It is a list of the ways it can vibrate
+(`src/body.ts`): a round skin's modes from the zeros of the Bessel functions,
+a string's whole-number overtones (a little sharp where it is stiff), a free
+bar's 1 : 2.76 : 5.4 …, a stopped tube's odd overtones, a bowl's few modes in
+beating pairs. Where it is struck decides how strongly each mode starts, the
+material how each dies. The sound is worked out once as samples and kept per
+half octave (`src/audio/body.ts`); a ring has one body, so a new hit takes
+over from the one still ringing. A body is six small numbers in the link.
 
 ## Build
 
