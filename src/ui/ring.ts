@@ -1,6 +1,7 @@
-import { currentScene, MAX_NOTE_LENGTH, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Pattern, type Project, type Relay, type Step } from "../model";
+import { currentScene, MAX_NOTE_LENGTH, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, WEATHER_MAX, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Pattern, type Project, type Relay, type Scene, type Step } from "../model";
 import { chordAt, chordName, pitchName } from "../music";
 import { shakes } from "../rumble";
+import { WEATHER_COLORS, WEATHER_NAMES, windDrift } from "../weather";
 import { LONG_PRESS_MS, LONG_PRESS_SLACK } from "./menu";
 import { entry } from "../piece";
 import { turnColor } from "../relay";
@@ -49,6 +50,13 @@ export interface RingHost {
   cancelGesture(gesture: string): void;
   /** Paints how much the ground shakes at a step of the kick's ring, 0..1. */
   paintRumble(step: number, share: number, gesture: string): void;
+  /** The weather is in focus: strokes on the wheel paint it, with a brush of one kind of weather and a width of 0..2. */
+  readonly weatherFocus: boolean;
+  readonly cloud: number;
+  readonly cloudSize: number;
+  /** A stroke of the weather brush over cells of the wheel ([ring, step]); with `erase` it takes the weather away. */
+  paintWeather(cells: readonly (readonly [number, number])[], erase: boolean, gesture: string): void;
+  setCloudSize(size: number): void;
   /** Reihum: the turns this Kreisel has been through, and the one being looked back at. */
   readonly relay: Relay | null;
   readonly lookBack: number | null;
@@ -129,6 +137,8 @@ const PIECE_REST = 0.72;
 /** The share of the piece's band that holds the strip of scenes while it is in focus. */
 const LANE = 0.22;
 const CHANCE_ALPHA = [1, 0.72, 0.48, 0.28] as const;
+/** How far the weather brush reaches, in pixels, at its three widths. */
+const BRUSH = [9, 18, 32] as const;
 const lerp = (from: number, to: number, share: number): number => from + (to - from) * share;
 
 export class RingView {
@@ -141,6 +151,10 @@ export class RingView {
   /** A stroke on the Nachbeben; with the right button it erases, and until it moves on it may still mean the menu. */
   private shake: { pointer: number; last: number; erase: boolean; pending: boolean; gesture: string } | null = null;
   private press: Press | null = null;
+  /** A stroke of the weather brush: the cells it has already been over get no more from it. */
+  private gust: { pointer: number; erase: boolean; gesture: string; done: Set<string> } | null = null;
+  /** Where the weather brush hovers. */
+  private brushAt: { x: number; y: number } | null = null;
   private gestures = 0;
   private wheelRest = 0;
   private hover: Spot | null = null;
@@ -258,7 +272,7 @@ export class RingView {
   private frame(): void {
     let moving = false;
     for (let track = 0; track <= TRACK_COUNT; track += 1) {
-      const target = track === PIECE ? (this.host.pieceFocus ? FOCUS : PIECE_REST) : track === this.host.selected && !this.host.pieceFocus ? FOCUS : 1;
+      const target = track === PIECE ? (this.host.pieceFocus ? FOCUS : PIECE_REST) : track === this.host.selected && !this.host.pieceFocus && !this.host.weatherFocus ? FOCUS : 1;
       const now = this.weights[track] ?? 1;
       if (Math.abs(target - now) > 0.004) {
         this.weights[track] = this.calm.matches ? target : lerp(now, target, 0.24);
@@ -371,6 +385,7 @@ export class RingView {
       }
       context.globalAlpha = 1;
 
+      if (!host.weatherFocus) this.drawWeather(scene, track, pattern.len, center, band, playhead);
       if (track === 0) this.drawRumble(scene.rumble, pattern, center, band, focus, audible, playhead);
 
       // The hits.
@@ -420,6 +435,8 @@ export class RingView {
           }
         }
       }
+      // While the weather is what is being painted, it lies over the hits.
+      if (host.weatherFocus) this.drawWeather(scene, track, pattern.len, center, band, playhead);
 
       // The ring in focus gets a line around it.
       if (focus > 0.05) {
@@ -544,6 +561,22 @@ export class RingView {
     context.fill();
 
     this.drawPiece(geometry, playhead !== null);
+
+    // The weather brush: as wide as it paints, in the colour of its weather.
+    if (host.weatherFocus && this.brushAt) {
+      context.beginPath();
+      context.arc(this.brushAt.x, this.brushAt.y, BRUSH[host.cloudSize] ?? 18, 0, TAU);
+      context.fillStyle = WEATHER_COLORS[host.cloud] ?? ink;
+      context.globalAlpha = 0.22;
+      context.fill();
+      context.globalAlpha = 0.8;
+      context.strokeStyle = ink;
+      context.lineWidth = 1.5;
+      context.setLineDash([4, 4]);
+      context.stroke();
+      context.setLineDash([]);
+      context.globalAlpha = 1;
+    }
 
     // A small mark where every ring begins.
     const outer = geometry.piece.outer;
@@ -782,6 +815,22 @@ export class RingView {
       else this.host.togglePlay();
       return;
     }
+    if (this.host.weatherFocus) {
+      // Under the weather brush the wheel is one sheet: every ring the brush reaches gets its weather (or, with the right button, loses it).
+      this.hideTip();
+      if (spot.kind !== "ring") return;
+      event.preventDefault();
+      try {
+        this.canvas.setPointerCapture(event.pointerId);
+      } catch {
+        // A pointer the browser no longer tracks: the stroke still works while it stays on the canvas.
+      }
+      this.gestures += 1;
+      this.gust = { pointer: event.pointerId, erase: context, gesture: `wetter${this.gestures}`, done: new Set() };
+      this.brushAt = { x, y };
+      this.blow(x, y);
+      return;
+    }
     if (spot.kind === "chord") {
       this.hideTip();
       if (context) this.host.openContext({ kind: "chord", slot: spot.index }, event.clientX, event.clientY);
@@ -865,6 +914,136 @@ export class RingView {
     }
     this.drag = drag;
     this.hideTip();
+    this.dirty = true;
+  }
+
+  /**
+   * The weather over one ring: every cell that has some is drawn in the way of its kind (fog and sun as a veil, clouds
+   * as puffs, rain as strokes, sparks as stars, hail as grains), the more the stronger. With a wind the cells are
+   * drawn where it has carried them by now.
+   */
+  private drawWeather(scene: Scene, track: number, length: number, center: number, band: { inner: number; outer: number }, playhead: number | null): void {
+    const context = this.context;
+    const cell = TAU / length;
+    const thickness = band.outer - band.inner;
+    const middle = (band.inner + band.outer) / 2;
+    // In focus the weather is what one looks at; otherwise it stays behind the hits.
+    const strong = this.host.weatherFocus ? 1 : 0.6;
+    const point = (radius: number, angle: number): [number, number] => [center + Math.cos(angle) * radius, center + Math.sin(angle) * radius];
+    for (let kind = 0; kind < scene.weather.length; kind += 1) {
+      const line = scene.weather[kind]?.[track];
+      if (!line) continue;
+      const drift = windDrift(playhead ?? 0, scene.wind[kind] ?? 0);
+      const color = WEATHER_COLORS[kind] ?? this.palette.ink;
+      for (let index = 0; index < length; index += 1) {
+        const value = line[index] ?? 0;
+        if (value === 0) continue;
+        const share = value / WEATHER_MAX;
+        const from = TOP + (index + drift) * cell;
+        const mid = from + cell / 2;
+        context.fillStyle = color;
+        context.strokeStyle = color;
+        if (kind < 2) {
+          // Fog and sun lie over the whole cell: fog as a veil with streaks in it, sun as a glow with a bright rim.
+          this.sector(band.inner + 1, band.outer - 1, from, from + cell);
+          context.globalAlpha = (0.22 + 0.5 * share) * strong;
+          context.fill();
+          context.lineWidth = Math.max(1.2, thickness * 0.07);
+          context.globalAlpha = (0.5 + 0.5 * share) * strong;
+          for (const radius of kind === 0 ? [band.inner + thickness * 0.3, band.inner + thickness * 0.7] : [band.outer - 2]) {
+            context.beginPath();
+            context.arc(center, center, radius, from + cell * 0.08, from + cell * 0.92);
+            context.stroke();
+          }
+        } else if (kind === 2) {
+          // Clouds: two pale puffs with a line around them.
+          const size = Math.max(2.5, Math.min(thickness * 0.3, middle * cell * 0.32)) * (0.7 + 0.3 * share);
+          context.lineWidth = 1.2;
+          for (const [radius, angle] of [[middle + thickness * 0.12, mid - cell * 0.16], [middle - thickness * 0.12, mid + cell * 0.16]] as const) {
+            const [x, y] = point(radius, angle);
+            context.beginPath();
+            context.arc(x, y, size, 0, TAU);
+            context.fillStyle = this.palette.paper;
+            context.globalAlpha = (0.55 + 0.45 * share) * strong;
+            context.fill();
+            context.strokeStyle = this.palette.ink;
+            context.globalAlpha = (0.35 + 0.5 * share) * strong;
+            context.stroke();
+          }
+        } else if (kind === 3) {
+          // Rain: slanted strokes from the outside in.
+          context.lineWidth = Math.max(1.6, thickness * 0.09);
+          context.globalAlpha = (0.5 + 0.5 * share) * strong;
+          for (const offset of [-0.28, 0, 0.28]) {
+            const [x1, y1] = point(band.outer - thickness * 0.18, mid + cell * offset - cell * 0.1);
+            const [x2, y2] = point(band.inner + thickness * 0.18, mid + cell * offset + cell * 0.1);
+            context.beginPath();
+            context.moveTo(x1, y1);
+            context.lineTo(x2, y2);
+            context.stroke();
+          }
+        } else if (kind === 4) {
+          // Sparks: a small star.
+          const size = Math.max(4, Math.min(thickness * 0.44, middle * cell * 0.42)) * (0.7 + 0.3 * share);
+          const [x, y] = point(middle, mid);
+          context.globalAlpha = (0.6 + 0.4 * share) * strong;
+          context.beginPath();
+          for (let spike = 0; spike < 8; spike += 1) {
+            const reach = spike % 2 === 0 ? size : size * 0.38;
+            const turn = mid + (spike / 8) * TAU;
+            if (spike === 0) context.moveTo(x + Math.cos(turn) * reach, y + Math.sin(turn) * reach);
+            else context.lineTo(x + Math.cos(turn) * reach, y + Math.sin(turn) * reach);
+          }
+          context.closePath();
+          context.fill();
+          context.lineWidth = 1;
+          context.strokeStyle = this.palette.ink;
+          context.stroke();
+        } else {
+          // Hail: grains.
+          const size = Math.max(1.9, thickness * 0.1) * (0.7 + 0.5 * share);
+          context.globalAlpha = (0.45 + 0.55 * share) * strong;
+          for (const [radius, offset] of [[middle + thickness * 0.22, -0.25], [middle - thickness * 0.2, 0], [middle + thickness * 0.05, 0.27]] as const) {
+            const [x, y] = point(radius, mid + cell * offset);
+            context.beginPath();
+            context.arc(x, y, size, 0, TAU);
+            context.fill();
+          }
+        }
+      }
+    }
+    context.globalAlpha = 1;
+  }
+
+  /** The cells the weather brush covers at a point: on every ring it reaches, the steps within its width. */
+  private brushCells(x: number, y: number): [number, number][] {
+    const { center, rings } = this.geometry();
+    const reach = BRUSH[this.host.cloudSize] ?? 18;
+    const distance = Math.hypot(x - center, y - center);
+    const scene = currentScene(this.host.project);
+    const cells: [number, number][] = [];
+    rings.forEach((band, track) => {
+      // A ring is under the brush if the pointer is on it or the brush reaches its middle.
+      const on = distance >= band.inner && distance <= band.outer;
+      if ((!on && Math.abs((band.inner + band.outer) / 2 - distance) > reach) || this.host.veiled(track)) return;
+      const length = scene.patterns[track]?.len ?? 16;
+      const place = this.turn(x, y) * length;
+      // How many steps of this ring the brush is wide, at the ring's middle.
+      const span = (reach / Math.max(1, (band.inner + band.outer) / 2)) / (TAU / length);
+      const first = Math.floor(place - span + 0.5);
+      const last = Math.max(first, Math.floor(place + span - 0.5));
+      for (let step = Math.min(first, Math.floor(place)); step <= Math.max(last, Math.floor(place)); step += 1) cells.push([track, ((step % length) + length) % length]);
+    });
+    return cells;
+  }
+
+  /** The weather brush at a point: every cell it covers that this stroke has not been over yet. */
+  private blow(x: number, y: number): void {
+    const gust = this.gust;
+    if (!gust) return;
+    const fresh = this.brushCells(x, y).filter(([track, step]) => !gust.done.has(`${track}:${step}`));
+    for (const [track, step] of fresh) gust.done.add(`${track}:${step}`);
+    if (fresh.length > 0) this.host.paintWeather(fresh, gust.erase, gust.gesture);
     this.dirty = true;
   }
 
@@ -982,6 +1161,14 @@ export class RingView {
       this.dirty = true;
       return;
     }
+    if (this.host.weatherFocus) {
+      this.brushAt = { x, y };
+      this.dirty = true;
+    }
+    if (this.gust?.pointer === event.pointerId) {
+      this.blow(x, y);
+      return;
+    }
     const shake = this.shake;
     if (shake && shake.pointer === event.pointerId) {
       // The stroke stays on the kick's ring wherever the pointer wanders: the angle says which step, the distance how much.
@@ -1071,6 +1258,12 @@ export class RingView {
       this.dirty = true;
       return;
     }
+    if (this.gust?.pointer === event.pointerId) {
+      this.gust = null;
+      this.host.endGesture();
+      this.dirty = true;
+      return;
+    }
     if (this.shake?.pointer === event.pointerId) {
       const shake = this.shake;
       this.shake = null;
@@ -1095,7 +1288,8 @@ export class RingView {
   }
 
   private leave(): void {
-    if (this.hover) this.dirty = true;
+    if (this.hover || this.brushAt) this.dirty = true;
+    this.brushAt = null;
     this.hover = null;
     this.canvas.style.cursor = "";
     this.hideTip();
@@ -1110,6 +1304,12 @@ export class RingView {
     const notches = Math.trunc(this.wheelRest / 45);
     if (notches === 0) return;
     this.wheelRest -= notches * 45;
+    if (this.host.weatherFocus) {
+      // Under the weather brush the wheel makes the brush wider and narrower.
+      this.host.setCloudSize(this.host.cloudSize - Math.sign(notches));
+      this.dirty = true;
+      return;
+    }
     if (spot.kind === "piece") this.host.rotatePiece(notches);
     else this.host.rotate(spot.track, notches);
   }
@@ -1141,7 +1341,13 @@ export class RingView {
       const note = pattern ? stepAt(pattern, spot.step) : null;
       const info = trackInfo(spot.track);
       text = this.host.veiled(spot.track) ? `${info.name} · verdeckt (Stille Post)` : `${info.name} · Schritt ${spot.step + 1}`;
-      if (shakes(spot.track, this.host.tool) && !this.host.veiled(spot.track)) {
+      if (this.host.weatherFocus && !this.host.veiled(spot.track)) {
+        const kind = this.host.cloud;
+        const length = scene.patterns[spot.track]?.len ?? 16;
+        const drift = Math.floor(windDrift(Math.floor(this.host.playhead() ?? 0), scene.wind[kind] ?? 0));
+        const there = scene.weather[kind]?.[spot.track]?.[(((spot.step - drift) % length) + length) % length] ?? 0;
+        text = `${WEATHER_NAMES[kind]} über ${info.name} · Schritt ${spot.step + 1} · ${Math.round((there / WEATHER_MAX) * 100)} %`;
+      } else if (shakes(spot.track, this.host.tool) && !this.host.veiled(spot.track)) {
         text = `Nachbeben · Schritt ${spot.step + 1} · ${Math.round(((scene.rumble[spot.step] ?? 0) / RUMBLE_MAX) * 100)} % · ziehen malt (außen stark), die rechte Taste radiert`;
       } else if (note?.on && !this.host.veiled(spot.track)) text += ` · ${pitchName(project, spot.track, note.pitch, chordAt(scene, this.host.playhead() ?? 0))}`;
     }

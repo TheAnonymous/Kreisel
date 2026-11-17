@@ -26,6 +26,8 @@ import { barCount, dropsQuiet, gateLevel, planBar, type BarPlan } from "../piece
 import { playBild } from "./bild";
 import { playBody } from "./body";
 import { buildRumble, hitRumble, shadeRumble, stepRumble, stillRumble, type Rumble } from "./rumble";
+import { buildChain, clearChain, stepChain, type Chain } from "./weather";
+import { brightness, shaded, shadesSound, weatherOver } from "../weather";
 import { soundFile, type SoundFile } from "./opus";
 import { glides, playHit } from "./sounds";
 
@@ -55,6 +57,8 @@ export interface Graph {
   analyser: AnalyserNode | null;
   /** The Nachbeben under the kick. */
   rumble: Rumble;
+  /** What the weather does to each ring's sound. */
+  chains: Chain[];
 }
 
 /** Evens out how loud the rings are at the same level setting. */
@@ -75,9 +79,10 @@ export function buildGraph(context: BaseAudioContext): Graph {
   mix.connect(throwSend).connect(echo.input);
   const buses = TRACK_KINDS.map(() => createBus(context, { level: 0, to: mix, sends: { hall: hall.input, echo: echo.input } }));
   const rumble = buildRumble(kit, mix);
-  const inlets = buses.map((bus, index) => {
+  const chains = buses.map((bus) => buildChain(kit, bus.input, bus.output, hall.input, echo.input));
+  const inlets = chains.map((chain, index) => {
     const inlet = kit.gain(1);
-    inlet.connect(bus.input);
+    inlet.connect(chain.input);
     // The kick also goes down into the cellar.
     if (index === 0) inlet.connect(rumble.input);
     return inlet;
@@ -88,7 +93,7 @@ export function buildGraph(context: BaseAudioContext): Graph {
     analyser.fftSize = 1024;
     master.output.connect(analyser);
   }
-  return { context, kit, master, mix, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, rumble };
+  return { context, kit, master, mix, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, rumble, chains };
 }
 
 export const stepSeconds = (project: Project): number => 15 / project.bpm;
@@ -119,12 +124,13 @@ function hush(graph: Graph, time: number): void {
     old.gain.setTargetAtTime(0, time, 0.03);
     setTimeout(() => old.disconnect(), 600);
     const inlet = graph.kit.gain(1);
-    const bus = graph.buses[index];
-    if (bus) inlet.connect(bus.input);
+    const chain = graph.chains[index];
+    if (chain) inlet.connect(chain.input);
     if (index === 0) inlet.connect(graph.rumble.input);
     return inlet;
   });
   stillRumble(graph.rumble, time);
+  for (const chain of graph.chains) clearChain(chain, time);
 }
 
 /**
@@ -161,8 +167,10 @@ class Voices {
   constructor(private readonly graph: Graph) {}
 
   /** Plays `step` of ring `track` at `time`; `stepTime` is how long one step lasts, `level` scales how loud it is. */
-  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number, level = 1): void {
-    const settings = project.tracks[track];
+  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number, level = 1, bright = 0): void {
+    const plain = project.tracks[track];
+    // Sun and fog reach into the sound itself where a ring has a brightness of its own: note by note, as a filter is played.
+    const settings = plain && bright !== 0 ? { ...plain, x: shaded(plain.x, bright) } : plain;
     const inlet = this.graph.inlets[track];
     if (!settings || !inlet) return;
     const melodic = TRACK_INFO[TRACK_KINDS[track] ?? "kick"].melodic;
@@ -364,6 +372,10 @@ export class Player {
     for (let track = 0; track < TRACK_COUNT; track += 1) {
       const pattern = scene.patterns[track];
       if (!pattern) continue;
+      // The weather over this ring at this step; the wind has carried it on by as far as the Kreisel has played.
+      const over = weatherOver(scene, track, position % pattern.len, this.local);
+      const chain = this.graph.chains[track];
+      if (chain) stepChain(chain, over, time, duration);
       const step = stepAt(pattern, position % pattern.len);
       if (!step.on) continue;
       if (this.skip.delete(`${track}:${this.local}`)) continue;
@@ -374,7 +386,7 @@ export class Player {
       const gate = this.plan ? (this.plan.gates[track] ?? 0) : 1;
       if (gate <= 0 || (this.plan && step.vel === 0 && dropsQuiet(gate))) continue;
       fired |= 1 << track;
-      this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1);
+      this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, shadesSound(track) ? brightness(over) : 0);
       if (track === 0) hitRumble(this.graph.rumble, time, duration);
     }
     // The Nachbeben: as much as the line in the kick's ring lets out at this step, at the pitch of the bar's chord.
@@ -424,6 +436,8 @@ export interface EngineView {
   onState(): void;
   /** The bar a piece starts from. */
   pieceStart(): number;
+  /** A step is heard: how many steps the scene has played by now. */
+  onStep?(local: number): void;
 }
 
 export class Engine {
@@ -644,6 +658,7 @@ export class Engine {
         if (report.fired & (1 << track)) this.struck[track] = report.time;
       }
       if (report.scene !== before) this.view.onScene(report.scene);
+      this.view.onStep?.(report.local);
     });
   }
 }

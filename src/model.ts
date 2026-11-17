@@ -107,6 +107,12 @@ export interface Track {
   body: Body | null;
 }
 
+/** Fog, sun, clouds, rain, sparks, hail: effects painted onto the wheel. */
+export const WEATHER_COUNT = 6;
+export const WEATHER_MAX = 15;
+/** The strongest wind: four steps a bar, either way. */
+export const WIND_MAX = 16;
+
 /** The most the ground shakes at one step of the Nachbeben. */
 export const RUMBLE_MAX = 15;
 
@@ -116,6 +122,10 @@ export interface Scene {
   chords: number[];
   /** The Nachbeben: how much the ground shakes at each step of the kick's ring, 0..RUMBLE_MAX (always MAX_STEPS of them). */
   rumble: number[];
+  /** The weather over the wheel: for each kind of weather and each ring, how much of it lies on each step, 0..WEATHER_MAX. */
+  weather: number[][][];
+  /** How fast each kind of weather drifts around the wheel, in quarter steps a bar (negative: against the clock). */
+  wind: number[];
 }
 
 export const MIN_BARS = 4;
@@ -229,8 +239,16 @@ export function emptyRumble(): number[] {
   return Array.from({ length: MAX_STEPS }, () => 0);
 }
 
+export function emptyWeather(): number[][][] {
+  return Array.from({ length: WEATHER_COUNT }, () => Array.from({ length: TRACK_COUNT }, () => Array.from({ length: MAX_STEPS }, () => 0)));
+}
+
+export function emptyWind(): number[] {
+  return Array.from({ length: WEATHER_COUNT }, () => 0);
+}
+
 export function emptyScene(): Scene {
-  return { patterns: Array.from({ length: TRACK_COUNT }, () => emptyPattern()), chords: [0, 5, 2, 6], rumble: emptyRumble() };
+  return { patterns: Array.from({ length: TRACK_COUNT }, () => emptyPattern()), chords: [0, 5, 2, 6], rumble: emptyRumble(), weather: emptyWeather(), wind: emptyWind() };
 }
 
 export function clone<T>(value: T): T {
@@ -270,6 +288,8 @@ export function firstPiece(scene = 0): Piece {
 export function factoryProject(): Project {
   const scene: Scene = {
     rumble: emptyRumble(),
+    weather: emptyWeather(),
+    wind: emptyWind(),
     chords: [0, 5, 2, 6],
     patterns: [
       pattern(16, [[0, 0, 1, 2], 4, [8, 0, 1, 2], 12]),

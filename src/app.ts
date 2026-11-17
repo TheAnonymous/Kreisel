@@ -6,7 +6,8 @@ import { framesToBild } from "./imitate";
 import { keep, loadKept, saveKept, type Kept } from "./collection";
 import { cleanBody, diceBody } from "./body";
 import { diceRumble, hasRumble, RUMBLE_SHAPES, rumbleShape, shakes, SHAPE_ROLL, shapeOf } from "./rumble";
-import { BAR, BODY_SOUND, clamp, clone, currentScene, emptyRumble, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NAME, MAX_NOTE_LENGTH, MAX_STEPS, MAX_TURNS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Body, type Pattern, type Project, type Relay, type Step, type Track } from "./model";
+import { diceWeather as throwWeather, hasWeather, WEATHER_STROKE, windOffset } from "./weather";
+import { BAR, BODY_SOUND, clamp, clone, currentScene, emptyRumble, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NAME, MAX_NOTE_LENGTH, MAX_STEPS, MAX_TURNS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, WEATHER_COUNT, WEATHER_MAX, WIND_MAX, trackInfo, trackOf, type Bild, type Body, type Pattern, type Project, type Relay, type Step, type Track } from "./model";
 import { chordAt } from "./music";
 import { activeSteps, clear, dice, resize, rotate, seeded, spread, transpose, vary } from "./patterns";
 import { barCount, dicePiece, moveInOrder, resizePiece, rotatePiece, smoothPiece } from "./piece";
@@ -27,6 +28,7 @@ export type ContextTarget =
   | { kind: "piece"; bar: number | null }
   | { kind: "chord"; slot: number }
   | { kind: "hub" }
+  | { kind: "weather" }
   | { kind: "scene"; index: number };
 
 export interface Toast {
@@ -61,6 +63,9 @@ export const BRUSH_TOOLS: readonly { name: string; hint: string }[] = [
   { name: "Radieren", hint: "Einen Strich wegnehmen (auch mit Rechtsklick)" },
 ];
 export const ERASER = 3;
+
+/** Effects that leave weather behind when they are held while "Einspielen" is on: dull is fog, the echo throw is rain, the stutter is hail. */
+const TRAILS: readonly (readonly [FxName, number])[] = [["dumpf", 0], ["wurf", 3], ["stotter", 5]];
 
 /** What sets a Klangkörper going: the tools of the workbench. */
 export const MALLETS: readonly { name: string; hint: string }[] = [
@@ -102,6 +107,11 @@ export class App implements RingHost, EaselHost {
   private turnMemo: { stamp: number; mine: number[]; heard: number[]; taken: number[] } | null = null;
   /** The piece's ring is in focus instead of one of the seven. */
   pieceFocus = false;
+  /** The weather is in focus instead of a ring: strokes on the wheel paint it. */
+  weatherFocus = false;
+  /** The kind of weather the brush holds (see WEATHER_NAMES), and how wide the brush is (0..2). */
+  cloud = 2;
+  cloudSize = 0;
   /** The bar a piece starts from. */
   pieceStart = 0;
   /** The bar the keyboard points at on the piece's ring. */
@@ -146,6 +156,7 @@ export class App implements RingHost, EaselHost {
         if (!this.engine.playing) this.latched.clear();
         this.notify();
       },
+      onStep: (local) => this.trail(local),
       pieceStart: () => (this.project.piece.on ? this.pieceStart % barCount(this.project.piece) : 0),
     });
     this.store.subscribe(() => {
@@ -224,6 +235,8 @@ export class App implements RingHost, EaselHost {
     if (!on && this.latched.has(name)) return;
     this.wake();
     this.engine.setFx(name, on);
+    // What the effect left behind as weather while it was held is one step back.
+    if (!on) this.store.settle();
   }
 
   /** The right button on an effect: it stays on until it is latched off again (or the Kreisel stops). */
@@ -246,9 +259,10 @@ export class App implements RingHost, EaselHost {
 
   select(track: number, step?: number): void {
     const target = clamp(track, 0, TRACK_COUNT - 1);
-    const changed = this.selected !== target || this.pieceFocus || (step !== undefined && this.keyCursor !== null);
+    const changed = this.selected !== target || this.pieceFocus || this.weatherFocus || (step !== undefined && this.keyCursor !== null);
     this.selected = target;
     this.pieceFocus = false;
+    this.weatherFocus = false;
     this.pieceKey = null;
     // The workbench shows the body of the ring in focus; a ring without one has nothing to show.
     if (this.bench && !trackOf(this.project, target).body) this.bench = false;
@@ -454,6 +468,106 @@ export class App implements RingHost, EaselHost {
       // An empty kick ring has no Nachbeben either.
       if (track === 0) currentScene(project).rumble = emptyRumble();
     });
+  }
+
+  // ---- weather: effects painted onto the wheel -------------------------------------------
+
+  /** Puts the weather in focus: the wheel is painted with it, the tools are the kinds of weather. */
+  focusWeather(): void {
+    if (this.weatherFocus) return;
+    this.weatherFocus = true;
+    this.pieceFocus = false;
+    this.pieceKey = null;
+    this.easel = false;
+    this.bench = false;
+    this.openSlot = null;
+    this.keyCursor = null;
+    this.notify();
+  }
+
+  setCloud(kind: number): void {
+    this.cloud = clamp(Math.round(kind), 0, WEATHER_COUNT - 1);
+    this.notify();
+  }
+
+  setCloudSize(size: number): void {
+    this.cloudSize = clamp(Math.round(size), 0, 2);
+    this.notify();
+  }
+
+  /**
+   * Changes weather `kind` on cells of the wheel ([ring, step], as they lie under the pointer right now). Where a
+   * wind has carried the weather on, the cell that is there now is the one that changes.
+   */
+  private skyAt(kind: number, cells: readonly (readonly [number, number])[], change: (now: number) => number, gesture: string): void {
+    const scene = currentScene(this.project);
+    const offset = windOffset(Math.floor(this.playhead() ?? 0), scene.wind[kind] ?? 0);
+    const changes: [number, number, number][] = [];
+    for (const [ring, step] of cells) {
+      if (this.veiled(ring)) continue;
+      const length = scene.patterns[ring]?.len ?? 16;
+      const index = (((step - offset) % length) + length) % length;
+      const now = scene.weather[kind]?.[ring]?.[index] ?? 0;
+      const next = clamp(Math.round(change(now)), 0, WEATHER_MAX);
+      if (next !== now) changes.push([ring, index, next]);
+    }
+    if (changes.length === 0) return;
+    this.store.edit((project) => {
+      const sky = currentScene(project).weather[kind];
+      for (const [ring, index, next] of changes) {
+        const line = sky?.[ring];
+        if (line) line[index] = next;
+      }
+    }, gesture, Infinity);
+  }
+
+  /** A stroke of the weather brush over cells of the wheel: a little more of the brush's weather there, or none (`erase`). */
+  paintWeather(cells: readonly (readonly [number, number])[], erase: boolean, gesture: string): void {
+    this.skyAt(this.cloud, cells, (now) => (erase ? 0 : now + WEATHER_STROKE), gesture);
+  }
+
+  /** Einspielen: an effect held while the Kreisel turns leaves its weather where the Kreisel is, over every ring. */
+  private trail(local: number): void {
+    if (!this.live || this.oldTurn) return;
+    for (const [fx, kind] of TRAILS) {
+      if (!this.engine.fx[fx]) continue;
+      const scene = currentScene(this.project);
+      const cells = scene.patterns.map((pattern, ring) => [ring, local % pattern.len] as const);
+      this.skyAt(kind, cells, (now) => Math.max(now, 10), `spur-${fx}`);
+    }
+  }
+
+  /** How fast weather `kind` drifts around the wheel, in quarter steps a bar. */
+  setWind(kind: number, wind: number, key?: string): void {
+    const next = clamp(Math.round(wind), -WIND_MAX, WIND_MAX);
+    if ((currentScene(this.project).wind[kind] ?? 0) === next) return;
+    this.store.edit((project) => { currentScene(project).wind[kind] = next; }, key ? `${key}${kind}` : undefined);
+  }
+
+  /** Clears the sky: all of it, one kind of weather, or what lies over one ring. */
+  clearWeather(kind?: number, ring?: number): void {
+    if (!hasWeather(currentScene(this.project), kind, ring)) return;
+    this.store.edit((project) => {
+      const scene = currentScene(project);
+      scene.weather.forEach((rings, which) => {
+        if (kind !== undefined && kind !== which) return;
+        rings.forEach((line, where) => {
+          if (ring === undefined || ring === where) line.fill(0);
+        });
+        if (ring === undefined) scene.wind[which] = 0;
+      });
+    });
+  }
+
+  /** The dice: a sky to start from. */
+  diceWeather(): void {
+    this.store.edit((project) => {
+      const scene = currentScene(project);
+      const sky = throwWeather(scene.patterns.map((pattern) => pattern.len), this.random);
+      scene.weather = sky.weather;
+      scene.wind = sky.wind;
+    });
+    if (!this.playing) this.say("Neues Wetter. Starte den Kreisel, dann hörst du es, und was Wind hat, zieht um das Rad.");
   }
 
   // ---- the Nachbeben under the kick ---------------------------------------------------
@@ -782,6 +896,7 @@ export class App implements RingHost, EaselHost {
   focusPiece(): void {
     if (this.pieceFocus) return;
     this.pieceFocus = true;
+    this.weatherFocus = false;
     this.easel = false;
     this.bench = false;
     this.openSlot = null;

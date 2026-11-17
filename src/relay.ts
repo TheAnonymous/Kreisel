@@ -1,4 +1,5 @@
 import { TRACK_COUNT, type Relay } from "./model";
+import { weatherOn } from "./weather";
 
 /*
  * "Reihum": what belongs to a turn. Turns are compared in their packed form
@@ -82,7 +83,17 @@ export function changedRings(before: unknown, after: unknown): number[] {
       const was = rumblesOf(before)[scene] ?? null;
       return was === null ? line !== "" && !rumblesOf(before).includes(line) : was !== line;
     }));
-    if (settings || patterns || shakes) changed.push(ring);
+    // Weather lies on rings: painting some on a ring touches that ring (the wind is nobody's, like the tempo).
+    const skies = (state: unknown): (string | null)[] => {
+      const scenes = (state as PackedLike | null)?.c;
+      return (Array.isArray(scenes) ? scenes : []).map((scene) => (typeof scene === "object" && scene !== null ? weatherOn((scene as { x?: unknown }).x, ring) : null));
+    };
+    const weather = skies(after).some((sky, scene) => {
+      if (sky === null) return false;
+      const was = skies(before)[scene] ?? null;
+      return was === null ? sky !== "" && !skies(before).includes(sky) : was !== sky;
+    });
+    if (settings || patterns || shakes || weather) changed.push(ring);
   }
   return changed;
 }

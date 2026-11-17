@@ -198,6 +198,37 @@ from a wave shaper and two slow filters that drives two sine oscillators, a
 shaper for the growl, and three gains for the line, the roll and the kick's
 push. It is the same live and in the saved file.
 
+## Part seven: Wetter
+
+Effects and their automation, as weather painted onto the wheel. The wheel
+has two directions a straight sequencer lacks: how far out a place is says
+which instrument, its angle says when. So one brush stroke across several
+rings says "these instruments, in this part of their round".
+
+- **Six kinds.** Fog makes what lies under it duller, sun brighter, clouds
+  send it into the hall, rain into the echo, sparks drive it, hail chops it.
+  "Wetter" is chosen like a ring (it heads the list); then the tools are the
+  six kinds, a stroke on the wheel paints, going over it again makes it
+  stronger, the right button takes it away, the mouse wheel makes the brush
+  wider.
+- **Wind is the automation.** Every kind of weather has a wind: a quarter
+  step to four steps a bar, with or against the clock. The weather then
+  drifts around the wheel and the sound changes over many bars, with no
+  curve drawn and no knob recorded. Rings of different lengths carry the
+  same patch round at their own pace.
+- **Into the sound.** On the rings whose sound has a brightness of its own
+  (hi-hat, bass, chords, melody), sun and fog also move that, note by note:
+  the filter ride of an acid line, painted.
+- **Effects leave weather.** With "Einspielen" on, holding the dull, echo or
+  stutter key leaves fog, rain or hail where the Kreisel is, over every ring.
+
+Weather is a number from 0 to 15 for each kind, ring and step, kept with
+the scene (in the link: one entry for each ring a kind lies on, a hex digit
+a step), plus six winds. The rules are plain arithmetic (`src/weather.ts`);
+the sound is a short chain before each ring's bus and two sends after it
+(`src/audio/weather.ts`), which the player sets step by step. Under a clear
+sky the chain changes nothing.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the

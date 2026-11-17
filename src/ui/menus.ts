@@ -3,6 +3,7 @@ import { BODY_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_ST
 import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
+import { hasWeather, WEATHER_NAMES, windName } from "../weather";
 import { barCount } from "../piece";
 import type { MenuRow, MenuSpec } from "./menu";
 
@@ -124,6 +125,14 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
     },
     {
       kind: "choice",
+      label: "Wetter",
+      options: [
+        { label: "Malen …", title: "Wetter auf das Rad malen: Effekte, die mit dem Wind ziehen", close: true, run: () => app.focusWeather() },
+        { label: "Aufklaren", title: "Das Wetter über diesem Ring wegnehmen", disabled: !hasWeather(currentScene(project), undefined, track), run: () => app.clearWeather(undefined, track) },
+      ],
+    },
+    {
+      kind: "choice",
       label: "Muster",
       options: [
         { label: "Kopieren", title: "Das Muster dieses Rings merken", close: true, run: () => app.copyRing(track) },
@@ -234,11 +243,34 @@ function hubMenu(app: App, doors: MenuDoors): MenuSpec {
   };
 }
 
+function weatherMenu(app: App): MenuSpec {
+  const scene = currentScene(app.project);
+  const rows: MenuRow[] = [
+    { kind: "action", label: "Wetter malen …", run: () => app.focusWeather() },
+    { kind: "action", label: "Würfeln", keep: true, run: () => app.diceWeather() },
+    { kind: "action", label: "Alles aufklaren", disabled: !hasWeather(scene), run: () => app.clearWeather() },
+  ];
+  // What lies in the sky can be taken away kind by kind, or held still.
+  WEATHER_NAMES.forEach((name, kind) => {
+    if (!hasWeather(scene, kind)) return;
+    rows.push({
+      kind: "choice",
+      label: `${name}: ${windName(scene.wind[kind] ?? 0)}`,
+      options: [
+        { label: "anhalten", title: `Den Wind von ${name} anhalten`, disabled: (scene.wind[kind] ?? 0) === 0, run: () => app.setWind(kind, 0) },
+        { label: "weg", title: `${name} wegnehmen`, run: () => app.clearWeather(kind) },
+      ],
+    });
+  });
+  return { title: "Wetter", color: "#3d7edb", rows };
+}
+
 /** The menu for what the right button landed on, or `null` when there is nothing to offer (any more). */
 export function buildMenu(app: App, target: ContextTarget, doors: MenuDoors): MenuSpec | null {
   if (target.kind === "ring") return ringMenu(app, target.track, target.step);
   if (target.kind === "piece") return pieceMenu(app, target.bar);
   if (target.kind === "chord") return chordMenu(app, target.slot);
   if (target.kind === "scene") return sceneMenu(app, target.index);
+  if (target.kind === "weather") return weatherMenu(app);
   return hubMenu(app, doors);
 }

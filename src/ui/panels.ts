@@ -3,6 +3,7 @@ import type { FxName } from "../audio/engine";
 import { describeBild } from "../bild";
 import { BODY_NAMES, describeBody, materialName, TIGHT_NAMES } from "../body";
 import { describeRumble, hasRumble } from "../rumble";
+import { describeWeather, hasWeather, WEATHER_COLORS, WEATHER_HINTS, WEATHER_NAMES, windName, WINDS } from "../weather";
 import { packBild, unpackBild } from "../codec";
 import { BODY_SOUND, clamp, currentScene, MAX_BARS, MAX_CHORDS, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, SCENE_COUNT, SCENE_NAMES, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
 import { chordName, chordRoman, NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
@@ -35,6 +36,16 @@ const TOOL_ICONS: Record<Tool, string> = {
   laenge: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M4 8v8M20 8v8"/></svg>',
 };
 
+/** Fog, sun, a cloud, rain, a spark, hail. */
+const WEATHER_ICONS = [
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h18M6 12h15M3 16h14"/></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 0 1-.4-8 5.6 5.6 0 0 1 10.8 1.3A3.4 3.4 0 0 1 17 18z"/></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4 5 11M13 4l-3 7M18 4l-3 7M9 13l-3 7M15 13l-3 7"/></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z"/></svg>',
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="1.9" class="fill"/><circle cx="14" cy="5" r="1.9" class="fill"/><circle cx="18" cy="12" r="1.9" class="fill"/><circle cx="9" cy="13" r="1.9" class="fill"/><circle cx="15" cy="19" r="1.9" class="fill"/><circle cx="5" cy="19" r="1.9" class="fill"/></svg>',
+];
+
 /** What sets a body going: soft mallet, hard mallet, a plucking pick, a bow, breath. */
 const MALLET_ICONS = [
   '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 13.5 20 4"/><circle cx="7.5" cy="16.5" r="4.4"/></svg>',
@@ -53,6 +64,8 @@ const BRUSH_ICONS = [
 
 /** The physical keys: tools on the top row, playing on the home row, effects on the bottom row. */
 export const TOOL_CODES = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT"] as const;
+/** The six kinds of weather: the top row, one key further. */
+export const WEATHER_CODES = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY"] as const;
 export const PLAY_CODES = ["KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK"] as const;
 export const FX_CODES = ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB"] as const;
 
@@ -116,6 +129,13 @@ export class Panels {
   private readonly kindButtons: HTMLButtonElement[] = [];
   private readonly shape = { size: el("input"), tight: el("input"), material: el("input"), tightName: el("span", "label"), materialName: el("span", "label") };
   private readonly quake = el("div", "group quake");
+  private readonly weatherRow = el("li", "track weather-row");
+  private readonly weatherBox = el("div", "panel-box panel-weather");
+  private readonly sky = { info: el("p", "info"), clear: button("button small", "Aufklaren", "Alles Wetter wegnehmen (Umschalt+Entf)") };
+  private readonly cloudButtons: HTMLButtonElement[] = [];
+  private readonly windInputs: HTMLInputElement[] = [];
+  private readonly windNames: HTMLElement[] = [];
+  private weatherFocused = false;
   private readonly sizeDots = el("span", "dots");
   private thumbSignature = "";
   private shelfSignature = "noch nicht gebaut";
@@ -142,6 +162,7 @@ export class Panels {
     this.buildTools();
     this.buildEasel();
     this.buildBench();
+    this.buildWeather();
     this.buildFx();
     this.buildPanel();
     this.buildPiece();
@@ -210,10 +231,10 @@ export class Panels {
       const key = this.fxButtons.get(fx.id)?.querySelector(".key");
       if (key) key.textContent = this.keyLabel(FX_CODES[index] ?? "");
     });
-    for (const nodes of [this.brushButtons, this.malletButtons]) {
+    for (const nodes of [this.brushButtons, this.malletButtons, this.cloudButtons]) {
       nodes.forEach((node, index) => {
         const key = node.querySelector(".key");
-        if (key) key.textContent = this.keyLabel(TOOL_CODES[index] ?? "");
+        if (key) key.textContent = this.keyLabel(WEATHER_CODES[index] ?? "");
       });
     }
     this.buildHelp();
@@ -303,6 +324,16 @@ export class Panels {
 
   private buildTracks(): void {
     const list = byId("tracks");
+    // The weather lies over all the rings: it comes before them.
+    const sky = this.weatherRow;
+    const choose = button("pick", "", "Das Wetter wählen: Effekte auf das Rad malen (Taste 9)");
+    choose.append(el("span", "dot"), el("span", "name", "Wetter"), el("span", "sound"));
+    choose.addEventListener("click", () => this.app.focusWeather());
+    const throwIt = iconButton("roll", ICONS.dice, "Wetter würfeln", "Ein neues Wetter würfeln");
+    throwIt.addEventListener("click", () => this.app.diceWeather());
+    sky.append(choose, throwIt);
+    onContext(sky, (x, y, byKeyboard) => this.app.openContext({ kind: "weather" }, x, y, byKeyboard));
+    list.append(sky);
     // The piece is the outermost ring: it comes first.
     const row = this.pieceRow;
     const pick = button("pick", "", "Den Stück-Ring wählen (Taste 8)");
@@ -406,6 +437,62 @@ export class Panels {
     byId("easel").addEventListener("pointerdown", (event) => {
       if (event.target === event.currentTarget) app.closeEasel();
     });
+  }
+
+  /** The weather: its brushes (in the tools' place) and its panel, where every kind of weather has a wind. */
+  private buildWeather(): void {
+    const app = this.app;
+    const brushes = byId("weathers");
+    WEATHER_NAMES.forEach((name, kind) => {
+      const node = button("tool", "", WEATHER_HINTS[kind] ?? name);
+      node.innerHTML = WEATHER_ICONS[kind] ?? "";
+      node.style.setProperty("--w", WEATHER_COLORS[kind] ?? "currentColor");
+      node.append(el("span", "name", name), el("kbd", "key"));
+      node.setAttribute("role", "radio");
+      node.addEventListener("click", () => app.setCloud(kind));
+      brushes.append(node);
+      this.cloudButtons.push(node);
+    });
+
+    const head = el("header", "panel-head");
+    head.append(el("span", "dot"), el("h2", "", "Wetter"));
+    const doing = el("div", "doing");
+    const roll = button("button small", "Würfeln", "Ein neues Wetter würfeln (N)");
+    roll.id = "weather-dice";
+    roll.addEventListener("click", () => app.diceWeather());
+    this.sky.clear.id = "weather-clear";
+    this.sky.clear.addEventListener("click", () => app.clearWeather());
+    doing.append(roll, this.sky.clear);
+
+    const winds = el("div", "group");
+    winds.append(el("h3", "", "Wind: so zieht jedes Wetter um das Rad"));
+    WEATHER_NAMES.forEach((name, kind) => {
+      const line = el("label", "line sky");
+      const swatch = el("span", "swatch");
+      swatch.style.background = WEATHER_COLORS[kind] ?? "";
+      const input = el("input");
+      input.type = "range";
+      input.min = "0";
+      input.max = String(WINDS.length - 1);
+      input.step = "1";
+      input.title = `Wie schnell ${name} um das Rad zieht: nach links gegen, nach rechts mit dem Uhrzeiger · Rechtsklick hält es an`;
+      input.addEventListener("input", () => app.setWind(kind, WINDS[Number(input.value)] ?? 0, "wind"));
+      input.addEventListener("change", () => app.store.settle());
+      input.addEventListener("pointerdown", (event) => {
+        if (event.button !== 2) return;
+        app.setWind(kind, 0);
+      });
+      input.addEventListener("contextmenu", (event) => event.preventDefault());
+      const speed = el("output");
+      line.append(swatch, el("span", "label", name), input, speed);
+      winds.append(line);
+      this.windInputs.push(input);
+      this.windNames.push(speed);
+    });
+    const hint = el("p", "easel-hint", "Mal Wetter auf das Rad: Wie weit außen, sagt welcher Ring, der Winkel sagt wann. Ein Strich quer über mehrere Ringe trifft sie alle. Noch einmal darüber macht es stärker, die rechte Taste nimmt es weg, das Mausrad ändert die Pinselbreite. Mit Wind zieht das Wetter Takt für Takt weiter.");
+    this.weatherBox.append(head, this.sky.info, doing, winds, hint);
+    this.weatherBox.hidden = true;
+    byId("panel").append(this.weatherBox);
   }
 
   /** The workbench: the kinds of body, the three ways to shape one, and what sets it going (in the tools' place). */
@@ -887,6 +974,7 @@ export class Panels {
       [key("KeyM"), "Ring stumm · mit Umschalt allein hören"],
       [", .", "Szene zurück oder vor"],
       ["8", "den Stück-Ring wählen · dort: ← → Takt, + − Spannung, Eingabe spielt ab dem Takt"],
+      ["9", `das Wetter wählen · dort: ${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")} ${key("KeyY")} Nebel, Sonne, Wolken, Regen, Funken, Hagel · ${key("KeyN")} würfeln · Entf nimmt das gewählte Wetter weg`],
       ["Strg+Z", "Rückgängig · mit Umschalt wiederholen"],
       ["?", "diese Hilfe"],
     ];
@@ -949,11 +1037,11 @@ export class Panels {
     this.syncPiece();
     this.trackRows.forEach((row, track) => {
       const one = trackOf(project, track);
-      row.classList.toggle("selected", track === selected && !app.pieceFocus);
+      row.classList.toggle("selected", track === selected && !app.pieceFocus && !app.weatherFocus);
       row.classList.toggle("silent", !app.audible(track));
       row.classList.toggle("solo", app.solo === track);
       row.querySelector(".sound")!.textContent = one.sound === BODY_SOUND && one.body ? (BODY_NAMES[one.body.kind] ?? "") : (trackInfo(track).sounds[one.sound] ?? "Gemalt");
-      row.querySelector(".pick")!.setAttribute("aria-pressed", String(track === selected && !app.pieceFocus));
+      row.querySelector(".pick")!.setAttribute("aria-pressed", String(track === selected && !app.pieceFocus && !app.weatherFocus));
       row.querySelector(".mute")!.setAttribute("aria-pressed", String(!app.audible(track)));
     });
 
@@ -1012,12 +1100,15 @@ export class Panels {
     }
 
     this.syncRelay();
-    byId("status").textContent = app.pieceFocus
+    byId("status").textContent = app.weatherFocus
+      ? `Wetter: ${describeWeather(currentScene(project))}`
+      : app.pieceFocus
       ? `Stück: ${describePiece(project.piece, project.bpm)}${project.piece.on ? "" : " (aus)"}`
       : app.veiled(selected) ? `${info.name}: verdeckt (Stille Post)`
       : app.easel ? `Klangmalerei ${info.name}: ${describeBild(settings.bild)}`
       : app.bench ? `Klangkörper ${info.name}: ${describeBody(settings.body)}`
       : `${info.name}: ${describe(pattern)}${selected === 0 && hasRumble(currentScene(project), pattern.len) ? ` · ${describeRumble(currentScene(project), pattern)}` : ""}`;
+    this.syncWeather();
     this.syncChordMenu();
     this.syncToast();
     this.ring.invalidate();
@@ -1095,7 +1186,7 @@ export class Panels {
     const open = app.easel;
     byId("easel").hidden = !open;
     byId("brushes").hidden = !open;
-    byId("tools").hidden = open || app.bench;
+    byId("tools").hidden = open || app.bench || app.weatherFocus;
     if (open && !this.easelOpen) {
       // The first hint is about the rings, and where the panel sits below the wheel, the sheet opens out of sight.
       this.closeCoach();
@@ -1136,6 +1227,42 @@ export class Panels {
       });
       shelf.replaceChildren(...items);
     }
+  }
+
+  /** The weather in the list of rings, its brushes and its panel. */
+  private syncWeather(): void {
+    const app = this.app;
+    const scene = currentScene(app.project);
+    const focus = app.weatherFocus;
+    const kinds = WEATHER_NAMES.filter((_, kind) => hasWeather(scene, kind));
+    this.weatherRow.classList.toggle("selected", focus);
+    this.weatherRow.classList.toggle("silent", kinds.length === 0);
+    this.weatherRow.querySelector(".pick")!.setAttribute("aria-pressed", String(focus));
+    this.weatherRow.querySelector(".sound")!.textContent = kinds.length === 0 ? "klar" : kinds.length <= 2 ? kinds.join(", ") : `${kinds.length} Wetter`;
+    byId("weathers").hidden = !focus;
+    this.weatherBox.hidden = !focus;
+    if (focus) {
+      // The weather has the panel to itself.
+      this.ringBox.hidden = true;
+      this.pieceBox.hidden = true;
+      this.veilBox.hidden = true;
+      // It is painted on the wheel: where the list sits below it, bring the wheel into view.
+      if (!this.weatherFocused) {
+        this.closeCoach();
+        byId("stage").scrollIntoView({ block: "nearest" });
+      }
+    }
+    this.weatherFocused = focus;
+    if (!focus) return;
+    this.sky.info.textContent = describeWeather(scene);
+    this.sky.clear.disabled = kinds.length === 0;
+    this.cloudButtons.forEach((node, kind) => node.setAttribute("aria-checked", String(kind === app.cloud)));
+    this.windInputs.forEach((input, kind) => {
+      const wind = scene.wind[kind] ?? 0;
+      const index = WINDS.indexOf(wind as (typeof WINDS)[number]);
+      if (document.activeElement !== input || index >= 0) input.value = String(index >= 0 ? index : WINDS.findIndex((value) => value >= wind));
+      this.windNames[kind]!.textContent = windName(wind);
+    });
   }
 
   /** The ring's body in the panel, and the workbench. */

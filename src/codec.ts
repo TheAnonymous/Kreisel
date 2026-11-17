@@ -1,5 +1,6 @@
 import { cleanBody } from "./body";
 import { cleanRumble } from "./rumble";
+import { cleanWind, packWeather, unpackWeather } from "./weather";
 import { BODY_SOUND, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Body, type Pattern, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { soundPiece } from "./piece";
@@ -111,6 +112,9 @@ interface PackedScene {
   h: number[];
   p: number[][];
   q?: string;
+  /** Weather and winds. */
+  x?: string;
+  d?: number[];
 }
 
 interface Packed {
@@ -165,6 +169,10 @@ export function packState(project: Project): Packed {
       // The Nachbeben: one hex digit a step, without the still steps at the end; left out where nothing shakes.
       const line = scene.rumble.map((value) => value.toString(16)).join("").replace(/0+$/, "");
       if (line) packed.q = line;
+      // The weather, and its winds where there is any.
+      const sky = packWeather(scene.weather);
+      if (sky) packed.x = sky;
+      if (sky && scene.wind.some((wind) => wind !== 0)) packed.d = scene.wind;
       return packed;
     }),
     w: [Math.round(project.dirt * 100), Math.round(project.roll * 100)],
@@ -217,13 +225,15 @@ export function unpackRumble(value: unknown): number[] {
 
 function unpackScene(value: unknown): Scene | null {
   if (typeof value !== "object" || value === null) return null;
-  const { h, p, q } = value as { h?: unknown; p?: unknown; q?: unknown };
+  const { h, p, q, x, d } = value as { h?: unknown; p?: unknown; q?: unknown; x?: unknown; d?: unknown };
   const chords = (Array.isArray(h) ? h : []).slice(0, MAX_CHORDS).map((chord) => integer(chord, 0, 6, 0));
   const patterns = Array.isArray(p) ? p : [];
   return {
     chords: chords.length > 0 ? chords : [0],
     patterns: Array.from({ length: TRACK_COUNT }, (_, index) => unpackPattern(patterns[index])),
     rumble: unpackRumble(q),
+    weather: unpackWeather(x),
+    wind: cleanWind(d),
   };
 }
 

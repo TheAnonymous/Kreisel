@@ -1,6 +1,6 @@
 import { BRUSH_TOOLS, FX, MALLETS, TOOLS, type App } from "../app";
 import { SCENE_COUNT, stepAt, patternOf, TRACK_COUNT } from "../model";
-import { FX_CODES, PLAY_CODES, TOOL_CODES, type Panels } from "./panels";
+import { FX_CODES, PLAY_CODES, TOOL_CODES, WEATHER_CODES, type Panels } from "./panels";
 
 /*
  * The keyboard, by where the keys are rather than what is printed on them:
@@ -69,6 +69,8 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
       app.hideCursor();
       app.closeEasel();
       app.closeBench();
+      // Away from the weather, back to the ring that was in focus.
+      if (app.weatherFocus) app.select(app.selected);
       app.look(null);
       return;
     }
@@ -124,6 +126,31 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
     }
 
     const range = event.target instanceof HTMLInputElement && event.target.type === "range";
+    // Under the weather the top row holds its six kinds; the keys that write into a ring rest.
+    if (app.weatherFocus && !range) {
+      const kind = WEATHER_CODES.indexOf(code as (typeof WEATHER_CODES)[number]);
+      if (kind >= 0) {
+        if (!event.repeat) app.setCloud(kind);
+        return;
+      }
+      if (code === "KeyN") {
+        if (!event.repeat) app.diceWeather();
+        return;
+      }
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        if (event.shiftKey) app.clearWeather();
+        else app.clearWeather(app.cloud);
+        return;
+      }
+      if (code.startsWith("Arrow") || event.key === "Enter" || event.key === "+" || event.key === "-") {
+        if (code === "ArrowDown") {
+          event.preventDefault();
+          app.focusPiece();
+        }
+        return;
+      }
+    }
     // On the piece's ring the keys mean bars and tension.
     if (app.pieceFocus && !range) {
       if (code === "ArrowLeft" || code === "ArrowRight") {
@@ -201,6 +228,7 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
     if (digit) {
       const track = Number(digit) - 1;
       if (track === TRACK_COUNT) app.focusPiece();
+      if (track === TRACK_COUNT + 1) app.focusWeather();
       if (track >= TRACK_COUNT) return;
       if (event.shiftKey) app.toggleMute(track);
       else app.select(track);
