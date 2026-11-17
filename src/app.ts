@@ -4,7 +4,7 @@ import { diceBild, emptyBild, makeStroke, snapHeight, type RawPoint } from "./bi
 import { decodeLink, encodeLink, packState, unpack, unpackBild } from "./codec";
 import { framesToBild } from "./imitate";
 import { keep, loadKept, saveKept, type Kept } from "./collection";
-import { BAR, clamp, clone, currentScene, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NAME, MAX_NOTE_LENGTH, MAX_STEPS, MAX_TURNS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Project, type Relay, type Step, type Track } from "./model";
+import { BAR, clamp, clone, currentScene, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NAME, MAX_NOTE_LENGTH, MAX_STEPS, MAX_TURNS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type Bild, type Pattern, type Project, type Relay, type Step, type Track } from "./model";
 import { chordAt } from "./music";
 import { activeSteps, clear, dice, resize, rotate, seeded, spread, transpose, vary } from "./patterns";
 import { barCount, dicePiece, moveInOrder, resizePiece, rotatePiece, smoothPiece } from "./piece";
@@ -18,6 +18,14 @@ import type { RingHost, Tool } from "./ui/ring";
  * can be done to it. The ring view and the panels call in here; the store
  * tells them when something changed.
  */
+
+/** What a right click (or a long press) can land on. */
+export type ContextTarget =
+  | { kind: "ring"; track: number; step: number | null }
+  | { kind: "piece"; bar: number | null }
+  | { kind: "chord"; slot: number }
+  | { kind: "hub" }
+  | { kind: "scene"; index: number };
 
 export interface Toast {
   text: string;
@@ -66,6 +74,12 @@ export class App implements RingHost, EaselHost {
   toast: Toast | null = null;
   /** 0..1 while a WAV is being rendered. */
   exporting: number | null = null;
+  /** Shows the menu for what a right click landed on, at that place of the page (set by whoever draws the menu). */
+  onContext: (target: ContextTarget, x: number, y: number, fromKeyboard: boolean) => void = () => undefined;
+  /** A ring's pattern taken with "Muster kopieren", to put into another ring or scene. */
+  copied: { track: number; pattern: Pattern } | null = null;
+  /** Effects that were latched with the right button: they stay on without being held. */
+  readonly latched = new Set<FxName>();
   /** Reihum: the name this person plays under (kept in this browser), and the rule a new round would start with. */
   name = readName();
   rule = 0;
@@ -112,7 +126,11 @@ export class App implements RingHost, EaselHost {
           this.store.touch((project) => { project.scene = scene; });
         }
       },
-      onState: () => this.notify(),
+      onState: () => {
+        // Stopping lets every effect go, latched or held.
+        if (!this.engine.playing) this.latched.clear();
+        this.notify();
+      },
       pieceStart: () => (this.project.piece.on ? this.pieceStart % barCount(this.project.piece) : 0),
     });
     this.store.subscribe(() => {
@@ -187,8 +205,26 @@ export class App implements RingHost, EaselHost {
   }
 
   setFx(name: FxName, on: boolean): void {
+    // Letting go of a latched effect's key does not release it: only the latch does.
+    if (!on && this.latched.has(name)) return;
     this.wake();
     this.engine.setFx(name, on);
+  }
+
+  /** The right button on an effect: it stays on until it is latched off again (or the Kreisel stops). */
+  latchFx(name: FxName): void {
+    this.wake();
+    if (this.latched.delete(name)) {
+      this.engine.setFx(name, false);
+    } else {
+      this.latched.add(name);
+      this.engine.setFx(name, true);
+    }
+    this.notify();
+  }
+
+  openContext(target: ContextTarget, x: number, y: number, fromKeyboard = false): void {
+    this.onContext(target, x, y, fromKeyboard);
   }
 
   // ---- selection --------------------------------------------------------------
@@ -292,6 +328,27 @@ export class App implements RingHost, EaselHost {
     this.store.settle();
   }
 
+  /** A touch that turned out to be a long press: what it did when it came down is taken back. */
+  cancelGesture(gesture: string): void {
+    this.store.cancel(gesture);
+  }
+
+  /** Sets a hit's values directly (from the menu under the right button). */
+  setStep(track: number, step: number, values: Partial<Pick<Step, "vel" | "chance" | "ratchet" | "len" | "pitch">>): void {
+    if (this.refuse(track) || !this.note(track, step).on) return;
+    this.store.edit((project) => {
+      const pattern = patternOf(project, track);
+      const target = stepAt(pattern, step);
+      if (values.vel !== undefined) target.vel = clamp(values.vel, 0, 2);
+      if (values.chance !== undefined) target.chance = clamp(values.chance, 0, 3);
+      if (values.ratchet !== undefined) target.ratchet = clamp(values.ratchet, 1, 4);
+      if (values.len !== undefined) target.len = clamp(values.len, 1, Math.min(MAX_NOTE_LENGTH, pattern.len));
+      if (values.pitch !== undefined) target.pitch = clamp(values.pitch, PITCH_MIN, PITCH_MAX);
+    }, `schlag${track}.${step}`);
+    if (values.pitch !== undefined) this.pitches[track] = this.note(track, step).pitch;
+    this.hear(track, step);
+  }
+
   /** The keyboard's Enter: what a click with the current tool would do at the cursor. */
   strikeCursor(): void {
     const step = this.keyCursor;
@@ -373,6 +430,19 @@ export class App implements RingHost, EaselHost {
     this.say("Alle Ringe neu gewürfelt.", { label: "Zurück", run: () => this.undo() });
   }
 
+  /** Takes a ring's pattern (of the scene on the table) to put somewhere else. */
+  copyRing(track: number): void {
+    if (this.veiled(track)) return;
+    this.copied = { track, pattern: clone(patternOf(this.project, track)) };
+    this.say(`Muster von ${trackInfo(track).name} kopiert. Rechtsklick auf einen Ring fügt es ein, auch in einer anderen Szene.`);
+  }
+
+  pasteRing(track: number): void {
+    const copied = this.copied;
+    if (!copied || this.refuse(track)) return;
+    this.store.edit((project) => { currentScene(project).patterns[track] = clone(copied.pattern); });
+  }
+
   // ---- sound and mix ------------------------------------------------------------
 
   setTrack(track: number, change: Partial<Track>, key?: string): void {
@@ -390,6 +460,22 @@ export class App implements RingHost, EaselHost {
   preview(track: number): void {
     if (this.playing && this.audible(track) && activeSteps(patternOf(this.project, track)).length > 0) return;
     void this.engine.audition(track, { ...emptyStep(), on: true, pitch: this.pitches[track] ?? 0, len: 2 }, this.chordNow());
+  }
+
+  /** The right button on a control puts it back where a fresh Kreisel has it. */
+  resetTrack(track: number, field: "level" | "hall" | "echo"): void {
+    const fresh = trackOf(factoryProject(), track);
+    this.setTrack(track, { [field]: fresh[field] });
+  }
+
+  resetPad(track: number): void {
+    const fresh = trackOf(factoryProject(), track);
+    this.setTrack(track, { x: fresh.x, y: fresh.y });
+    this.preview(track);
+  }
+
+  resetGlobal(field: "swing" | "pump" | "volume"): void {
+    this.setGlobal({ [field]: factoryProject()[field] });
   }
 
   toggleMute(track: number): void {
@@ -613,6 +699,23 @@ export class App implements RingHost, EaselHost {
 
   rotatePiece(by: number): void {
     this.store.edit((project) => rotatePiece(project.piece, by), "stueck-drehen");
+  }
+
+  /** Lays a scene on the four bars around `bar` (the piece is ticked in fours), or on the whole piece. */
+  sceneForBars(bar: number, scene: number, whole = false): void {
+    if (!this.project.scenes[scene]) return;
+    const from = whole ? 0 : Math.floor(bar / 4) * 4;
+    const to = whole ? barCount(this.project.piece) : from + 4;
+    this.store.edit((project) => {
+      for (let index = from; index < to && index < project.piece.scenes.length; index += 1) project.piece.scenes[index] = scene;
+    });
+  }
+
+  /** Plays the piece from `bar`: switches it on and starts the Kreisel if need be. */
+  playFrom(bar: number): void {
+    if (!this.project.piece.on) this.store.edit((project) => { project.piece.on = true; });
+    this.seekPiece(bar);
+    if (!this.playing) this.togglePlay();
   }
 
   resizeThePiece(bars: number): void {
@@ -863,6 +966,23 @@ export class App implements RingHost, EaselHost {
     void this.engine.audition(5, { ...emptyStep(), on: true, len: 4 }, degree);
   }
 
+  /** A new bar before `slot`, with the chord that is there. */
+  insertBar(slot: number): void {
+    const chords = currentScene(this.project).chords;
+    if (chords.length >= MAX_CHORDS || chords[slot] === undefined) return;
+    this.store.edit((project) => {
+      const list = currentScene(project).chords;
+      list.splice(slot, 0, list[slot] ?? 0);
+    });
+  }
+
+  removeBar(slot: number): void {
+    const chords = currentScene(this.project).chords;
+    if (chords.length <= 1 || chords[slot] === undefined) return;
+    this.store.edit((project) => { currentScene(project).chords.splice(slot, 1); });
+    this.closeChord();
+  }
+
   setBars(count: number): void {
     const target = clamp(count, 1, MAX_CHORDS);
     this.store.edit((project) => {
@@ -898,6 +1018,21 @@ export class App implements RingHost, EaselHost {
       // While a piece plays, the piece decides which scene sounds; this only puts a scene on the table (to change it, or to lay it on the piece).
       this.store.touch((project) => { project.scene = index; });
     }
+  }
+
+  /** The first scene that is still empty, or −1. */
+  freeScene(): number {
+    return this.project.scenes.findIndex((scene) => scene === null);
+  }
+
+  /** A copy of scene `index` in the first empty scene, put on the table. */
+  copyScene(index: number): void {
+    const free = this.freeScene();
+    const scene = this.project.scenes[index];
+    if (free < 0 || !scene) return;
+    this.store.edit((project) => { project.scenes[free] = clone(scene); });
+    this.pickScene(free);
+    this.say(`Szene ${SCENE_NAMES[free]} ist eine Kopie von ${SCENE_NAMES[index]}.`);
   }
 
   clearScene(index: number): void {

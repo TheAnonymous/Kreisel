@@ -3,6 +3,8 @@ import { App } from "./app";
 import { serialize } from "./codec";
 import { bindKeys } from "./ui/keys";
 import { EaselView } from "./ui/easel";
+import { ContextMenu } from "./ui/menu";
+import { buildMenu } from "./ui/menus";
 import { Panels } from "./ui/panels";
 import { RingView } from "./ui/ring";
 
@@ -17,7 +19,29 @@ if (!(sheet instanceof HTMLCanvasElement)) throw new Error("page without a paint
 const ring = new RingView(canvas, app, tip);
 const easel = new EaselView(sheet, app);
 const panels = new Panels(app, ring, easel);
-bindKeys(app, panels);
+
+// The right button (or a long press) shows what can be done with the place it is on.
+const context = document.getElementById("context");
+if (!context) throw new Error("page without a menu");
+const menu = new ContextMenu(context);
+const doors = { relay: () => panels.showRelay(), help: () => panels.showHelp() };
+app.onContext = (target, x, y, byKeyboard) => {
+  panels.closeMenu();
+  app.closeChord();
+  menu.open(x, y, () => buildMenu(app, target, doors), byKeyboard);
+};
+app.subscribe(() => menu.refresh());
+
+bindKeys(app, panels, () => {
+  if (app.pieceFocus) {
+    const bar = app.pieceKey ?? app.pieceStart;
+    const at = ring.barPosition(bar, 0.5);
+    app.openContext({ kind: "piece", bar }, at.x, at.y, true);
+  } else {
+    const at = ring.stepPosition(app.selected, app.keyCursor ?? 0);
+    app.openContext({ kind: "ring", track: app.selected, step: app.keyCursor }, at.x, at.y, true);
+  }
+});
 
 void app.openLink(location.hash);
 window.addEventListener("hashchange", () => void app.openLink(location.hash));
@@ -41,6 +65,8 @@ declare global {
       sheet(t: number, y: number): { x: number; y: number };
       /** Where a bar of the piece's ring is on the page, at a tension of 0..1. */
       bar(bar: number, height: number): { x: number; y: number };
+      /** Where a chord field is on the page. */
+      slot(slot: number): { x: number; y: number };
     };
   }
 }
@@ -52,4 +78,5 @@ window.kreisel = {
   where: (track, step) => ring.stepPosition(track, step),
   sheet: (t, y) => easel.position(t, y),
   bar: (bar, height) => ring.barPosition(bar, height),
+  slot: (slot) => ring.slotPosition(slot),
 };

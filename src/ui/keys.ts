@@ -16,8 +16,14 @@ function typing(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement && target.type !== "range" && target.type !== "checkbox";
 }
 
-export function bindKeys(app: App, panels: Panels): void {
+/** `atCursor` opens the menu for the ring (and the step) the keyboard is on. */
+export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
   const held = new Set<string>();
+  // The menu key also asks the browser for its own menu, a moment later: that one stays away.
+  let asked = -Infinity;
+  document.addEventListener("contextmenu", (event) => {
+    if (performance.now() - asked < 500) event.preventDefault();
+  });
 
   window.addEventListener("keydown", (event) => {
     if (typing(event.target)) return;
@@ -37,6 +43,17 @@ export function bindKeys(app: App, panels: Panels): void {
       return;
     }
     if (event.altKey) return;
+
+    // The menu key (or Shift+F10) on the wheel: the same menu the right button opens, at the keyboard's cursor.
+    if (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey)) {
+      const focused = document.activeElement;
+      if (focused === null || focused === document.body || focused.id === "kreisel") {
+        event.preventDefault();
+        asked = performance.now();
+        if (!event.repeat) atCursor();
+      }
+      return;
+    }
 
     if (code === "Space") {
       // A button focused by keyboard keeps its space bar; otherwise space is start and stop.
@@ -184,7 +201,11 @@ export function bindKeys(app: App, panels: Panels): void {
     const fx = FX_CODES.indexOf(code as (typeof FX_CODES)[number]);
     if (fx >= 0) {
       const wanted = FX[fx];
-      if (wanted) {
+      if (!wanted) return;
+      // With Shift an effect latches; a latched one lets go at the next press of its key.
+      if (event.shiftKey || app.latched.has(wanted.id)) {
+        app.latchFx(wanted.id);
+      } else {
         held.add(code);
         app.setFx(wanted.id, true);
       }

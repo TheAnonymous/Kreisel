@@ -68,6 +68,13 @@ export class Store {
     this.lastKey = null;
   }
 
+  /** Takes back a gesture that is still going on (a touch that turned out to be a long press), as if it had not begun. */
+  cancel(key: string): void {
+    if (this.locked || key !== this.lastKey) return;
+    const previous = this.past.pop();
+    if (previous !== undefined) this.restore(previous);
+  }
+
   get canUndo(): boolean {
     return this.past.length > 0;
   }

@@ -20,8 +20,17 @@ and no knobs. So Kreisel has no knobs either:
   the others stay where they are, so the hand learns the places.
 - **Paint, don't program.** A click sets or removes a hit, a stroke along the
   ring paints or erases, a pull outwards bends the pitch (or opens the
-  hi-hat), the right button always erases. Five tools decide what a click
-  means: set, accent, chance, roll, length.
+  hi-hat), a stroke with the right button always erases. Five tools decide
+  what a click means: set, accent, chance, roll, length.
+- **The right button knows the place.** A right click opens a menu for what
+  is under the pointer: a hit (accent, chance, roll, length, pitch), a ring
+  (dice, turn, length, sound, mute, copy and paste its pattern), a bar of the
+  piece (play from here, lay a scene, tension), a chord field (chord, double
+  or remove the bar), a scene (copy, clear) and the hub. The rows that change
+  a value keep the menu open, and it redraws as the Kreisel changes. A right
+  click on an effect latches it, on a control puts it back to its factory
+  value. A finger that rests on a ring gets the same menu, and so does the
+  menu key at the keyboard's cursor.
 - **Always in key.** Rings store scale steps. The bass follows the chord of
   the bar (the fields around the hub), the chords are voiced close together,
   and changing key or scale re-tunes everything.

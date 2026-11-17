@@ -8,6 +8,7 @@ import { activeSteps, describe } from "../patterns";
 import { barCount, describePiece } from "../piece";
 import { RULES, turnColor } from "../relay";
 import { renderThumb, type EaselView } from "./easel";
+import { onContext } from "./menu";
 import type { RingView, Tool } from "./ring";
 
 /*
@@ -191,9 +192,19 @@ export class Panels {
 
   // ---- building ---------------------------------------------------------------
 
-  private slider(input: HTMLInputElement, read: () => number, write: (value: number) => void): void {
+  private slider(input: HTMLInputElement, read: () => number, write: (value: number) => void, reset?: () => void): void {
     input.addEventListener("input", () => write(Number(input.value) / 100));
     input.addEventListener("change", () => this.app.store.settle());
+    if (reset) {
+      // The right button puts a control back where a fresh Kreisel has it.
+      input.addEventListener("pointerdown", (event) => {
+        if (event.button !== 2) return;
+        reset();
+        this.app.store.settle();
+      });
+      input.addEventListener("contextmenu", (event) => event.preventDefault());
+      input.title = input.title ? `${input.title} · Rechtsklick setzt zurück` : "Rechtsklick setzt zurück";
+    }
     this.sliders.push({ input, read });
   }
 
@@ -210,9 +221,9 @@ export class Panels {
       event.preventDefault();
       app.setGlobal({ bpm: clamp(app.project.bpm - Math.sign(event.deltaY), 60, 200) }, "bpm");
     }, { passive: false });
-    this.slider(byId("swing"), () => app.project.swing, (swing) => app.setGlobal({ swing }, "swing"));
-    this.slider(byId("pump"), () => app.project.pump, (pump) => app.setGlobal({ pump }, "pump"));
-    this.slider(byId("volume"), () => app.project.volume, (volume) => app.setGlobal({ volume }, "volume"));
+    this.slider(byId("swing"), () => app.project.swing, (swing) => app.setGlobal({ swing }, "swing"), () => app.resetGlobal("swing"));
+    this.slider(byId("pump"), () => app.project.pump, (pump) => app.setGlobal({ pump }, "pump"), () => app.resetGlobal("pump"));
+    this.slider(byId("volume"), () => app.project.volume, (volume) => app.setGlobal({ volume }, "volume"), () => app.resetGlobal("volume"));
 
     const root = byId<HTMLSelectElement>("root");
     NOTE_NAMES.forEach((name, index) => root.append(new Option(name, String(index))));
@@ -273,6 +284,7 @@ export class Panels {
     const roll = iconButton("roll", ICONS.dice, "Stück würfeln", "Einen neuen Verlauf würfeln");
     roll.addEventListener("click", () => this.app.diceThePiece());
     row.append(pick, toggle, roll);
+    onContext(row, (x, y, byKeyboard) => this.app.openContext({ kind: "piece", bar: null }, x, y, byKeyboard));
     list.append(row);
     for (let track = TRACK_COUNT - 1; track >= 0; track -= 1) {
       // The list runs like the rings: the outermost on top.
@@ -290,6 +302,10 @@ export class Panels {
       const roll = iconButton("roll", ICONS.dice, `${info.name} würfeln`, "Neu würfeln (N)");
       roll.addEventListener("click", () => this.app.diceRing(track));
       row.append(pick, mute, roll);
+      onContext(row, (x, y, byKeyboard) => {
+        this.app.select(track);
+        this.app.openContext({ kind: "ring", track, step: null }, x, y, byKeyboard);
+      });
       list.append(row);
       this.trackRows[track] = row;
     }
@@ -303,6 +319,7 @@ export class Panels {
         if (event.shiftKey) this.app.clearScene(index);
         else this.app.pickScene(index);
       });
+      onContext(scene, (x, y, byKeyboard) => this.app.openContext({ kind: "scene", index }, x, y, byKeyboard));
       holder.append(scene);
       this.sceneButtons.push(scene);
     }
@@ -365,13 +382,20 @@ export class Panels {
   private buildFx(): void {
     const holder = byId("fx");
     for (const fx of FX) {
-      const pad = button("pad-fx", "", `${fx.hint} (halten)`);
+      const pad = button("pad-fx", "", `${fx.hint} (halten · Rechtsklick rastet ein)`);
       pad.append(el("span", "name", fx.name), el("kbd", "key"));
+      pad.setAttribute("aria-pressed", "false");
       const release = (): void => this.app.setFx(fx.id, false);
       pad.addEventListener("pointerdown", (event) => {
+        // The right button latches the effect; any press on a latched one lets it go again.
+        if (event.button === 2 || this.app.latched.has(fx.id)) {
+          this.app.latchFx(fx.id);
+          return;
+        }
         capture(pad, event);
         this.app.setFx(fx.id, true);
       });
+      pad.addEventListener("contextmenu", (event) => event.preventDefault());
       pad.addEventListener("pointerup", release);
       pad.addEventListener("pointercancel", release);
       pad.addEventListener("lostpointercapture", release);
@@ -434,11 +458,18 @@ export class Panels {
       }
     };
     pad.addEventListener("pointerdown", (event) => {
-      capture(pad, event);
       app.wake();
+      if (event.button === 2) {
+        // The right button puts the sound back where a fresh Kreisel has it.
+        app.resetPad(app.selected);
+        app.store.settle();
+        return;
+      }
+      capture(pad, event);
       this.lastPreview = 0;
       place(event);
     });
+    pad.addEventListener("contextmenu", (event) => event.preventDefault());
     pad.addEventListener("pointermove", (event) => {
       if (pad.hasPointerCapture(event.pointerId)) place(event);
     });
@@ -494,7 +525,7 @@ export class Panels {
       input.type = "range";
       input.min = "0";
       input.max = "100";
-      this.slider(input, () => trackOf(app.project, app.selected)[field], (value) => app.setTrack(app.selected, { [field]: value }, field));
+      this.slider(input, () => trackOf(app.project, app.selected)[field], (value) => app.setTrack(app.selected, { [field]: value }, field), () => app.resetTrack(app.selected, field));
       line.append(el("span", "label", label), input);
       mix.append(line);
     };
@@ -683,7 +714,7 @@ export class Panels {
     const order = el("div", "group");
     order.append(el("h3", "", "Wer zuerst einsetzt"), parts.order);
 
-    const hint = el("p", "easel-hint", "Mal die Spannung in den äußeren Ring: außen ist viel los, innen wenig. Die farbigen Linien zeigen, ab wo ein Ring mitspielt. Vor einem steilen Anstieg nimmt der Kreisel Anlauf. Am inneren Rand liegen die Szenen: links eine wählen, dann dort malen. Ein Rechtsklick spielt ab der Stelle.");
+    const hint = el("p", "easel-hint", "Mal die Spannung in den äußeren Ring: außen ist viel los, innen wenig. Die farbigen Linien zeigen, ab wo ein Ring mitspielt. Vor einem steilen Anstieg nimmt der Kreisel Anlauf. Am inneren Rand liegen die Szenen: links eine wählen, dann dort malen. Ein Rechtsklick auf einen Takt spielt ab dort, legt eine Szene hin oder ändert die Spannung.");
 
     const save = button("button small", "Als WAV speichern", "Das Stück einmal rundherum als WAV");
     save.addEventListener("click", () => void app.exportWav());
@@ -718,11 +749,12 @@ export class Panels {
     const key = (code: string): string => this.keyLabel(code);
     const rows: [string, string][] = [
       ["Leertaste", "Start und Stopp"],
+      ["Menütaste", "das Menü für den Ring und den Schritt am Zeiger (auch Umschalt+F10)"],
       ["1 bis 7", "Ring wählen · mit Umschalt stumm"],
       [`${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")}`, "Werkzeug: Setzen, Betonen, Zufall, Wirbel, Länge"],
       [`${key("KeyA")} bis ${key("KeyK")}`, "den Ring von Hand spielen (acht Stufen)"],
       [key("KeyL"), "Einspielen: Gespieltes landet im Ring"],
-      [`${key("KeyZ")} ${key("KeyX")} ${key("KeyC")} ${key("KeyV")} ${key("KeyB")} halten`, "Effekte: Dumpf, Dünn, Stotter, Echo, Pause"],
+      [`${key("KeyZ")} ${key("KeyX")} ${key("KeyC")} ${key("KeyV")} ${key("KeyB")} halten`, "Effekte: Dumpf, Dünn, Stotter, Echo, Pause · mit Umschalt rasten sie ein"],
       ["← →", "Zeiger auf dem Ring · mit Umschalt den Ring drehen"],
       ["↑ ↓", "Ring wechseln · mit Umschalt alles höher oder tiefer"],
       ["Eingabe", "am Zeiger setzen oder löschen"],
@@ -818,7 +850,11 @@ export class Panels {
     }
     this.syncEasel();
     byId("live").setAttribute("aria-pressed", String(app.live));
-    for (const [fx, node] of this.fxButtons) node.classList.toggle("held", app.engine.fx[fx]);
+    for (const [fx, node] of this.fxButtons) {
+      node.classList.toggle("held", app.engine.fx[fx]);
+      node.classList.toggle("latched", app.latched.has(fx));
+      node.setAttribute("aria-pressed", String(app.latched.has(fx)));
+    }
 
     const parts = this.panel;
     byId("panel").style.setProperty("--c", info.color);

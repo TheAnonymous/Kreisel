@@ -33,6 +33,33 @@ describe("store", () => {
     expect(store.canRedo).toBe(false);
   });
 
+  it("takes back a gesture that is still going on, and only that", () => {
+    const store = new Store();
+    const set = (step: number, key?: string): void => store.edit((project) => { stepAt(patternOf(project, 0), step).on = true; }, key, Infinity);
+    set(1);
+    set(2, "zug7");
+    store.cancel("zug7");
+    expect([kick(store, 1), kick(store, 2)]).toEqual([true, false]);
+    expect(store.canRedo).toBe(false);
+    // A gesture that is over, or an older one, stays.
+    set(3, "zug8");
+    store.settle();
+    store.cancel("zug8");
+    store.cancel("zug7");
+    expect(kick(store, 3)).toBe(true);
+    // Nothing is taken back while looking at an old turn.
+    set(5, "zug9");
+    store.locked = true;
+    store.cancel("zug9");
+    store.locked = false;
+    expect(kick(store, 5)).toBe(true);
+    store.undo();
+    store.undo();
+    expect(store.undo()).toBe(true);
+    expect([1, 3, 5].map((step) => kick(store, step))).toEqual([false, false, false]);
+    expect(store.canUndo).toBe(false);
+  });
+
   it("counts a gesture as one step back, until it is settled", () => {
     const store = new Store();
     for (const step of [1, 2, 3]) store.edit((project) => { stepAt(patternOf(project, 0), step).on = true; }, "zug1", Infinity);

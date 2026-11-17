@@ -1,5 +1,6 @@
 import { currentScene, MAX_NOTE_LENGTH, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Project, type Relay, type Step } from "../model";
 import { chordAt, chordName, pitchName } from "../music";
+import { LONG_PRESS_MS, LONG_PRESS_SLACK } from "./menu";
 import { entry } from "../piece";
 import { turnColor } from "../relay";
 
@@ -41,6 +42,10 @@ export interface RingHost {
   setValue(track: number, step: number, tool: Tool, value: number, gesture: string): void;
   rotate(track: number, by: number): void;
   endGesture(): void;
+  /** The right button (or a long press) landed here: show what can be done with it, at this place of the page. */
+  openContext(target: { kind: "ring"; track: number; step: number | null } | { kind: "piece"; bar: number | null } | { kind: "chord"; slot: number } | { kind: "hub" }, x: number, y: number): void;
+  /** Takes back what a gesture has done so far (a touch that turned out to be a long press). */
+  cancelGesture(gesture: string): void;
   /** Reihum: the turns this Kreisel has been through, and the one being looked back at. */
   readonly relay: Relay | null;
   readonly lookBack: number | null;
@@ -89,11 +94,21 @@ interface Drag {
   distance: number;
   turn: number;
   tool: Tool;
-  mode: "pending" | "paint" | "erase" | "pitch" | "value";
+  /** "context": the right button is down and has not moved on yet (then it erases, otherwise it opens the menu). */
+  mode: "pending" | "paint" | "erase" | "pitch" | "value" | "context";
   existed: boolean;
   pitch: number;
   value: number;
   gesture: string;
+}
+
+/** A finger that is down and may turn out to be a long press. */
+interface Press {
+  timer: ReturnType<typeof setTimeout>;
+  pointer: number;
+  x: number;
+  y: number;
+  target: { kind: "ring"; track: number; step: number } | { kind: "piece"; bar: number };
 }
 
 interface Palette {
@@ -120,6 +135,7 @@ export class RingView {
   private pieceDrag: PieceDrag | null = null;
   private dirty = true;
   private drag: Drag | null = null;
+  private press: Press | null = null;
   private gestures = 0;
   private wheelRest = 0;
   private hover: Spot | null = null;
@@ -749,24 +765,30 @@ export class RingView {
     const { x, y } = this.point(event);
     const spot = this.locate(x, y);
     this.host.wake();
+    this.disarm();
     if (!spot) return;
+    // The right button shows what can be done with the place it is on.
+    const context = event.button === 2;
     if (spot.kind === "hub") {
       this.hideTip();
-      this.host.togglePlay();
+      if (context) this.host.openContext({ kind: "hub" }, event.clientX, event.clientY);
+      else this.host.togglePlay();
       return;
     }
     if (spot.kind === "chord") {
       this.hideTip();
-      this.host.openChord(spot.index);
+      if (context) this.host.openContext({ kind: "chord", slot: spot.index }, event.clientX, event.clientY);
+      else this.host.openChord(spot.index);
       return;
     }
+    // A finger has no right button: resting on a ring does the same.
+    if (event.pointerType !== "mouse" && !context) this.arm(event, spot);
     if (spot.kind === "piece") {
       const focused = this.host.pieceFocus;
       this.host.focusPiece();
       this.hideTip();
-      if (event.button === 2) {
-        // The right button has nothing to erase here: it sends the piece to this bar.
-        this.host.seekPiece(spot.bar);
+      if (context) {
+        this.host.openContext({ kind: "piece", bar: spot.bar }, event.clientX, event.clientY);
         return;
       }
       if (event.pointerType !== "mouse" && !focused) return;
@@ -788,16 +810,15 @@ export class RingView {
     // Under the cloth nothing is painted: picking the ring shows why.
     if (this.host.veiled(track)) return;
     // A finger first picks the ring (the thin ones are too narrow to aim at), a mouse paints at once.
-    if (event.pointerType !== "mouse" && !picked) return;
+    if (event.pointerType !== "mouse" && !picked && !context) return;
     event.preventDefault();
     try {
       this.canvas.setPointerCapture(event.pointerId);
     } catch {
       // A pointer the browser no longer tracks: the stroke still works while it stays on the canvas.
     }
-    const erase = event.button === 2;
     const melodic = trackInfo(track).melodic;
-    const tool: Tool = erase || (this.host.tool === "laenge" && !melodic) ? "setzen" : this.host.tool;
+    const tool: Tool = context || (this.host.tool === "laenge" && !melodic) ? "setzen" : this.host.tool;
     const pattern = currentScene(this.host.project).patterns[track];
     if (!pattern) return;
     const note = stepAt(pattern, step);
@@ -812,14 +833,14 @@ export class RingView {
       distance: Math.hypot(x - center, y - center),
       turn: this.turn(x, y),
       tool,
-      mode: erase ? "erase" : tool === "setzen" || tool === "laenge" ? "pending" : "value",
+      mode: context ? "context" : tool === "setzen" || tool === "laenge" ? "pending" : "value",
       existed: note.on,
       pitch: note.pitch,
       value: 0,
       gesture: `zug${this.gestures}`,
     };
-    if (erase) {
-      if (note.on) this.host.removeNote(track, step, drag.gesture);
+    if (context) {
+      // Nothing yet: pulled along the ring it erases, let go where it is it opens the menu.
     } else if (tool === "setzen" || tool === "laenge") {
       if (!note.on) this.host.addNote(track, step, {}, drag.gesture);
       drag.pitch = stepAt(pattern, step).pitch;
@@ -831,8 +852,39 @@ export class RingView {
     this.dirty = true;
   }
 
+  /** Starts waiting for a finger to rest long enough to mean "what can I do here?". */
+  private arm(event: PointerEvent, spot: Spot & { kind: "ring" | "piece" }): void {
+    const target = spot.kind === "ring" ? { kind: "ring" as const, track: spot.track, step: spot.step } : { kind: "piece" as const, bar: spot.bar };
+    this.press = { timer: setTimeout(() => this.rested(), LONG_PRESS_MS), pointer: event.pointerId, x: event.clientX, y: event.clientY, target };
+  }
+
+  private disarm(): void {
+    if (this.press) clearTimeout(this.press.timer);
+    this.press = null;
+  }
+
+  /** The finger rested: what it did when it came down is taken back, and the menu opens instead. */
+  private rested(): void {
+    const press = this.press;
+    this.press = null;
+    if (!press) return;
+    if (this.drag?.pointer === press.pointer) {
+      this.host.cancelGesture(this.drag.gesture);
+      this.drag = null;
+    }
+    if (this.pieceDrag?.pointer === press.pointer) {
+      this.host.cancelGesture(this.pieceDrag.gesture);
+      this.pieceDrag = null;
+    }
+    this.host.endGesture();
+    this.dirty = true;
+    if (press.target.kind === "ring" && this.host.veiled(press.target.track)) return;
+    this.host.openContext(press.target, press.x, press.y);
+  }
+
   private move(event: PointerEvent): void {
     const { x, y } = this.point(event);
+    if (this.press?.pointer === event.pointerId && Math.hypot(event.clientX - this.press.x, event.clientY - this.press.y) > LONG_PRESS_SLACK) this.disarm();
     const stroke = this.pieceDrag;
     if (stroke && stroke.pointer === event.pointerId) {
       // The stroke stays on the piece's ring wherever the pointer wanders: only angle and distance count.
@@ -865,6 +917,12 @@ export class RingView {
     if (turned > 0.5) turned = 1 - turned;
     const along = turned * TAU * distance;
 
+    if (drag.mode === "context") {
+      // The right button stays where it is: the menu is still to come. Pulled on to another step, it erases.
+      if (step === drag.origin) return;
+      drag.mode = "erase";
+      this.host.removeNote(drag.track, drag.origin, drag.gesture);
+    }
     if (drag.tool === "laenge") {
       drag.travel += delta;
       drag.last = step;
@@ -895,6 +953,7 @@ export class RingView {
   }
 
   private up(event: PointerEvent): void {
+    if (this.press?.pointer === event.pointerId) this.disarm();
     if (this.pieceDrag?.pointer === event.pointerId) {
       this.pieceDrag = null;
       this.host.endGesture();
@@ -910,6 +969,9 @@ export class RingView {
     this.drag = null;
     this.host.endGesture();
     this.dirty = true;
+    if (drag.mode === "context" && event.type === "pointerup") {
+      this.host.openContext({ kind: "ring", track: drag.track, step: drag.origin }, event.clientX, event.clientY);
+    }
   }
 
   private leave(): void {
@@ -953,7 +1015,7 @@ export class RingView {
       const tension = Math.round(((piece.tension[spot.bar] ?? 0) / TENSION_MAX) * 100);
       text = spot.lane && this.host.pieceFocus
         ? `Szene ${SCENE_NAMES[project.scene]} hierher malen · Takt ${spot.bar + 1}`
-        : `Stück · Takt ${spot.bar + 1} von ${piece.tension.length} · ${tension} % Spannung · Szene ${SCENE_NAMES[piece.scenes[spot.bar] ?? 0]} · Rechtsklick spielt ab hier`;
+        : `Stück · Takt ${spot.bar + 1} von ${piece.tension.length} · ${tension} % Spannung · Szene ${SCENE_NAMES[piece.scenes[spot.bar] ?? 0]} · Rechtsklick: ab hier spielen und mehr`;
     } else {
       const pattern = scene.patterns[spot.track];
       const note = pattern ? stepAt(pattern, spot.step) : null;
