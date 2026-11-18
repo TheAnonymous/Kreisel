@@ -3,6 +3,7 @@ import { App } from "./app";
 import { serialize } from "./codec";
 import { bindKeys } from "./ui/keys";
 import { BenchView } from "./ui/bench";
+import { BoothView } from "./ui/booth";
 import { EaselView } from "./ui/easel";
 import { ContextMenu } from "./ui/menu";
 import { buildMenu } from "./ui/menus";
@@ -23,7 +24,10 @@ if (!(stand instanceof HTMLCanvasElement)) throw new Error("page without a workb
 const ring = new RingView(canvas, app, tip);
 const easel = new EaselView(sheet, app);
 const bench = new BenchView(stand, app);
-const panels = new Panels(app, ring, easel, bench);
+const lips = document.getElementById("mund");
+if (!(lips instanceof HTMLCanvasElement)) throw new Error("page without a mouth");
+const mouth = new BoothView(lips, app);
+const panels = new Panels(app, ring, easel, bench, mouth);
 
 // The right button (or a long press) shows what can be done with the place it is on.
 const context = document.getElementById("context");

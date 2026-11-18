@@ -7,7 +7,8 @@ import { keep, loadKept, saveKept, type Kept } from "./collection";
 import { cleanBody, diceBody } from "./body";
 import { diceRumble, hasRumble, RUMBLE_SHAPES, rumbleShape, shakes, SHAPE_ROLL, shapeOf } from "./rumble";
 import { diceWeather as throwWeather, hasWeather, WEATHER_STROKE, windOffset } from "./weather";
-import { BAR, BODY_SOUND, clamp, clone, currentScene, emptyRumble, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NAME, MAX_NOTE_LENGTH, MAX_STEPS, MAX_TURNS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, WEATHER_COUNT, WEATHER_MAX, WIND_MAX, trackInfo, trackOf, type Bild, type Body, type Pattern, type Project, type Relay, type Step, type Track } from "./model";
+import { cleanVoice, diceLine, mouthOf, shape, sing, syllables, VOWELS } from "./voice";
+import { BAR, BODY_SOUND, clamp, clone, currentScene, emptyRumble, emptyScene, emptyStep, factoryProject, MAX_CHORDS, MAX_NAME, MAX_NOTE_LENGTH, MAX_STEPS, MAX_TURNS, MAX_STROKES, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_COUNT, SCENE_NAMES, stepAt, TENSION_MAX, TIME_MAX, TRACK_COUNT, VOICE_SOUND, WEATHER_COUNT, WEATHER_MAX, WIND_MAX, trackInfo, trackOf, type Bild, type Body, type Pattern, type Project, type Relay, type Step, type Track, type Voice } from "./model";
 import { chordAt } from "./music";
 import { activeSteps, clear, dice, resize, rotate, seeded, spread, transpose, vary } from "./patterns";
 import { barCount, dicePiece, moveInOrder, resizePiece, rotatePiece, smoothPiece } from "./piece";
@@ -120,6 +121,8 @@ export class App implements RingHost, EaselHost {
   easel = false;
   /** The workbench is open over the wheel: the Klangkörper of the ring in focus is being built. */
   bench = false;
+  /** The voice's window is open over the wheel: the line the ring in focus sings is being written. */
+  booth = false;
   brush = 0;
   brushSize = 1;
   /** Pictures kept on the shelf, across projects. */
@@ -134,6 +137,8 @@ export class App implements RingHost, EaselHost {
   private random = seeded(Date.now() >>> 0);
   /** The shape the Nachbeben's dice threw last. */
   private lastShape = -1;
+  /** Counts the times a line was sung through, so a newer one stops an older one. */
+  private lineRun = 0;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private notified = false;
 
@@ -157,6 +162,7 @@ export class App implements RingHost, EaselHost {
         this.notify();
       },
       onStep: (local) => this.trail(local),
+      scene: (index) => this.project.scenes[index] ?? null,
       pieceStart: () => (this.project.piece.on ? this.pieceStart % barCount(this.project.piece) : 0),
     });
     this.store.subscribe(() => {
@@ -266,6 +272,7 @@ export class App implements RingHost, EaselHost {
     this.pieceKey = null;
     // The workbench shows the body of the ring in focus; a ring without one has nothing to show.
     if (this.bench && !trackOf(this.project, target).body) this.bench = false;
+    if (this.booth && !trackOf(this.project, target).voice) this.booth = false;
     // A step comes from the pointer: then the mouse is in charge and the keyboard's cursor steps aside.
     if (step !== undefined) this.keyCursor = null;
     else if (this.keyCursor !== null) this.keyCursor = Math.min(this.keyCursor, patternOf(this.project, target).len - 1);
@@ -470,6 +477,99 @@ export class App implements RingHost, EaselHost {
     });
   }
 
+  // ---- the voice: a ring that sings --------------------------------------------------------
+
+  /** The voice of the ring in focus, if it has one. */
+  get voice(): Voice | null {
+    return trackOf(this.project, this.selected).voice;
+  }
+
+  /** Opens the voice's window on the ring in focus; a ring without a voice gets a first line to sing. */
+  openBooth(): void {
+    if (this.refuse(this.selected)) return;
+    const track = this.selected;
+    const settings = trackOf(this.project, track);
+    if (!settings.voice) {
+      this.store.edit((project) => { Object.assign(trackOf(project, track), { voice: cleanVoice({ text: diceLine(this.random) }), sound: VOICE_SOUND }); });
+    } else if (settings.sound !== VOICE_SOUND) {
+      this.setTrack(track, { sound: VOICE_SOUND });
+    }
+    this.booth = true;
+    this.easel = false;
+    this.bench = false;
+    this.openSlot = null;
+    this.notify();
+  }
+
+  closeBooth(): void {
+    if (!this.booth) return;
+    this.booth = false;
+    this.notify();
+  }
+
+  /** The ring's voice: picks it, or opens its window if it is picked already or has no line yet. */
+  useVoice(): void {
+    const settings = trackOf(this.project, this.selected);
+    if (!settings.voice || settings.sound === VOICE_SOUND) this.openBooth();
+    else this.setSound(this.selected, VOICE_SOUND);
+  }
+
+  /** Changes the voice of the ring in focus; changes with the same `key` in quick succession are one step back. */
+  shapeVoice(change: Partial<Voice>, key?: string): void {
+    const track = this.selected;
+    if (this.refuse(track)) return;
+    const voice = trackOf(this.project, track).voice;
+    if (!voice) return;
+    const next = cleanVoice({ ...voice, ...change });
+    if (JSON.stringify(next) === JSON.stringify(voice) && trackOf(this.project, track).sound === VOICE_SOUND) return;
+    this.store.edit((project) => { Object.assign(trackOf(project, track), { voice: next, sound: VOICE_SOUND }); }, key ? `${key}${track}` : undefined, key === "text" ? 2500 : undefined);
+  }
+
+  diceVoice(): void {
+    const track = this.selected;
+    if (this.refuse(track)) return;
+    const voice = trackOf(this.project, track).voice;
+    this.store.edit((project) => { Object.assign(trackOf(project, track), { voice: cleanVoice({ ...voice, text: diceLine(this.random, voice?.text) }), sound: VOICE_SOUND }); });
+    this.singLine();
+  }
+
+  /** Sings the whole line once, syllable by syllable, on the ring's note: to hear what was written. */
+  singLine(): void {
+    const track = this.selected;
+    const voice = trackOf(this.project, track).voice;
+    if (!voice || this.veiled(track)) return;
+    const count = Math.max(1, syllables(voice.text).length);
+    this.lineRun += 1;
+    const run = this.lineRun;
+    for (let number = 0; number < count; number += 1) {
+      setTimeout(() => {
+        // A newer line, or the Kreisel itself, has taken over.
+        if (run !== this.lineRun || this.playing) return;
+        void this.engine.audition(track, { ...emptyStep(), on: true, pitch: this.pitches[track] ?? 0, len: 2 }, this.chordNow(), number);
+      }, number * 250);
+    }
+  }
+
+  /** The mouth of the voice that sounds right now, for drawing it: how open, how wide, how much. */
+  mouth(): { open: number; wide: number; amount: number } | null {
+    let best: { open: number; wide: number; amount: number } | null = null;
+    let soonest = 0.5;
+    this.project.tracks.forEach((track, index) => {
+      if (track.sound !== VOICE_SOUND || !track.voice || !this.audible(index)) return;
+      const since = this.sinceStruck(index);
+      if (since < -0.02 || since >= soonest) return;
+      soonest = since;
+      const line = syllables(track.voice.text);
+      const number = this.engine.sung[index] ?? 0;
+      const which = line.length > 0 ? ((number % line.length) + line.length) % line.length : 0;
+      const syllable = line[which];
+      const sung = syllable ? sing(syllable, line[which + 1] ?? null) : null;
+      const formants = shape(sung && !sung.mute ? sung.vowel : (VOWELS.a ?? [750, 1250, 2500]), track.voice, track.x, track.y);
+      best = { ...mouthOf(formants), amount: sung?.mute ? 0.15 : Math.max(0, 1 - Math.max(0, since - 0.12) / 0.38) };
+    });
+    return best;
+  }
+
   // ---- weather: effects painted onto the wheel -------------------------------------------
 
   /** Puts the weather in focus: the wheel is painted with it, the tools are the kinds of weather. */
@@ -480,6 +580,7 @@ export class App implements RingHost, EaselHost {
     this.pieceKey = null;
     this.easel = false;
     this.bench = false;
+    this.booth = false;
     this.openSlot = null;
     this.keyCursor = null;
     this.notify();
@@ -860,6 +961,7 @@ export class App implements RingHost, EaselHost {
       this.lookBack = index;
       this.easel = false;
       this.bench = false;
+      this.booth = false;
     }
     this.store.locked = this.oldTurn !== null;
     this.stamp += 1;
@@ -899,6 +1001,7 @@ export class App implements RingHost, EaselHost {
     this.weatherFocus = false;
     this.easel = false;
     this.bench = false;
+    this.booth = false;
     this.openSlot = null;
     this.keyCursor = null;
     this.notify();
@@ -1004,6 +1107,7 @@ export class App implements RingHost, EaselHost {
     }
     this.easel = true;
     this.bench = false;
+    this.booth = false;
     this.openSlot = null;
     this.notify();
     this.preview(track);
@@ -1041,6 +1145,7 @@ export class App implements RingHost, EaselHost {
     }
     this.bench = true;
     this.easel = false;
+    this.booth = false;
     this.openSlot = null;
     this.notify();
     this.hearBody();

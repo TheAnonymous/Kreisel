@@ -1,5 +1,5 @@
 import type { App, ContextTarget } from "../app";
-import { BODY_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, trackInfo, trackOf } from "../model";
+import { BODY_SOUND, VOICE_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, trackInfo, trackOf } from "../model";
 import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
@@ -95,6 +95,14 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
       options: [
         { label: "Nehmen", active: settings.sound === OWN_SOUND, disabled: !settings.bild, title: settings.bild ? "Den gemalten Klang dieses Rings nehmen" : "Noch nicht gemalt", run: () => app.setSound(track, OWN_SOUND) },
         { label: "Malen …", title: "Den eigenen Klang dieses Rings malen", close: true, run: () => { app.select(track); app.openEasel(); } },
+      ],
+    },
+    {
+      kind: "choice",
+      label: "Stimme",
+      options: [
+        { label: "Nehmen", active: settings.sound === VOICE_SOUND, disabled: !settings.voice, title: settings.voice ? "Die Stimme dieses Rings nehmen" : "Noch keine Zeile geschrieben", run: () => app.setSound(track, VOICE_SOUND) },
+        { label: "Text …", title: "Die Zeile schreiben, die dieser Ring singt", close: true, run: () => { app.select(track); app.openBooth(); } },
       ],
     },
     {

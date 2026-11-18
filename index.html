@@ -122,6 +122,29 @@
                 <p class="easel-hint">Klopf auf den Körper: Wo du triffst, klingt er anders, und dort schlägt ihn auch der Ring an. Der rechte Griff macht ihn größer, der linke spannt ihn. Links wählst du, womit er angeregt wird.</p>
               </div>
             </div>
+            <div id="booth" class="easel booth" hidden>
+              <div class="easel-card" role="dialog" aria-labelledby="booth-title">
+                <header class="easel-head">
+                  <span class="dot"></span>
+                  <h2 id="booth-title">Stimme</h2>
+                  <span class="spacer"></span>
+                  <button id="booth-dice" class="button small" type="button" title="Eine andere Zeile würfeln">Würfeln</button>
+                  <button id="booth-done" class="button small done" type="button" title="Zurück zum Kreisel (Esc)">Fertig</button>
+                </header>
+                <div class="booth-line">
+                  <input id="voice-text" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Was soll der Ring singen?" aria-label="Die Zeile, die der Ring singt">
+                  <button id="voice-sing" class="button small" type="button" title="Die Zeile einmal vorsingen (Eingabe)">Vorsingen</button>
+                </div>
+                <div class="booth-stage">
+                  <canvas id="mund" aria-hidden="true"></canvas>
+                </div>
+                <div id="voice-syllables" class="syllables" aria-label="Die Silben der Zeile"></div>
+                <div class="booth-foot">
+                  <div id="booth-shape" class="bench-shape"></div>
+                  <p class="easel-hint">Jeder Schlag des Rings singt die nächste Silbe, auf seinem Ton. Ein Bindestrich trennt, wo du willst. Im Klangfeld des Rings ziehst du alle Vokale zu i, e, a, o oder u.</p>
+                </div>
+              </div>
+            </div>
             <div id="coach" class="coach" hidden>
               <p><strong>Mal in die Ringe.</strong> Ein Klick setzt einen Schlag, ziehen malt mehrere, nach außen ziehen macht höher. Das Mausrad dreht einen Ring weiter, die Mitte startet.</p>
               <button id="coach-ok" class="button small" type="button">Los</button>
@@ -197,6 +220,11 @@
               <h3>Eigene Klänge malen</h3>
               <p>„Malen“ im Feld des Rings öffnet den Malkasten. Das Bild ist der Klang: Links fängt er an, oben ist hoch. Jeder Strich ist ein Ton, am lautesten dort, wo du ansetzt; von rechts nach links gemalt schwillt er an. Summen ist weich, Sägen scharf, Zischen ist Rauschen.</p>
               <p>Bei Bass, Akkorden und Melodie bleiben Striche auf den Linien in der Stimmung. „Ton halten“ lässt lange Noten an der Linie stehen. Der Kreisel läuft beim Malen weiter.</p>
+            </section>
+            <section>
+              <h3>Stimme</h3>
+              <p>„Text“ im Feld des Rings gibt ihm eine Stimme: Du schreibst eine Zeile, und jeder Schlag des Rings singt die nächste Silbe, auf dem Ton, den der Ring spielt. Auf dem Akkord-Ring singt ein kleiner Chor. Ein Bindestrich trennt eine Silbe, wo du willst.</p>
+              <p>Das Klangfeld wird zum Vokalfeld: Der Punkt zieht alle Vokale zu i, e, a, o oder u, am Rand ganz. „Mundraum“ macht die Stimme hell und klein oder dunkel und groß, „Hauch“ gibt ihr Atem. Es ist ein Roboter-Chor: Die Vokale sind klar, die Wörter nur zum Teil zu verstehen. Aufgenommen wird nichts.</p>
             </section>
             <section>
               <h3>Wetter</h3>

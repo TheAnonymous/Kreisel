@@ -3,14 +3,16 @@ import type { FxName } from "../audio/engine";
 import { describeBild } from "../bild";
 import { BODY_NAMES, describeBody, materialName, TIGHT_NAMES } from "../body";
 import { describeRumble, hasRumble } from "../rumble";
+import { describeVoice, FIELD_LETTERS, syllables } from "../voice";
 import { describeWeather, hasWeather, WEATHER_COLORS, WEATHER_HINTS, WEATHER_NAMES, windName, WINDS } from "../weather";
 import { packBild, unpackBild } from "../codec";
-import { BODY_SOUND, clamp, currentScene, MAX_BARS, MAX_CHORDS, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, SCENE_COUNT, SCENE_NAMES, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
+import { BODY_SOUND, clamp, currentScene, MAX_VOICE_TEXT, VOICE_SOUND, MAX_BARS, MAX_CHORDS, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, SCENE_COUNT, SCENE_NAMES, TIME_MAX, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
 import { chordName, chordRoman, NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
 import { activeSteps, describe } from "../patterns";
 import { barCount, describePiece } from "../piece";
 import { RULES, turnColor } from "../relay";
 import { renderBodyThumb, type BenchView } from "./bench";
+import type { BoothView } from "./booth";
 import { renderThumb, type EaselView } from "./easel";
 import { onContext } from "./menu";
 import type { RingView, Tool } from "./ring";
@@ -129,6 +131,11 @@ export class Panels {
   private readonly kindButtons: HTMLButtonElement[] = [];
   private readonly shape = { size: el("input"), tight: el("input"), material: el("input"), tightName: el("span", "label"), materialName: el("span", "label") };
   private readonly quake = el("div", "group quake");
+  private readonly sung = { pick: button("own-pick", ""), label: el("span", "own-label") };
+  private readonly vowels = el("span", "vowels");
+  private boothOpen = false;
+  private syllableSignature = "";
+  private litSyllable = -1;
   private readonly weatherRow = el("li", "track weather-row");
   private readonly weatherBox = el("div", "panel-box panel-weather");
   private readonly sky = { info: el("p", "info"), clear: button("button small", "Aufklaren", "Alles Wetter wegnehmen (Umschalt+Entf)") };
@@ -155,13 +162,14 @@ export class Panels {
   private recordTimer: ReturnType<typeof setInterval> | null = null;
   private lastPreview = 0;
 
-  constructor(private readonly app: App, private readonly ring: RingView, private readonly easel: EaselView, private readonly bench: BenchView) {
+  constructor(private readonly app: App, private readonly ring: RingView, private readonly easel: EaselView, private readonly bench: BenchView, private readonly mouth: BoothView) {
     this.buildBar();
     this.buildTracks();
     this.buildScenes();
     this.buildTools();
     this.buildEasel();
     this.buildBench();
+    this.buildBooth();
     this.buildWeather();
     this.buildFx();
     this.buildPanel();
@@ -439,6 +447,52 @@ export class Panels {
     });
   }
 
+  /** The voice's window: the line it sings, how it is cut into syllables, and the two ways to shape the voice. */
+  private buildBooth(): void {
+    const app = this.app;
+    const text = byId<HTMLInputElement>("voice-text");
+    text.maxLength = MAX_VOICE_TEXT;
+    text.addEventListener("input", () => app.shapeVoice({ text: text.value }, "text"));
+    text.addEventListener("keydown", (event) => {
+      // Typing a line must not play the Kreisel; Enter sings it, Escape puts the window away.
+      event.stopPropagation();
+      if (event.key === "Enter") {
+        event.preventDefault();
+        app.singLine();
+      } else if (event.key === "Escape") {
+        app.closeBooth();
+      }
+    });
+    byId("voice-sing").addEventListener("click", () => app.singLine());
+    byId("booth-dice").addEventListener("click", () => app.diceVoice());
+    byId("booth-done").addEventListener("click", () => app.closeBooth());
+    const holder = byId("booth-shape");
+    const shaper = (label: string, field: "mouth" | "breath", title: string, id: string): void => {
+      const line = el("label", "line");
+      const input = el("input");
+      input.type = "range";
+      input.min = "0";
+      input.max = "100";
+      input.id = id;
+      input.title = title;
+      this.slider(input, () => app.voice?.[field] ?? 0.5, (value) => app.shapeVoice({ [field]: value }, field), () => app.shapeVoice({ [field]: field === "mouth" ? 0.5 : 0.15 }));
+      input.addEventListener("change", () => app.singLine());
+      line.append(el("span", "label", label), input);
+      holder.append(line);
+    };
+    shaper("Mundraum", "mouth", "Der Raum im Mund: klein und hell bis groß und dunkel", "voice-mouth");
+    shaper("Hauch", "breath", "Wie viel Atem in der Stimme liegt: klar bis geflüstert", "voice-breath");
+    // A click beside the window puts it away, like a click beside any open box.
+    const light = (): void => {
+      this.lightSyllable();
+      requestAnimationFrame(light);
+    };
+    requestAnimationFrame(light);
+    byId("booth").addEventListener("pointerdown", (event) => {
+      if (event.target === event.currentTarget) app.closeBooth();
+    });
+  }
+
   /** The weather: its brushes (in the tools' place) and its panel, where every kind of weather has a wind. */
   private buildWeather(): void {
     const app = this.app;
@@ -624,10 +678,29 @@ export class Panels {
     build.addEventListener("click", () => app.openBench());
     built.append(this.built.pick, build);
 
+    // And its own voice: a line of text, sung a syllable a hit.
+    const sung = el("div", "own");
+    const lips = el("span", "thumb lips");
+    this.sung.pick.id = "voice-pick";
+    this.sung.pick.append(lips, this.sung.label);
+    this.sung.pick.addEventListener("click", () => app.useVoice());
+    const write = button("button small", "Text", "Die Zeile schreiben, die dieser Ring singt");
+    write.id = "voice-edit";
+    write.addEventListener("click", () => app.openBooth());
+    sung.append(this.sung.pick, write);
+
     const pad = parts.pad;
     pad.tabIndex = 0;
     pad.setAttribute("role", "group");
-    pad.append(parts.puck, parts.axisX, parts.axisY);
+    // For a voice the pad is the field of the vowels.
+    for (const { x, y, vowel } of FIELD_LETTERS) {
+      const letter = el("i", "", vowel);
+      // Kept clear of the pad's edge, however flat the pad is.
+      letter.style.left = `calc(9px + (100% - 18px) * ${x})`;
+      letter.style.bottom = `calc(9px + (100% - 18px) * ${y})`;
+      this.vowels.append(letter);
+    }
+    pad.append(this.vowels, parts.puck, parts.axisX, parts.axisY);
     const place = (event: PointerEvent): void => {
       const box = pad.getBoundingClientRect();
       app.setTrack(app.selected, { x: clamp((event.clientX - box.left) / box.width, 0, 1), y: clamp(1 - (event.clientY - box.top) / box.height, 0, 1) }, "pad");
@@ -742,7 +815,7 @@ export class Panels {
     mixSlider("Hall", "hall");
     mixSlider("Echo", "echo");
 
-    this.ringBox.append(head, parts.info, doing, sounds, own, built, pad, ringGroup, quake, mix);
+    this.ringBox.append(head, parts.info, doing, sounds, own, built, sung, pad, ringGroup, quake, mix);
     this.veilBox.append(
       el("header", "panel-head"),
       el("p", "veil-text", "Stille Post: Dieser Ring ist verdeckt. Jemand hat hier schon gebaut, aber du hörst und siehst nur den Ring der Person vor dir. Bau deinen eigenen dazu: Nimm einen Ring, der noch leer ist. Wenn alle fertig sind, deckt ihr im Reihum-Fenster auf."),
@@ -969,6 +1042,7 @@ export class Panels {
       ["Eingabe", "am Zeiger setzen oder löschen"],
       ["+ −", "Ton am Zeiger höher oder tiefer"],
       [key("KeyN"), "Ring würfeln · mit Umschalt nur variieren"],
+      ["Im Fenster der Stimme", "Eingabe singt die Zeile vor · ein Bindestrich trennt eine Silbe, wo du willst · Esc fertig"],
       ["An der Werkbank", `${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")} Schlägel weich und hart, Zupfen, Streichen, Blasen · ${key("KeyN")} würfeln · Esc fertig`],
       ["Im Malkasten", `${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} Pinsel und Radierer · ${key("KeyT")} Dicke · ${key("KeyN")} würfeln · Entf nimmt den letzten Strich · Esc fertig`],
       [key("KeyM"), "Ring stumm · mit Umschalt allein hören"],
@@ -1040,7 +1114,7 @@ export class Panels {
       row.classList.toggle("selected", track === selected && !app.pieceFocus && !app.weatherFocus);
       row.classList.toggle("silent", !app.audible(track));
       row.classList.toggle("solo", app.solo === track);
-      row.querySelector(".sound")!.textContent = one.sound === BODY_SOUND && one.body ? (BODY_NAMES[one.body.kind] ?? "") : (trackInfo(track).sounds[one.sound] ?? "Gemalt");
+      row.querySelector(".sound")!.textContent = one.sound === VOICE_SOUND ? "Stimme" : one.sound === BODY_SOUND && one.body ? (BODY_NAMES[one.body.kind] ?? "") : (trackInfo(track).sounds[one.sound] ?? "Gemalt");
       row.querySelector(".pick")!.setAttribute("aria-pressed", String(track === selected && !app.pieceFocus && !app.weatherFocus));
       row.querySelector(".mute")!.setAttribute("aria-pressed", String(!app.audible(track)));
     });
@@ -1086,8 +1160,11 @@ export class Panels {
     });
     parts.puck.style.left = `${settings.x * 100}%`;
     parts.puck.style.bottom = `${settings.y * 100}%`;
-    parts.axisX.textContent = `${info.xLabel} →`;
-    parts.axisY.textContent = `${info.yLabel} ↑`;
+    const sings = settings.sound === VOICE_SOUND;
+    parts.axisX.textContent = sings ? "" : `${info.xLabel} →`;
+    parts.axisY.textContent = sings ? "" : `${info.yLabel} ↑`;
+    this.vowels.hidden = !sings;
+    parts.pad.title = sings ? "Das Vokalfeld: Der Punkt zieht alle Vokale zu sich, am Rand ganz, in der Mitte gar nicht" : "";
     parts.pad.setAttribute("aria-label", `Klangfeld: ${info.xLabel} ${Math.round(settings.x * 100)} %, ${info.yLabel} ${Math.round(settings.y * 100)} %. Pfeiltasten verändern.`);
     parts.steps.textContent = String(pattern.len);
     const hits = activeSteps(pattern).length;
@@ -1107,13 +1184,16 @@ export class Panels {
       : app.veiled(selected) ? `${info.name}: verdeckt (Stille Post)`
       : app.easel ? `Klangmalerei ${info.name}: ${describeBild(settings.bild)}`
       : app.bench ? `Klangkörper ${info.name}: ${describeBody(settings.body)}`
+      : app.booth ? `Stimme ${info.name}: ${describeVoice(settings.voice)}`
       : `${info.name}: ${describe(pattern)}${selected === 0 && hasRumble(currentScene(project), pattern.len) ? ` · ${describeRumble(currentScene(project), pattern)}` : ""}`;
+    this.syncBooth();
     this.syncWeather();
     this.syncChordMenu();
     this.syncToast();
     this.ring.invalidate();
     this.easel.invalidate();
     this.bench.invalidate();
+    this.mouth.invalidate(info.color);
   }
 
   /** The piece in the list of rings and in its panel. */
@@ -1227,6 +1307,70 @@ export class Panels {
       });
       shelf.replaceChildren(...items);
     }
+  }
+
+  /** The ring's voice in the panel, and its window. */
+  private syncBooth(): void {
+    const app = this.app;
+    const track = app.selected;
+    const info = trackInfo(track);
+    const settings = trackOf(app.project, track);
+    const voice = settings.voice;
+    // A voice that is gone (taken back) has no window.
+    if (app.booth && !voice) app.closeBooth();
+
+    this.sung.pick.setAttribute("aria-pressed", String(settings.sound === VOICE_SOUND));
+    this.sung.pick.title = voice ? "Die Stimme dieses Rings spielen (noch ein Klick öffnet ihr Fenster)" : "Diesem Ring eine Stimme geben: Er singt eine Zeile Text";
+    this.sung.label.textContent = voice ? (voice.text.trim() ? `Stimme: ${voice.text.trim()}` : "Stimme: nur Vokal") : "Stimme geben";
+
+    const open = app.booth && voice !== null;
+    byId("booth").hidden = !open;
+    if (open && !this.boothOpen) {
+      this.closeCoach();
+      byId("stage").scrollIntoView({ block: "nearest" });
+      // With a keyboard at hand the line is ready to be typed over (a phone's keyboard would only be in the way).
+      if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+        const field = byId<HTMLInputElement>("voice-text");
+        field.value = voice?.text ?? "";
+        field.focus({ preventScroll: true });
+        field.select();
+      }
+    }
+    this.boothOpen = open;
+    if (!open || !voice) return;
+    byId("booth").style.setProperty("--c", info.color);
+    byId("booth-title").textContent = `Stimme: ${info.name}`;
+    const text = byId<HTMLInputElement>("voice-text");
+    // What is being typed is left alone (the line is kept as typed, a trailing space included).
+    if (document.activeElement !== text || text.value.trimStart() !== voice.text) text.value = voice.text;
+    const cut = syllables(voice.text);
+    const signature = cut.map((syllable) => `${syllable.first ? " " : "·"}${syllable.text}`).join("");
+    const holder = byId("voice-syllables");
+    if (signature !== this.syllableSignature) {
+      this.syllableSignature = signature;
+      this.litSyllable = -1;
+      holder.replaceChildren(...(cut.length > 0
+        ? cut.map((syllable, index) => {
+            const chip = button(`syllable${syllable.first && index > 0 ? " word" : ""}`, syllable.text, "Diese Silbe singen");
+            chip.addEventListener("click", () => void app.engine.audition(app.selected, { on: true, vel: 1, chance: 0, ratchet: 1, pitch: 0, len: 2 }, app.chordNow(), index));
+            return chip;
+          })
+        : [el("span", "shelf-label empty", "Ohne Text singt der Ring den Vokal, auf dem der Punkt im Klangfeld steht.")]));
+    }
+    this.lightSyllable();
+  }
+
+  /** The syllable that is being sung lights up (looked at on every frame while the window is open). */
+  private lightSyllable(): void {
+    const app = this.app;
+    if (!app.booth) return;
+    const track = app.selected;
+    const chips = byId("voice-syllables").querySelectorAll(".syllable");
+    const since = app.sinceStruck(track);
+    const sounding = since > -0.02 && since < 0.3 && chips.length > 0 ? (((app.engine.sung[track] ?? 0) % chips.length) + chips.length) % chips.length : -1;
+    if (sounding === this.litSyllable) return;
+    this.litSyllable = sounding;
+    chips.forEach((chip, index) => chip.classList.toggle("sung", index === sounding));
   }
 
   /** The weather in the list of rings, its brushes and its panel. */

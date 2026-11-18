@@ -69,7 +69,7 @@ describe("projects", () => {
     expect(project.scene).toBe(0);
     expect(project.repeats).toBe(1);
     expect(project.tracks).toHaveLength(TRACK_COUNT);
-    expect(project.tracks[0]).toEqual({ sound: 0, x: 1, y: 0, level: 1, hall: 0, echo: 0, mute: true, bild: null, body: null });
+    expect(project.tracks[0]).toEqual({ sound: 0, x: 1, y: 0, level: 1, hall: 0, echo: 0, mute: true, bild: null, body: null, voice: null });
     expect(stepAt(project.scenes[0]!.patterns[0]!, 0).on).toBe(true);
   });
 

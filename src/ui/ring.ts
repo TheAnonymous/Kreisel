@@ -1,6 +1,7 @@
 import { currentScene, MAX_NOTE_LENGTH, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, WEATHER_MAX, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Pattern, type Project, type Relay, type Scene, type Step } from "../model";
 import { chordAt, chordName, pitchName } from "../music";
 import { shakes } from "../rumble";
+import { drawMouth, type MouthShape } from "./booth";
 import { WEATHER_COLORS, WEATHER_NAMES, windDrift } from "../weather";
 import { LONG_PRESS_MS, LONG_PRESS_SLACK } from "./menu";
 import { entry } from "../piece";
@@ -50,6 +51,8 @@ export interface RingHost {
   cancelGesture(gesture: string): void;
   /** Paints how much the ground shakes at a step of the kick's ring, 0..1. */
   paintRumble(step: number, share: number, gesture: string): void;
+  /** The mouth of a voice that sounds right now, or `null`. */
+  mouth(): MouthShape | null;
   /** The weather is in focus: strokes on the wheel paint it, with a brush of one kind of weather and a width of 0..2. */
   readonly weatherFocus: boolean;
   readonly cloud: number;
@@ -549,8 +552,13 @@ export class RingView {
     }
     context.fillStyle = bg;
     const icon = hub * 0.42;
+    // While a voice sings, the hub is its mouth.
+    const mouth = host.mouth();
+    if (mouth && mouth.amount > 0.02) drawMouth(context, center, center, hub * 0.62, mouth, bg, ink);
     context.beginPath();
-    if (host.playing) {
+    if (mouth && mouth.amount > 0.02) {
+      // (The mouth has taken the icon's place.)
+    } else if (host.playing) {
       context.roundRect(center - icon * 0.82, center - icon * 0.82, icon * 1.64, icon * 1.64, icon * 0.2);
     } else {
       context.moveTo(center - icon * 0.62, center - icon);

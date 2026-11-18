@@ -69,6 +69,7 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
       app.hideCursor();
       app.closeEasel();
       app.closeBench();
+      app.closeBooth();
       // Away from the weather, back to the ring that was in focus.
       if (app.weatherFocus) app.select(app.selected);
       app.look(null);

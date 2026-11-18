@@ -19,15 +19,17 @@ import {
   trimmedLength,
   type ChannelBus,
 } from "klangwerk";
-import { BAR, BODY_SOUND, currentScene, OWN_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Project, type Step } from "../model";
+import { BAR, BODY_SOUND, currentScene, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Project, type Scene, type Step } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
 import { barCount, dropsQuiet, gateLevel, planBar, type BarPlan } from "../piece";
 import { playBild } from "./bild";
 import { playBody } from "./body";
+import { playVoice } from "./voice";
 import { buildRumble, hitRumble, shadeRumble, stepRumble, stillRumble, type Rumble } from "./rumble";
 import { buildChain, clearChain, stepChain, type Chain } from "./weather";
 import { brightness, shaded, shadesSound, weatherOver } from "../weather";
+import { hitNumber } from "../voice";
 import { soundFile, type SoundFile } from "./opus";
 import { glides, playHit } from "./sounds";
 
@@ -167,7 +169,7 @@ class Voices {
   constructor(private readonly graph: Graph) {}
 
   /** Plays `step` of ring `track` at `time`; `stepTime` is how long one step lasts, `level` scales how loud it is. */
-  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number, level = 1, bright = 0): void {
+  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number, level = 1, bright = 0, number = 0): void {
     const plain = project.tracks[track];
     // Sun and fog reach into the sound itself where a ring has a brightness of its own: note by note, as a filter is played.
     const settings = plain && bright !== 0 ? { ...plain, x: shaded(plain.x, bright) } : plain;
@@ -189,7 +191,10 @@ class Voices {
       const glideFrom = glides(track, settings.sound) && before && before.until > at - 0.012 && before.hz !== frequency ? before.hz : null;
       const hit = { gain: (VELOCITY[step.vel] ?? 0.78) * (repeat === 0 ? 1 : 0.7) * level, accent: step.vel === 2, pitch: step.pitch, midis, duration, glideFrom };
       // The ring's own sound is its picture or its body; without one (or with an empty picture) it is silent.
-      if (settings.sound === BODY_SOUND) {
+      if (settings.sound === VOICE_SOUND) {
+        // A voice sings the syllable that this hit is in the ring's line (a roll repeats it).
+        if (settings.voice) playVoice(this.graph.kit, inlet, track, settings, at, hit, settings.voice, number);
+      } else if (settings.sound === BODY_SOUND) {
         if (settings.body) playBody(this.graph.kit, inlet, track, settings, at, hit, settings.body);
       } else if (settings.sound !== OWN_SOUND) {
         playHit(this.graph.kit, inlet, track, settings, at, hit);
@@ -386,7 +391,7 @@ export class Player {
       const gate = this.plan ? (this.plan.gates[track] ?? 0) : 1;
       if (gate <= 0 || (this.plan && step.vel === 0 && dropsQuiet(gate))) continue;
       fired |= 1 << track;
-      this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, shadesSound(track) ? brightness(over) : 0);
+      this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, shadesSound(track) ? brightness(over) : 0, hitNumber(pattern, position % pattern.len, this.local));
       if (track === 0) hitRumble(this.graph.rumble, time, duration);
     }
     // The Nachbeben: as much as the line in the kick's ring lets out at this step, at the pitch of the bar's chord.
@@ -400,10 +405,10 @@ export class Player {
     if (this.plan) this.pieceSteps += 1;
   }
 
-  /** Plays one step by hand, over `chord`. */
-  play(track: number, step: Step, time: number, chord: number): void {
+  /** Plays one step by hand, over `chord`; a voice sings syllable `number` of its line. */
+  play(track: number, step: Step, time: number, chord: number, number = 0): void {
     const project = this.project();
-    this.voices.strike(project, track, step, chord, time, stepSeconds(project));
+    this.voices.strike(project, track, step, chord, time, stepSeconds(project), 1, 0, number);
   }
 
   private changeScene(project: Project): void {
@@ -438,6 +443,8 @@ export interface EngineView {
   pieceStart(): number;
   /** A step is heard: how many steps the scene has played by now. */
   onStep?(local: number): void;
+  /** Scene `index` as it is now. */
+  scene?(index: number): Scene | null;
 }
 
 export class Engine {
@@ -447,6 +454,8 @@ export class Engine {
   heard: StepReport | null = null;
   /** When each ring last struck, on the listener's clock. */
   readonly struck: number[] = Array.from({ length: TRACK_COUNT }, () => -10);
+  /** Which hit of its line each ring last played (a voice sings a syllable a hit). */
+  readonly sung: number[] = Array.from({ length: TRACK_COUNT }, () => 0);
   readonly fx: Record<FxName, boolean> = { dumpf: false, duenn: false, stotter: false, wurf: false, pause: false };
 
   private readonly host = new AudioHost<Graph>((context) => buildGraph(context), { latencyHint: "interactive" });
@@ -553,12 +562,13 @@ export class Engine {
   }
 
   /** Plays a step by hand, for the keyboard and for hearing what was just painted. */
-  async audition(track: number, step: Step, chord: number): Promise<void> {
+  async audition(track: number, step: Step, chord: number, number = 0): Promise<void> {
     if (!(await this.wake())) return;
     const context = this.host.context;
     if (context && this.player) {
-      this.player.play(track, step, context.currentTime + 0.008, chord);
+      this.player.play(track, step, context.currentTime + 0.008, chord, number);
       this.struck[track] = this.host.visualTime() + 0.008;
+      this.sung[track] = number;
     }
   }
 
@@ -655,7 +665,11 @@ export class Engine {
       const before = this.heard?.scene;
       this.heard = report;
       for (let track = 0; track < TRACK_COUNT; track += 1) {
-        if (report.fired & (1 << track)) this.struck[track] = report.time;
+        if (!(report.fired & (1 << track))) continue;
+        this.struck[track] = report.time;
+        // Which hit of its ring's line this was (for the mouth that is drawn singing it).
+        const pattern = (this.view.scene?.(report.scene))?.patterns[track];
+        if (pattern) this.sung[track] = hitNumber(pattern, report.position % pattern.len, report.local);
       }
       if (report.scene !== before) this.view.onScene(report.scene);
       this.view.onStep?.(report.local);

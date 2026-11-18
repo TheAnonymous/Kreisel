@@ -229,6 +229,40 @@ the sound is a short chain before each ring's bus and two sends after it
 (`src/audio/weather.ts`), which the player sets step by step. Under a clear
 sky the chain changes nothing.
 
+## Part eight: Stimme
+
+A ring that sings. Type a line and the ring sings it, one syllable a hit, at
+the ring's own pitch: the bass sings low, the melody its melody, the chord
+ring is a small choir, a drum speaks. Nothing is recorded and nothing is
+looked up: the voice is made on the spot from the letters.
+
+- **A line, cut into syllables.** "Stimme geben" (or "Text", or the right
+  button on a ring) opens a small window with one field. What is typed is cut
+  as German is written ("Kaf·fee·pau·se jetzt"); a hyphen cuts where the
+  rules get it wrong. Every hit of the ring sings the next syllable, so a
+  line of five syllables on a ring of four hits walks around the beat.
+  Enter sings the line once, a click on a syllable sings that one.
+- **The sound pad is the mouth.** For a voice the pad shows i, e, a, o and u
+  where a vowel chart has them. In the middle every vowel is itself; the
+  further out the point, the more all of them are pulled to that place, and
+  at the edge the ring sings one vowel only. "Mundraum" makes the mouth small
+  and bright or big and dark, "Hauch" gives the voice breath.
+- **A mouth in the hub.** While a voice sounds, the hub of the wheel is a
+  mouth that forms what is sung: wide open for an a, a smile for an i, a
+  small round hole for an u.
+
+It is a robot choir, not a speaker: vowels are clear, words are understood
+about as well as on an old vocoder record. A voice is two numbers and a
+line of text in the link. The rules are plain arithmetic (`src/voice.ts`):
+syllables, a handful of rules of German speech (a short and a long vowel,
+the murmured e of an ending, "st" at the start of a word, "ch" after a dark
+vowel), each vowel as three resonances, and a syllable laid out in time so
+that its vowel lands on the beat and the consonants before it come ahead of
+the beat. The sound (`src/audio/voice.ts`) is a buzz at the note's pitch
+through three band filters that move from sound to sound, with noise through
+a filter of its own for every hiss and pop. It is the same live and in the
+saved file.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the

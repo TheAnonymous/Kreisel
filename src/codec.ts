@@ -1,7 +1,8 @@
 import { cleanBody } from "./body";
+import { cleanVoice } from "./voice";
 import { cleanRumble } from "./rumble";
 import { cleanWind, packWeather, unpackWeather } from "./weather";
-import { BODY_SOUND, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Body, type Pattern, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
+import { BODY_SOUND, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Body, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { soundPiece } from "./piece";
 import { cleanName } from "./relay";
@@ -151,9 +152,12 @@ export function packState(project: Project): Packed {
     o: round(project.volume),
     t: project.tracks.map((track) => {
       const packed: (number | string)[] = [track.sound, round(track.x), round(track.y), round(track.level), round(track.hall), round(track.echo), track.mute ? 1 : 0];
-      if (track.bild || track.body) packed.push(track.bild ? packBild(track.bild) : 0);
+      if (track.bild || track.body || track.voice) packed.push(track.bild ? packBild(track.bild) : 0);
       // A body is six small numbers: what it is, its size, tightness and material in hundredths, what sets it going, and where.
       if (track.body) packed.push([track.body.kind, track.body.size, track.body.tight, track.body.material, track.body.exciter, track.body.where].map((value, index) => (index === 0 || index === 4 ? value : Math.round(value * 100))).join("."));
+      else if (track.voice) packed.push(0);
+      // A voice is the room in its mouth and its breath in hundredths, then the line it sings.
+      if (track.voice) packed.push(`${Math.round(track.voice.mouth * 100)}.${Math.round(track.voice.breath * 100)}.${track.voice.text}`);
       return packed;
     }),
     c: project.scenes.map((scene) => {
@@ -237,6 +241,14 @@ function unpackScene(value: unknown): Scene | null {
   };
 }
 
+/** A voice from its two numbers and its line; anything else is no voice. */
+export function unpackVoice(value: unknown): Voice | null {
+  if (typeof value !== "string" || value.length > MAX_VOICE_TEXT + 12) return null;
+  const match = /^(\d{1,3})\.(\d{1,3})\.(.*)$/su.exec(value);
+  if (!match) return null;
+  return cleanVoice({ mouth: Number(match[1]) / 100, breath: Number(match[2]) / 100, text: match[3] });
+}
+
 /** A body from its six numbers; anything else is no body. */
 export function unpackBody(value: unknown): Body | null {
   if (typeof value !== "string" || value.length > 40) return null;
@@ -250,10 +262,11 @@ function unpackTrack(value: unknown): Track {
   const list = Array.isArray(value) ? value : [];
   const bild = unpackBild(list[7]);
   const body = unpackBody(list[8]);
-  const sound = integer(list[0], 0, BODY_SOUND, 0);
+  const voice = unpackVoice(list[9]);
+  const sound = integer(list[0], 0, VOICE_SOUND, 0);
   return {
-    // A ring cannot play a picture or a body it does not have.
-    sound: (sound === OWN_SOUND && !bild) || (sound === BODY_SOUND && !body) ? 0 : sound,
+    // A ring cannot play a picture, a body or a voice it does not have.
+    sound: (sound === OWN_SOUND && !bild) || (sound === BODY_SOUND && !body) || (sound === VOICE_SOUND && !voice) ? 0 : sound,
     x: number(list[1], 0, 1, 0.5),
     y: number(list[2], 0, 1, 0.5),
     level: number(list[3], 0, 1, 0.7),
@@ -262,6 +275,7 @@ function unpackTrack(value: unknown): Track {
     mute: list[6] === 1,
     bild,
     body,
+    voice,
   };
 }
 
