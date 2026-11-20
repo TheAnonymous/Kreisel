@@ -1,0 +1,138 @@
+/* ---- Reihum ---------------------------------------------------------------------- */
+
+.reihum {
+  width: min(94vw, 560px);
+}
+
+.reihum-body {
+  display: grid;
+  gap: 11px;
+  padding: 4px 20px 20px;
+  font-size: 0.88rem;
+}
+
+.reihum-body h3 {
+  font-size: 0.7rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.reihum-body .field input {
+  width: min(100%, 240px);
+  height: 36px;
+  padding: 0 10px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rules legend {
+  margin-bottom: 4px;
+  padding: 0;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.rules input {
+  border-radius: 50%;
+}
+
+.reihum-body .info {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.turns {
+  display: grid;
+  gap: 4px;
+  max-height: 32dvh;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.turn {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.turn .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.relay-now {
+  font-weight: 700;
+}
+
+.relay-message {
+  padding: 8px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--go) 18%, var(--paper));
+  font-weight: 700;
+}
+
+.lookback {
+  position: fixed;
+  left: 50%;
+  bottom: 70px;
+  z-index: 19;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: min(94vw, 620px);
+  padding: 8px 12px 8px 16px;
+  border: 2px solid var(--ink);
+  border-radius: 18px;
+  background: var(--go);
+  box-shadow: 0 4px 0 var(--ink);
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 700;
+  transform: translateX(-50%);
+}
+
+.lookback .button {
+  box-shadow: none;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.track.veiled .pick {
+  opacity: 0.55;
+}
+
+.track.veiled .dot {
+  background: repeating-linear-gradient(45deg, var(--c) 0 3px, transparent 3px 6px);
+}
+
+.veil-text {
+  font-size: 0.84rem;
+  color: var(--soft);
+}

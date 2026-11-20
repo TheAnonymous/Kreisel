@@ -19,7 +19,7 @@ import {
   trimmedLength,
   type ChannelBus,
 } from "klangwerk";
-import { BAR, BODY_SOUND, currentScene, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Project, type Scene, type Step } from "../model";
+import { BAR, BODY_SOUND, currentScene, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Project, type Scene, type Step, wrap } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
 import { barCount, dropsQuiet, gateLevel, planBar, type BarPlan } from "../piece";
@@ -312,7 +312,7 @@ export class Player {
     const piece = project.piece;
     const count = barCount(piece);
     if (this.seek !== null) {
-      this.pieceBar = ((this.seek % count) + count) % count;
+      this.pieceBar = wrap(this.seek, count);
       this.seek = null;
     }
     const bar = this.pieceBar % count;

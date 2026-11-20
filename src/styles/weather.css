@@ -1,0 +1,49 @@
+/* ---- weather: effects painted onto the wheel --------------------------------------- */
+
+.weather-row,
+.panel-weather {
+  --c: #3d7edb;
+}
+
+.weather-row.silent .name {
+  opacity: 1;
+}
+
+/* A brush shows the colour of its weather. */
+#weathers .tool svg {
+  color: var(--w);
+}
+
+#weathers .tool[aria-checked="true"] svg {
+  color: inherit;
+}
+
+.line.sky {
+  gap: 7px;
+}
+
+.line.sky .swatch {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+}
+
+.line.sky .label {
+  width: 46px;
+}
+
+.line.sky input {
+  flex: 1;
+  min-width: 0;
+}
+
+.line.sky output {
+  flex: none;
+  width: 10.8em;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--soft);
+}

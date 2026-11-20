@@ -1,4 +1,4 @@
-import { clamp, MAX_BARS, MIN_BARS, SCENE_COUNT, TENSION_MAX, TRACK_COUNT, FIRST_ORDER, type Piece } from "./model";
+import { clamp, MAX_BARS, MIN_BARS, SCENE_COUNT, TENSION_MAX, TRACK_COUNT, FIRST_ORDER, type Piece, wrap } from "./model";
 import type { Random } from "./patterns";
 
 /*
@@ -44,7 +44,7 @@ export const barCount = (piece: Piece): number => piece.tension.length;
 
 const share = (piece: Piece, bar: number): number => {
   const count = barCount(piece);
-  return (piece.tension[((bar % count) + count) % count] ?? 0) / TENSION_MAX;
+  return (piece.tension[wrap(bar, count)] ?? 0) / TENSION_MAX;
 };
 
 /** What bar `bar` of the piece asks for. The piece is a ring: after the last bar comes the first. */
@@ -64,7 +64,7 @@ export function planBar(piece: Piece, bar: number): BarPlan {
     cutoffEnd: Math.max(cutoff, cutoffFor(next)),
     rise: next - now >= STEEP && next >= 0.45,
     fall: now - next >= STEEP,
-    scene: piece.scenes[((bar % count) + count) % count] ?? 0,
+    scene: piece.scenes[wrap(bar, count)] ?? 0,
   };
 }
 
@@ -90,7 +90,7 @@ export function resizePiece(piece: Piece, bars: number): void {
 /** Turns the piece: every bar moves `by` bars later. */
 export function rotatePiece(piece: Piece, by: number): void {
   const count = barCount(piece);
-  const shift = ((by % count) + count) % count;
+  const shift = wrap(by, count);
   if (shift === 0) return;
   const turn = <T>(list: T[]): T[] => list.map((_, index) => list[(index - shift + count) % count] as T);
   piece.tension = turn(piece.tension);

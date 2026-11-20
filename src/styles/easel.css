@@ -1,0 +1,263 @@
+/* ---- painted sounds ------------------------------------------------------------ */
+
+.own {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.own-pick {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 36px;
+  padding: 2px 10px 2px 3px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.own-pick .thumb {
+  flex: none;
+  width: 58px;
+  height: 26px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 16%, var(--paper));
+}
+
+.own-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.own-pick[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.easel {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+}
+
+.easel-card {
+  display: grid;
+  grid-template-rows: auto auto minmax(110px, 1fr) auto auto;
+  gap: 8px;
+  width: min(100%, 980px);
+  height: min(100%, 660px);
+  padding: 12px;
+  border: 2px solid var(--ink);
+  border-radius: 20px;
+  background: var(--paper);
+  box-shadow: 0 4px 0 var(--ink);
+}
+
+.easel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.easel-head h2 {
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+.easel-head .check {
+  margin-left: 6px;
+  font-size: 0.8rem;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.button.done {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.button[aria-pressed="true"] {
+  background: var(--go);
+  color: #fff;
+}
+
+.easel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.easel-paper {
+  position: relative;
+  min-height: 0;
+}
+
+#bild {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background:
+    radial-gradient(var(--hair) 1.1px, transparent 1.5px) 8px 8px / 16px 16px,
+    color-mix(in srgb, var(--c) 9%, var(--paper));
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bild-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--soft);
+  pointer-events: none;
+}
+
+.listening {
+  position: absolute;
+  inset: 2px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* The dot grows with the voice; its margin is the room it grows into. */
+.listening .ear {
+  width: 40px;
+  height: 40px;
+  margin: 26px;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: var(--go);
+  transform: scale(var(--loud, 1));
+  transition: transform 0.06s;
+}
+
+.easel-hint {
+  font-size: 0.74rem;
+  color: var(--soft);
+}
+
+.shelf {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.shelf-label {
+  flex: none;
+  max-width: 100%;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.shelf-label.empty {
+  flex: 1;
+  font-size: 0.74rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.kept {
+  position: relative;
+  flex: none;
+}
+
+.kept-pick {
+  display: block;
+  width: 78px;
+  height: 36px;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.kept-pick .thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.kept-drop {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tool.size .dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+}
+
+.tool.size .dots i {
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.25;
+}
+
+.tool.size .dots i:nth-child(1) {
+  width: 5px;
+  height: 5px;
+}
+
+.tool.size .dots i:nth-child(2) {
+  width: 9px;
+  height: 9px;
+}
+
+.tool.size .dots i:nth-child(3) {
+  width: 14px;
+  height: 14px;
+}
+
+.tool.size .dots[data-size="0"] i:nth-child(1),
+.tool.size .dots[data-size="1"] i:nth-child(2),
+.tool.size .dots[data-size="2"] i:nth-child(3) {
+  opacity: 1;
+}

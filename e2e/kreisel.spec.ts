@@ -95,7 +95,7 @@ const pieceOf = (page: Page) => page.evaluate(() => window.kreisel.app.project.p
 
 /** Puts the piece's ring in focus and waits until it has grown to its full width. */
 async function focusPiece(page: Page): Promise<void> {
-  await page.evaluate(() => window.kreisel.app.focusPiece());
+  await page.evaluate(() => window.kreisel.app.piece.focus());
   await expect.poll(async () => {
     const first = await barAt(page, 0, 1);
     await page.waitForTimeout(80);
@@ -283,7 +283,7 @@ test.describe("am Laptop", () => {
     await menu.getByRole("menuitem", { name: "Ab hier spielen" }).click();
     await expect(menu).toBeHidden();
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "true");
-    expect(await page.evaluate(() => [window.kreisel.app.project.piece.on, window.kreisel.app.pieceStart])).toEqual([true, 9]);
+    expect(await page.evaluate(() => [window.kreisel.app.project.piece.on, window.kreisel.app.piece.start])).toEqual([true, 9]);
     await page.keyboard.press("Space");
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "false");
 
@@ -348,7 +348,7 @@ test.describe("am Laptop", () => {
     await page.evaluate(() => {
       const app = window.kreisel.app;
       app.select(6);
-      app.setTrack(6, { hall: 0.9, echo: 0.9, x: 0.1, y: 0.9 });
+      app.rings.setTrack(6, { hall: 0.9, echo: 0.9, x: 0.1, y: 0.9 });
       app.setGlobal({ swing: 0.5 });
     });
     await page.locator(".panel-ring .line", { hasText: "Hall" }).locator("input").click({ button: "right" });
@@ -461,7 +461,7 @@ test.describe("am Laptop", () => {
 
   test("wählt Akkorde, Klänge und Tonart", async ({ page }) => {
     const problems = await open(page);
-    await page.evaluate(() => window.kreisel.app.openChord(1));
+    await page.evaluate(() => window.kreisel.app.chords.open(1));
     const menu = page.locator("#chord-menu");
     await expect(menu).toContainText("Takt 2 von 4");
     await expect(menu.locator(".chord[aria-pressed=true]")).toContainText("F");
@@ -477,7 +477,7 @@ test.describe("am Laptop", () => {
     await expect(page.locator(".track.selected .sound")).toHaveText("Acid");
     await page.locator("#scale").selectOption("dur");
     await page.locator("#root").selectOption("0");
-    await page.evaluate(() => window.kreisel.app.openChord(0));
+    await page.evaluate(() => window.kreisel.app.chords.open(0));
     await expect(menu.locator(".chord").first()).toContainText("C");
     expect(problems).toEqual([]);
   });
@@ -706,7 +706,7 @@ test.describe("am Laptop", () => {
     await page.locator("#bench-done").click();
 
     // The ring plays its body.
-    await page.evaluate(() => window.kreisel.app.toggleSolo(6));
+    await page.evaluate(() => window.kreisel.app.rings.toggleSolo(6));
     await page.keyboard.press("Space");
     await expect.poll(() => page.evaluate(() => window.kreisel.level()), { timeout: 8000 }).toBeGreaterThan(0.04);
     await page.keyboard.press("Space");
@@ -809,7 +809,7 @@ test.describe("am Laptop", () => {
     expect(await page.evaluate(() => window.kreisel.app.project.dirt)).toBe(0.35);
 
     // The ring turns with its Nachbeben.
-    await page.evaluate(() => window.kreisel.app.rotate(0, 1));
+    await page.evaluate(() => window.kreisel.app.rings.rotate(0, 1));
     expect((await line()).slice(0, 6)).toEqual([15, 0, 15, 13, 15, 0]);
     await expect(status(page)).toContainText("Kick: 4 Schläge auf 2, 6, 10, 14 von 16");
     await page.keyboard.press("Control+z");
@@ -837,7 +837,7 @@ test.describe("am Laptop", () => {
     await page.evaluate(() => {
       const app = window.kreisel.app;
       app.setGlobal({ bpm: 150, pump: 0 });
-      for (let track = 1; track < 7; track += 1) app.setTrack(track, { mute: true });
+      for (let track = 1; track < 7; track += 1) app.rings.setTrack(track, { mute: true });
       app.select(0);
       app.dismiss();
     });
@@ -885,7 +885,7 @@ test.describe("am Laptop", () => {
     expect(dry.between).toBeLessThan(0.01);
     // With one, the ground shakes there, and in every bar at the root of that bar's chord.
     await page.evaluate(() => {
-      window.kreisel.app.shapeRumble(0);
+      window.kreisel.app.rumble.shape(0);
       window.kreisel.app.dismiss();
     });
     const shaking = await listen();
@@ -960,7 +960,7 @@ test.describe("am Laptop", () => {
     await page.mouse.move(hat.x, hat.y);
     await page.mouse.wheel(0, -100);
     await page.mouse.wheel(0, -100);
-    expect(await page.evaluate(() => window.kreisel.app.cloudSize)).toBe(2);
+    expect(await page.evaluate(() => window.kreisel.app.weather.cloudSize)).toBe(2);
     await page.mouse.click(hat.x, hat.y);
     const fog = await Promise.all([0, 1, 2, 3, 4].map((ring) => sky(0, ring)));
     expect(fog[2]![4]).toBe(5);
@@ -1010,7 +1010,7 @@ test.describe("am Laptop", () => {
     // Einspielen: an effect held while the Kreisel turns leaves its weather behind, over every ring; it is one step back.
     await page.evaluate(() => {
       window.kreisel.app.setGlobal({ bpm: 180 });
-      window.kreisel.app.toggleLive();
+      window.kreisel.app.rings.toggleLive();
       window.kreisel.app.dismiss();
     });
     await page.keyboard.press("Space");
@@ -1107,11 +1107,11 @@ test.describe("am Laptop", () => {
     await page.evaluate(() => {
       const app = window.kreisel.app;
       app.setGlobal({ bpm: 180 });
-      for (let track = 1; track < 7; track += 1) app.setTrack(track, { mute: true });
+      for (let track = 1; track < 7; track += 1) app.rings.setTrack(track, { mute: true });
       app.select(0);
-      app.openBench();
-      app.shapeBody({ kind: 0, size: 0.9, tight: 0.2, material: 0.1, exciter: 0, where: 0.1 });
-      app.closeBench();
+      app.body.open();
+      app.body.shape({ kind: 0, size: 0.9, tight: 0.2, material: 0.1, exciter: 0, where: 0.1 });
+      app.body.close();
       app.dismiss();
     });
     const shared = await state(page);
@@ -1203,13 +1203,13 @@ test.describe("am Laptop", () => {
     await expect(booth).toBeHidden();
 
     // The ring sings, a syllable a hit, and the mouth in the hub forms the vowels.
-    await page.evaluate(() => window.kreisel.app.toggleSolo(6));
+    await page.evaluate(() => window.kreisel.app.rings.toggleSolo(6));
     await page.keyboard.press("Space");
     await expect.poll(() => page.evaluate(() => window.kreisel.level()), { timeout: 8000 }).toBeGreaterThan(0.04);
-    await expect.poll(() => page.evaluate(() => window.kreisel.app.mouth() !== null)).toBe(true);
+    await expect.poll(() => page.evaluate(() => window.kreisel.app.voice.mouth() !== null)).toBe(true);
     await expect.poll(() => page.evaluate(() => window.kreisel.app.engine.sung[6] ?? 0), { timeout: 8000 }).toBeGreaterThan(5);
     await page.keyboard.press("Space");
-    await expect.poll(() => page.evaluate(() => window.kreisel.app.mouth()), { timeout: 4000 }).toBeNull();
+    await expect.poll(() => page.evaluate(() => window.kreisel.app.voice.mouth()), { timeout: 4000 }).toBeNull();
 
     // The right button on another ring leads to its voice; a ring that has no line yet has none to take.
     const kick = await where(page, 0, 2);
@@ -1313,11 +1313,11 @@ test.describe("am Laptop", () => {
     await page.evaluate(() => {
       const app = window.kreisel.app;
       app.setGlobal({ bpm: 180 });
-      for (let track = 1; track < 7; track += 1) app.setTrack(track, { mute: true });
+      for (let track = 1; track < 7; track += 1) app.rings.setTrack(track, { mute: true });
       app.select(0);
-      app.openBooth();
-      app.shapeVoice({ text: "Bumm-tschak geht's", mouth: 0.8, breath: 0.3 });
-      app.closeBooth();
+      app.voice.open();
+      app.voice.shape({ text: "Bumm-tschak geht's", mouth: 0.8, breath: 0.3 });
+      app.voice.close();
       app.dismiss();
     });
     const shared = await state(page);
@@ -1554,11 +1554,11 @@ test.describe("am Laptop", () => {
     await toggle.click();
     await expect(root).toHaveAttribute("data-stage", "false");
     await toggle.click();
-    await page.evaluate(() => window.kreisel.app.openBooth());
+    await page.evaluate(() => window.kreisel.app.voice.open());
     await expect(root).toHaveAttribute("data-stage", "false");
     await expect(page.locator("#booth")).toBeVisible();
     await page.evaluate(() => {
-      window.kreisel.app.closeBooth();
+      window.kreisel.app.voice.close();
       window.kreisel.app.togglePlay();
     });
     expect(await page.evaluate(() => window.kreisel.app.playing)).toBe(false);
@@ -1793,8 +1793,8 @@ test.describe("am Laptop", () => {
     // Eight quick bars: four of silence in scene A, four of everything in scene B.
     await page.evaluate(() => {
       const app = window.kreisel.app;
-      app.pickScene(1);
-      app.pickScene(0);
+      app.scenes.pick(1);
+      app.scenes.pick(0);
       app.dismiss();
       app.store.edit((project) => {
         project.bpm = 200;
@@ -1802,7 +1802,7 @@ test.describe("am Laptop", () => {
       });
     });
     await page.keyboard.press("Space");
-    await expect.poll(() => page.evaluate(() => window.kreisel.app.piecePlayhead() ?? 0)).toBeGreaterThan(0.4);
+    await expect.poll(() => page.evaluate(() => window.kreisel.app.piece.playhead() ?? 0)).toBeGreaterThan(0.4);
     let loudest = 0;
     for (let look = 0; look < 12; look += 1) {
       loudest = Math.max(loudest, await page.evaluate(() => window.kreisel.level()));
@@ -1812,7 +1812,7 @@ test.describe("am Laptop", () => {
     await expect(page.locator(".scene.current")).toHaveText("A");
     // The second half: everyone plays, in scene B. (The bar before it is no longer silent: it takes the run-up.)
     // (On a busy machine the sound can take a few seconds to get going: the wait is generous.)
-    await expect.poll(() => page.evaluate(() => window.kreisel.app.piecePlayhead() ?? 0), { timeout: 16000 }).toBeGreaterThan(4.3);
+    await expect.poll(() => page.evaluate(() => window.kreisel.app.piece.playhead() ?? 0), { timeout: 16000 }).toBeGreaterThan(4.3);
     await expect.poll(() => page.evaluate(() => window.kreisel.level())).toBeGreaterThan(0.05);
     await expect(page.locator(".scene.current")).toHaveText("B");
 
@@ -1821,14 +1821,14 @@ test.describe("am Laptop", () => {
     const quiet = await barAt(page, 1, 0.5);
     await page.mouse.click(quiet.x, quiet.y, { button: "right" });
     await page.locator("#context").getByRole("menuitem", { name: "Ab hier spielen" }).click();
-    await expect.poll(() => page.evaluate(() => Math.floor(window.kreisel.app.piecePlayhead() ?? 9)), { timeout: 4000 }).toBe(1);
+    await expect.poll(() => page.evaluate(() => Math.floor(window.kreisel.app.piece.playhead() ?? 9)), { timeout: 4000 }).toBe(1);
     await expect(page.locator(".scene.current")).toHaveText("A");
     await page.locator("#piece-top").click();
-    await expect.poll(() => page.evaluate(() => Math.floor(window.kreisel.app.piecePlayhead() ?? 9)), { timeout: 4000 }).toBe(0);
+    await expect.poll(() => page.evaluate(() => Math.floor(window.kreisel.app.piece.playhead() ?? 9)), { timeout: 4000 }).toBe(0);
     // Switched off while it plays, the Kreisel goes back to its loop and is heard at once.
     await page.locator(".piece-toggle").click();
     // (The loop takes over at the next step; what is heard a moment before may still be the piece ringing out.)
-    await expect.poll(() => page.evaluate(() => window.kreisel.app.piecePlayhead()), { timeout: 6000 }).toBeNull();
+    await expect.poll(() => page.evaluate(() => window.kreisel.app.piece.playhead()), { timeout: 6000 }).toBeNull();
     await expect.poll(() => page.evaluate(() => window.kreisel.level()), { timeout: 6000 }).toBeGreaterThan(0.05);
     await page.keyboard.press("Space");
     expect(problems).toEqual([]);
@@ -1871,7 +1871,7 @@ test.describe("am Laptop", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     const problems = await open(page);
     const kick = (who: Page): Promise<string> => who.evaluate(() => window.kreisel.app.project.scenes[0]!.patterns[0]!.steps.slice(0, 16).map((step) => (step.on ? "x" : ".")).join(""));
-    const turns = (who: Page) => who.evaluate(() => window.kreisel.app.relay?.turns.map((turn) => turn.name) ?? null);
+    const turns = (who: Page) => who.evaluate(() => window.kreisel.app.relay.round?.turns.map((turn) => turn.name) ?? null);
 
     // The first turn: a name is needed, and the first person picks the rule.
     await page.locator("#relay").click();
@@ -1967,7 +1967,7 @@ test.describe("am Laptop", () => {
   test("spielt Stille Post im Link", async ({ page, context, browser, baseURL }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await open(page);
-    const veiled = (who: Page): Promise<number[]> => who.evaluate(() => [0, 1, 2, 3, 4, 5, 6].filter((ring) => window.kreisel.app.veiled(ring)));
+    const veiled = (who: Page): Promise<number[]> => who.evaluate(() => [0, 1, 2, 3, 4, 5, 6].filter((ring) => window.kreisel.app.relay.veiled(ring)));
     const finish = async (who: Page, name: string, rule?: number): Promise<void> => {
       await who.locator("#relay").click();
       await who.locator("#relay-name").fill(name);
@@ -2277,7 +2277,7 @@ test.describe("am Handy", () => {
     expect((await pieceOf(page)).tension).toEqual(tension);
     await menu.getByRole("menuitem", { name: "Ab hier spielen" }).tap();
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "true");
-    expect(await page.evaluate(() => window.kreisel.app.pieceStart)).toBe(6);
+    expect(await page.evaluate(() => window.kreisel.app.piece.start)).toBe(6);
     await page.locator("#play").tap();
 
     // A ring's row in the list and a scene answer a resting finger, too, without being pressed.

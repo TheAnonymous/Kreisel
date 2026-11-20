@@ -14,4 +14,19 @@ export default [
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
+  // The layers (see the README): the project and its rules, then sound, then the app, then the page.
+  // Each may import from the ones before it, never from one after it. Only main.ts puts them together.
+  {
+    files: ["src/*.ts"],
+    ignores: ["src/main.ts"],
+    rules: { "no-restricted-imports": ["error", { patterns: [{ group: ["./audio/*", "./app/*", "./ui/*"], message: "The project's rules know nothing of sound, the app or the page." }] }] },
+  },
+  {
+    files: ["src/audio/**/*.ts"],
+    rules: { "no-restricted-imports": ["error", { patterns: [{ group: ["../app/*", "../ui/*"], message: "Sound knows nothing of the app or the page." }] }] },
+  },
+  {
+    files: ["src/app/**/*.ts"],
+    rules: { "no-restricted-imports": ["error", { patterns: [{ group: ["../ui/*"], message: "The app knows nothing of the page: the page calls in, and listens." }] }] },
+  },
 ];

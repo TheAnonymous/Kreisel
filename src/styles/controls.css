@@ -1,0 +1,190 @@
+/* ---- buttons and fields -------------------------------------------------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 0 3px 0 var(--ink);
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+
+.button:disabled {
+  opacity: 0.38;
+}
+
+.button.icon {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.button.small {
+  padding: 4px 11px;
+  font-size: 0.8rem;
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+.button.icon.small {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+.button.icon.small svg {
+  width: 16px;
+  height: 16px;
+}
+
+.button.go {
+  min-width: 108px;
+  background: var(--go);
+  color: #fff;
+}
+
+.button.go .glyph {
+  width: 0;
+  height: 0;
+  border-left: 11px solid currentColor;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+}
+
+.button.go[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.button.go[aria-pressed="true"] .glyph {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.button.rec .lamp {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--go);
+}
+
+.button.rec[aria-pressed="true"] {
+  background: var(--go);
+  color: #fff;
+}
+
+.button.rec[aria-pressed="true"] .lamp {
+  background: #fff;
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.field {
+  display: grid;
+  gap: 2px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.field input[type="number"],
+.field select {
+  height: 34px;
+  padding: 0 8px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.field input[type="number"] {
+  width: 68px;
+  font-variant-numeric: tabular-nums;
+}
+
+.field.slide input {
+  width: 104px;
+  height: 34px;
+}
+
+input[type="range"] {
+  appearance: none;
+  height: 24px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--hair);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  background: var(--thumb, var(--paper));
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--hair);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  background: var(--thumb, var(--paper));
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--ink);
+}

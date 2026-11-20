@@ -1,0 +1,150 @@
+/* ---- the ring in focus ------------------------------------------------------- */
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.panel-head h2 {
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.panel-head .dot {
+  width: 18px;
+  height: 18px;
+}
+
+.info {
+  margin-top: -5px;
+  font-size: 0.74rem;
+  color: var(--soft);
+}
+
+.doing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chips {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.chip {
+  min-width: 0;
+  padding: 5px 2px;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.chip.tiny {
+  padding: 1px 5px;
+  border-width: 1.5px;
+  font-size: 0.66rem;
+}
+
+.pad {
+  position: relative;
+  flex: none;
+  aspect-ratio: 2 / 1;
+  border: 2px solid var(--ink);
+  border-radius: 15px;
+  background:
+    radial-gradient(var(--hair) 1.2px, transparent 1.6px) 7px 7px / 15px 15px,
+    color-mix(in srgb, var(--c) 12%, var(--paper));
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.puck {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 2px 0 var(--ink);
+  transform: translate(-50%, 50%);
+  pointer-events: none;
+}
+
+.axis {
+  position: absolute;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--soft);
+  pointer-events: none;
+}
+
+.axis.x {
+  right: 9px;
+  bottom: 5px;
+}
+
+.axis.y {
+  top: 5px;
+  left: 9px;
+}
+
+.group {
+  display: grid;
+  gap: 5px;
+  padding-top: 9px;
+  border-top: 2px dotted var(--hair);
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 29px;
+}
+
+.line .label {
+  flex: none;
+  width: 76px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.line input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  --thumb: var(--c, var(--paper));
+}
+
+.line output {
+  min-width: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.quick {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}

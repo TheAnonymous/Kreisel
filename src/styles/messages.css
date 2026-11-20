@@ -1,0 +1,102 @@
+/* ---- messages and help ------------------------------------------------------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 600px);
+  padding: 9px 10px 9px 18px;
+  border-radius: 999px;
+  background: var(--ink);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.28);
+  color: var(--bg);
+  font-size: 0.86rem;
+  font-weight: 600;
+  transform: translateX(-50%);
+}
+
+.toast .button {
+  border-color: var(--bg);
+  background: var(--bg);
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.toast .button.icon {
+  border-color: transparent;
+  background: none;
+  color: var(--bg);
+}
+
+.help {
+  width: min(94vw, 760px);
+  max-height: 88dvh;
+  padding: 0;
+  border: 2px solid var(--ink);
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: 0 6px 0 var(--ink);
+  color: var(--ink);
+}
+
+.help::backdrop {
+  background: rgb(20 16 28 / 0.55);
+}
+
+.help header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 6px 20px;
+}
+
+.help h2 {
+  font-size: 1.3rem;
+}
+
+.help-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 14px 26px;
+  padding: 6px 20px 20px;
+  font-size: 0.86rem;
+}
+
+.help-body h3 {
+  margin-bottom: 5px;
+  font-size: 0.7rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.help-body p + p {
+  margin-top: 6px;
+}
+
+.help-body .version {
+  margin-top: 10px;
+  font-size: 0.72rem;
+  color: var(--soft);
+}
+
+.help-body dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 12px;
+  margin: 0;
+}
+
+.help-body dt {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.help-body dd {
+  margin: 0;
+  color: var(--soft);
+}

@@ -1,0 +1,31 @@
+/* ---- the Nachbeben in the kick's panel ------------------------------------------- */
+
+.quake .line .button.small {
+  padding: 3px 9px;
+}
+
+/* The kick's panel holds more than the others: its sound pad lies flatter, so everything stays in view. */
+.panel-ring:has(.quake:not([hidden])) .pad {
+  aspect-ratio: 4.6 / 1;
+}
+
+.line.pair {
+  gap: 12px;
+}
+
+.line.pair .half {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.line.pair .label {
+  width: auto;
+}
+
+.line.pair input {
+  flex: 1;
+  min-width: 0;
+}

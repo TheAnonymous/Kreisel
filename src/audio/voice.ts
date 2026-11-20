@@ -1,5 +1,5 @@
 import { midiToHz, type Kit } from "klangwerk";
-import { trackInfo, type Track, type Voice } from "../model";
+import { trackInfo, type Track, type Voice, wrap } from "../model";
 import { plan, shape, sing, syllables, VOWELS, type Formants, type Sung } from "../voice";
 import type { Hit } from "./sounds";
 
@@ -33,7 +33,7 @@ export function playVoice(kit: Kit, out: AudioNode, trackIndex: number, track: T
   const context = kit.context;
   const info = trackInfo(trackIndex);
   const line = syllables(voice.text);
-  const which = line.length > 0 ? ((number % line.length) + line.length) % line.length : 0;
+  const which = line.length > 0 ? wrap(number, line.length) : 0;
   const syllable = line[which];
   const sung = syllable ? sing(syllable, line[which + 1] ?? null) : BARE;
   const laid = plan(sung, hit.duration, (formants) => shape(formants, voice, track.x, track.y));

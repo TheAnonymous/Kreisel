@@ -1,4 +1,4 @@
-import { clamp, emptyPattern, emptyStep, MAX_NOTE_LENGTH, MAX_STEPS, PITCH_MAX, PITCH_MIN, stepAt, TRACK_KINDS, type Pattern, type Step, type TrackKind } from "./model";
+import { clamp, emptyPattern, emptyStep, MAX_NOTE_LENGTH, MAX_STEPS, PITCH_MAX, PITCH_MIN, stepAt, TRACK_KINDS, type Pattern, type Step, type TrackKind, wrap } from "./model";
 
 /*
  * What can be done to a ring as a whole: turn it, spread its hits evenly,
@@ -32,7 +32,7 @@ export function activeSteps(pattern: Pattern): number[] {
 /** Turns the ring: every hit moves `by` steps clockwise. */
 export function rotate(pattern: Pattern, by: number): void {
   const len = pattern.len;
-  const shift = ((by % len) + len) % len;
+  const shift = wrap(by, len);
   if (shift === 0) return;
   const visible = pattern.steps.slice(0, len);
   for (let index = 0; index < len; index += 1) {

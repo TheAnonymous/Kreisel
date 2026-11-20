@@ -1,5 +1,5 @@
 import "./style.css";
-import { App } from "./app";
+import { App } from "./app/app";
 import { serialize } from "./codec";
 import { bindKeys } from "./ui/keys";
 import { BenchView } from "./ui/bench";
@@ -37,14 +37,14 @@ const menu = new ContextMenu(context);
 const doors = { relay: () => panels.showRelay(), help: () => panels.showHelp() };
 app.onContext = (target, x, y, byKeyboard) => {
   panels.closeMenu();
-  app.closeChord();
+  app.chords.close();
   menu.open(x, y, () => buildMenu(app, target, doors), byKeyboard);
 };
 app.subscribe(() => menu.refresh());
 
 bindKeys(app, panels, () => {
-  if (app.pieceFocus) {
-    const bar = app.pieceKey ?? app.pieceStart;
+  if (app.piece.focused) {
+    const bar = app.piece.key ?? app.piece.start;
     const at = ring.barPosition(bar, 0.5);
     app.openContext({ kind: "piece", bar }, at.x, at.y, true);
   } else {
@@ -53,8 +53,8 @@ bindKeys(app, panels, () => {
   }
 });
 
-void app.openLink(location.hash);
-window.addEventListener("hashchange", () => void app.openLink(location.hash));
+void app.files.openLink(location.hash);
+window.addEventListener("hashchange", () => void app.files.openLink(location.hash));
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {

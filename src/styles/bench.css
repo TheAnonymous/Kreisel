@@ -1,0 +1,79 @@
+/* ---- the workbench: a Klangkörper is built and knocked on ------------------------ */
+
+.bench-kinds {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.bench-kinds .chip {
+  padding: 6px 2px;
+  font-size: 0.8rem;
+}
+
+.bench-stage {
+  position: relative;
+  min-height: 0;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--c) 22%, transparent), transparent 70%),
+    color-mix(in srgb, var(--c) 7%, var(--paper));
+}
+
+.bench-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  touch-action: none;
+}
+
+.bench-shape {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 16px;
+}
+
+.bench-shape .line {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.bench-shape .label {
+  width: auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.bench-shape input {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .bench-shape {
+    gap: 2px 8px;
+  }
+
+  .bench-shape .label {
+    overflow: hidden;
+    font-size: 0.6rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bench-kinds .chip {
+    padding: 5px 0;
+    font-size: 0.72rem;
+  }
+}

@@ -1,0 +1,348 @@
+/* ---- motion ------------------------------------------------------------------------------
+ * A tin toy on a paper table: what appears hops into place, what is pressed gives way, what is chosen
+ * clicks in. Nothing floats and nothing takes long. Boxes that a pointer is aimed at (the wheel, the
+ * sound pad, the paint box, the windows around them) never move; only what lies in them does. Here is
+ * what goes with a state or with something appearing; what answers a deed is played by the page
+ * (ui/panels.ts), and the wheel's own motions are drawn on its canvas (ui/ring.ts, ui/motion.ts).
+ * Whoever asked the system for less motion gets none of this.
+ */
+
+@property --squash {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --turn {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+:root {
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --snap: cubic-bezier(0.2, 0.9, 0.3, 1);
+  --beat: 0.5s;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.55);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes unfold {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.95);
+  }
+}
+
+/* Tin buttons: they stand a little higher under the pointer, and what they show changes softly. */
+.button {
+  transition: transform 0.06s, box-shadow 0.06s, background-color 0.14s, color 0.14s, opacity 0.18s;
+}
+
+.track {
+  transition: background-color 0.16s, border-color 0.16s;
+}
+
+.track .pick,
+.track .mute,
+.track .roll,
+.menu button,
+.menu-row,
+.menu-choice button,
+.chip,
+.scene,
+.tool,
+.pad-fx,
+.own-pick,
+.chord,
+.piece-toggle {
+  transition: background-color 0.12s, color 0.12s, border-color 0.12s, opacity 0.16s, transform 0.06s, box-shadow 0.06s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .button:hover:not(:disabled, :active, .toast *, .lookback *, .entry *, .tour *, .stage-toggle) {
+    box-shadow: 0 4px 0 var(--ink);
+  }
+
+  .button.small:hover:not(:disabled, :active, .toast *, .lookback *, .entry *, .tour *, .stage-toggle) {
+    box-shadow: 0 3px 0 var(--ink);
+  }
+
+  .scene.filled:hover:not(:active) {
+    box-shadow: 0 3px 0 var(--ink);
+  }
+
+  .pad-fx:hover:not(.held) {
+    box-shadow: 0 4px 0 var(--ink);
+  }
+}
+
+.scene:active {
+  transform: translateY(1px);
+}
+
+.scene.filled:active {
+  box-shadow: 0 1px 0 var(--ink);
+}
+
+.tool:active:not(:disabled),
+.chip:active,
+.own-pick:active,
+.chord:active,
+.syllable:active {
+  transform: scale(0.95);
+}
+
+.track .mute:active,
+.track .roll:active {
+  transform: scale(0.86);
+}
+
+/* The lamp of every ring in the list: it jumps when the ring strikes and settles again. */
+.track .dot {
+  transition: transform 0.32s var(--snap);
+}
+
+.track.hit .dot {
+  transform: scale(1.45);
+  transition-duration: 0.02s;
+}
+
+/* The mark in the bar is a Kreisel seen from above: while it plays it wobbles, once in four beats. */
+.brand .mark {
+  transform: rotate(var(--turn)) scaleY(var(--squash)) rotate(calc(-1 * var(--turn)));
+  transition: --squash 0.5s var(--snap);
+  animation: precess calc(var(--beat) * 4) linear infinite paused;
+}
+
+:root[data-playing="true"] .brand .mark {
+  --squash: 0.86;
+  animation-play-state: running;
+}
+
+@keyframes precess {
+  to {
+    --turn: 360deg;
+  }
+}
+
+/* A set of tools that takes another's place hops in, one after the other. */
+.tools:not([hidden]) > .tool {
+  animation: pop-in 0.22s var(--spring) backwards;
+}
+
+.tools > .tool:nth-child(2) {
+  animation-delay: 25ms;
+}
+
+.tools > .tool:nth-child(3) {
+  animation-delay: 50ms;
+}
+
+.tools > .tool:nth-child(4) {
+  animation-delay: 75ms;
+}
+
+.tools > .tool:nth-child(5) {
+  animation-delay: 100ms;
+}
+
+.tools > .tool:nth-child(6) {
+  animation-delay: 125ms;
+}
+
+.tools > .tool:nth-child(n + 7) {
+  animation-delay: 150ms;
+}
+
+/* A held effect shows on its key what it does to the sound. */
+.pad-fx .name {
+  transition: transform 0.12s var(--spring), opacity 0.12s, filter 0.12s, letter-spacing 0.12s;
+}
+
+.pad-fx[data-fx="dumpf"].held .name {
+  opacity: 0.6;
+  filter: blur(0.8px);
+}
+
+.pad-fx[data-fx="duenn"].held .name {
+  transform: scaleY(0.6);
+  letter-spacing: 0.08em;
+}
+
+.pad-fx[data-fx="stotter"].held .name {
+  animation: stutter 0.14s steps(2, jump-none) infinite;
+}
+
+.pad-fx[data-fx="wurf"].held .name {
+  animation: echo 0.5s ease-out infinite;
+}
+
+.pad-fx[data-fx="pause"].held .name {
+  opacity: 0.55;
+  transform: scale(0.8);
+}
+
+@keyframes stutter {
+  from {
+    transform: translateX(-2.5px);
+  }
+
+  to {
+    transform: translateX(2.5px);
+  }
+}
+
+@keyframes echo {
+  from {
+    text-shadow: 0 0 0 rgb(255 255 255 / 0.7), 0 0 0 rgb(255 255 255 / 0.4);
+  }
+
+  to {
+    text-shadow: 9px 0 0 rgb(255 255 255 / 0), 18px 0 0 rgb(255 255 255 / 0);
+  }
+}
+
+.pad-fx.latched::after {
+  animation: pop 0.25s var(--spring);
+}
+
+/* Menus unfold from where they hang; messages come up from below. */
+.menu:not([hidden]) {
+  transform-origin: 100% 0;
+  animation: unfold 0.14s var(--snap);
+}
+
+.context:not([hidden]) {
+  transform-origin: 0 0;
+  animation: unfold 0.12s var(--snap);
+}
+
+.chord-menu:not([hidden]) {
+  transform-origin: 50% 0;
+  animation: unfold 0.14s var(--snap);
+}
+
+.tip:not([hidden]) {
+  animation: fade 0.1s;
+}
+
+@keyframes come-up {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 14px);
+  }
+}
+
+/* A message's words come up into the bubble (a new message into one that is already there, too). */
+@keyframes say {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+
+.toast:not([hidden]),
+.lookback:not([hidden]) {
+  animation: come-up 0.22s var(--spring);
+}
+
+.toast:not([data-text="export"]) > span {
+  animation: say 0.22s var(--snap);
+}
+
+/* Windows over the wheel fade in where they are (pointers are aimed at what is in them); dialogs come up. */
+.easel:not([hidden]),
+.panel-box:not([hidden]) {
+  animation: fade 0.16s;
+}
+
+.easel:not([hidden]) .easel-head .dot {
+  animation: pop 0.3s var(--spring) 0.05s backwards;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
+dialog.help[open] {
+  animation: dialog-in 0.2s var(--snap);
+}
+
+dialog.help[open]::backdrop {
+  animation: fade 0.2s;
+}
+
+/* The point on the sound pad grows while it is held, and glides when it is put somewhere else. */
+.puck {
+  transition: left 0.2s var(--snap), bottom 0.2s var(--snap), width 0.14s var(--spring), height 0.14s var(--spring);
+}
+
+.pad.dragging .puck {
+  width: 32px;
+  height: 32px;
+  transition: width 0.14s var(--spring), height 0.14s var(--spring);
+}
+
+/* Sliders and boxes answer the hand. */
+input[type="range"]::-webkit-slider-thumb {
+  transition: transform 0.12s var(--spring);
+}
+
+input[type="range"]::-moz-range-thumb {
+  transition: transform 0.12s var(--spring);
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+
+input[type="range"]:hover::-moz-range-thumb {
+  transform: scale(1.12);
+}
+
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.28);
+}
+
+input[type="range"]:active::-moz-range-thumb {
+  transform: scale(1.28);
+}
+
+.check input {
+  transition: transform 0.12s var(--spring);
+}
+
+.check input:active {
+  transform: scale(0.84);
+}
+
+/* The syllable that sounds hops, and comes down slowly. */
+.syllable {
+  transition: transform 0.22s var(--snap), background-color 0.2s, color 0.2s;
+}
+
+.syllable.sung {
+  transform: translateY(-3px);
+  transition-duration: 0.04s;
+}

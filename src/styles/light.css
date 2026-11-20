@@ -1,0 +1,62 @@
+/* ---- light: the glow under the wheel, the ring that beckons to the start -------------------
+ * The glow is painted small by ui/lights.ts and stretched here, which blurs it for free. It lies under
+ * the wheel and a little beyond it, so the light of a hit falls onto the table.
+ */
+
+#licht {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(min(100cqw, 100cqh) * 1.6);
+  height: calc(min(100cqw, 100cqh) * 1.6);
+  opacity: 0.8;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  #licht {
+    opacity: 0.9;
+  }
+}
+
+#kreisel {
+  position: relative;
+}
+
+/* The glow reaches beyond the wheel, but never makes the page wider than the window. */
+.app {
+  overflow-x: clip;
+}
+
+/* The hub is the start button. Until the Kreisel has played once, a ring around it beckons: six times, then it lets be. */
+.invite {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(min(100cqw, 100cqh) * 0.156);
+  aspect-ratio: 1;
+  border: 3px solid var(--go);
+  border-radius: 50%;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: beckon 1.9s ease-out 6;
+}
+
+:root[data-played="true"] .invite {
+  display: none;
+}
+
+@keyframes beckon {
+  0% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.8);
+  }
+}

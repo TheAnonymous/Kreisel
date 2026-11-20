@@ -1,4 +1,4 @@
-import { BAR, clamp, emptyWeather, emptyWind, MAX_STEPS, TRACK_COUNT, trackInfo, WEATHER_COUNT, WEATHER_MAX, WIND_MAX, type Scene } from "./model";
+import { BAR, clamp, emptyWeather, emptyWind, MAX_STEPS, TRACK_COUNT, trackInfo, WEATHER_COUNT, WEATHER_MAX, WIND_MAX, type Scene, wrap } from "./model";
 import type { Random } from "./patterns";
 
 /*
@@ -28,7 +28,6 @@ export const WEATHER_STROKE = 5;
 /** The winds a slider can set, in quarter steps a bar. */
 export const WINDS = [-16, -8, -4, -2, -1, 0, 1, 2, 4, 8, 16] as const;
 
-const wrap = (value: number, length: number): number => ((value % length) + length) % length;
 
 /** How a wind is called. */
 export function windName(wind: number): string {

@@ -275,11 +275,11 @@ floats, and nothing takes longer than about a quarter of a second.
   dealt around the ring, hit by hit. A muted ring fades to grey. At a start or a stop the hub gives way like
   a pressed button and its sign is stamped in anew; the runner grows out of the middle and fades where it
   stood. The bar that plays lights up in the middle, and the mark at the top hops on the one.
-- Around it, answers to what was done are played by the page (`src/ui/panels.ts`, with the Web Animations
+- Around it, answers to what was done are played by the page (`src/ui/answers.ts`, with the Web Animations
   API): dice tumble, the arrows of undo and redo wind back and on (also when a key did it), a button
   lights up in the ring's colour, a chosen scene, sound or tool clicks in, numbers tick, the name of the
   ring in focus arrives, the frame of the keyboard's focus lands.
-- What goes with a state or with something appearing is in the style sheet (under "motion"): buttons stand
+- What goes with a state or with something appearing is in the style sheet (`src/styles/motion.css`): buttons stand
   higher under the pointer, menus unfold, messages come up, windows fade in, the lamp of every ring in the
   list jumps when the ring strikes, a held effect shows on its key what it does, the point on the sound
   pad glides, and the mark in the bar wobbles while the Kreisel plays.
@@ -327,19 +327,36 @@ npm run verify   # lint, types, unit tests, build, browser tests under the produ
 The toolchain is pinned in `mise.toml` (Node 24.15.0, npm 12.0.0). All checks
 run locally; see [AGENTS.md](AGENTS.md).
 
+The code lies in four layers, and each knows only the ones before it (the linter says so, too):
+
+1. **The project and its rules** (`src/*.ts`): plain data and pure functions. Nothing here needs a browser.
+2. **Sound** (`src/audio/`): the project made audible, live and into a file.
+3. **The app** (`src/app/`): the project on the table and everything that can be done to it. `app.ts` holds
+   what all of it shares; what can be done to one subject is at that subject's desk (`app.piece.dice()`,
+   `app.weather.paint(…)`).
+4. **The page** (`src/ui/`, `src/styles/`): the wheel, everything around it, the keyboard.
+
+`src/main.ts` puts them together.
+
 | Where | What |
 | --- | --- |
 | `src/model.ts`, `src/music.ts` | the project as plain data; scales, chords and where each ring's notes sit |
 | `src/patterns.ts` | turning, spreading, dice and small variations (pure, seeded) |
 | `src/codec.ts`, `src/store.ts` | the project as a link and in the browser's storage; undo |
-| `src/bild.ts`, `src/imitate.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes |
-| `src/collection.ts` | the shelf of kept pictures |
-| `src/piece.ts` | the piece: what a bar's tension asks for, and shaping the line |
-| `src/relay.ts` | Reihum: what a turn touched, people's colours, names |
-| `src/audio/` | the 28 built-in sounds, painted sounds (`bild.ts`), listening (`listen.ts`), the mixer, the player (live and offline), effects, recording |
-| `src/ui/ring.ts` | the wheel: drawing and every gesture on it |
-| `src/ui/easel.ts` | the paint box: drawing pictures and painting them |
-| `src/ui/panels.ts`, `src/ui/keys.ts` | everything around the wheel; the keyboard |
+| `src/bild.ts`, `src/imitate.ts`, `src/collection.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes; the shelf of kept pictures |
+| `src/body.ts`, `src/voice.ts`, `src/rumble.ts`, `src/weather.ts` | the rules of the Klangkörper, the voice, the Nachbeben and the weather |
+| `src/piece.ts`, `src/relay.ts` | the piece: what a bar's tension asks for; Reihum: what a turn touched, people's colours |
+| `src/audio/` | the 28 built-in sounds, painted sounds, bodies and voices, listening, the mixer, the player (live and offline), effects, recording |
+| `src/app/app.ts` | the app's core: the table, what is in focus, starting and stopping, steps back, messages |
+| `src/app/rings.ts`, `voice.ts`, `weather.ts`, `rumble.ts`, `relay.ts`, `piece.ts`, `paint.ts`, `body.ts`, `chords.ts`, `scenes.ts`, `files.ts` | one desk for each subject |
+| `src/app/workshop.ts`, `prefs.ts` | what the three windows for a ring's own sound share; what the browser remembers |
+| `src/ui/ring.ts`, `ring-gestures.ts`, `ring-shape.ts` | the wheel: drawing it; what a pointer does on it; what both go by |
+| `src/ui/motion.ts`, `lights.ts`, `answers.ts` | motion on the wheel, the light show, the little motions with which the page answers |
+| `src/ui/easel.ts`, `bench.ts`, `booth.ts` | the canvases in the three windows: the sheet, the body, the mouth |
+| `src/ui/panels.ts` | everything around the wheel: the bar, the list of rings, scenes, tools, the panel of the ring in focus |
+| `src/ui/easel-window.ts`, `bench-window.ts`, `booth-window.ts`, `piece-panel.ts`, `weather-panel.ts`, `relay-dialog.ts`, `chord-menu.ts`, `toast.ts`, `help.ts`, `tour-guide.ts`, `tour.ts` | the parts of the page that have a file of their own |
+| `src/ui/menu.ts`, `menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the keyboard; small helpers for building the page |
+| `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
 | `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox |
 
 ## License

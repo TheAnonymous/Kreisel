@@ -1,5 +1,6 @@
 import { modesOf, sustains } from "../body";
-import { clamp, trackInfo, trackOf, type Body, type Project } from "../model";
+import { clamp, trackInfo, trackOf, type Body } from "../model";
+import type { App } from "../app/app";
 
 /*
  * The workbench: the ring's Klangkörper, drawn as the thing it is. A click
@@ -8,19 +9,6 @@ import { clamp, trackInfo, trackOf, type Body, type Project } from "../model";
  * on its right pulls it bigger or smaller, the one on its left tightens it.
  * While it sounds, it is seen to move.
  */
-
-/** What the workbench needs from the app. */
-export interface BenchHost {
-  readonly project: Project;
-  readonly selected: number;
-  readonly bench: boolean;
-  sinceStruck(track: number): number;
-  wake(): void;
-  /** Strikes the body at `where` (0 its middle, 1 its edge) and keeps that as the place the ring strikes it. */
-  strikeBody(where: number, gesture: string): void;
-  shapeBody(change: Partial<Body>, key?: string): void;
-  endGesture(): void;
-}
 
 interface Box {
   x: number;
@@ -426,7 +414,7 @@ export class BenchView {
   private gestures = 0;
   private wheelRest = 0;
 
-  constructor(private readonly canvas: HTMLCanvasElement, private readonly host: BenchHost) {
+  constructor(private readonly canvas: HTMLCanvasElement, private readonly app: App) {
     const context = canvas.getContext("2d");
     if (!context) throw new Error("no canvas");
     this.context = context;
@@ -480,7 +468,7 @@ export class BenchView {
   }
 
   private body(): Body | null {
-    return trackOf(this.host.project, this.host.selected).body;
+    return trackOf(this.app.project, this.app.selected).body;
   }
 
   private box(): Box {
@@ -515,9 +503,9 @@ export class BenchView {
 
   private frame(): void {
     const body = this.body();
-    if (!this.host.bench || this.width === 0 || !body) return;
-    const track = this.host.selected;
-    const since = this.host.sinceStruck(track);
+    if (!this.app.body.isOpen || this.width === 0 || !body) return;
+    const track = this.app.selected;
+    const since = this.app.sinceStruck(track);
     // It is seen to ring about as long as it is heard to (a bowed one for as long as a short note).
     const lowest = modesOf(body, 220)[0]?.t60 ?? 0.5;
     const lasting = clamp(lowest / 5, 0.1, 1.3);
@@ -599,7 +587,7 @@ export class BenchView {
   private strike(body: Body, spot: { where: number; side: number; angle: number }, gesture: string): void {
     this.side = spot.side;
     this.angle = spot.angle;
-    this.host.strikeBody(spot.where, gesture);
+    this.app.body.strike(spot.where, gesture);
     this.dirty = true;
     void body;
   }
@@ -607,7 +595,7 @@ export class BenchView {
   private down(event: PointerEvent): void {
     const body = this.body();
     if (!body) return;
-    this.host.wake();
+    this.app.wake();
     const { x, y } = this.point(event);
     const grip = this.gripAt(body, x, y);
     const spot = grip ? null : this.whereAt(body, x, y);
@@ -645,9 +633,9 @@ export class BenchView {
     if (drag.what === "size") {
       // The grip stays under the pointer: the body grows by as much as it is pulled.
       const reach = shapeOf(body, this.box(), 1).reach;
-      this.host.shapeBody({ size: clamp(drag.from + (x - drag.x) / (reach * 0.5), 0, 1) }, drag.gesture);
+      this.app.body.shape({ size: clamp(drag.from + (x - drag.x) / (reach * 0.5), 0, 1) }, drag.gesture);
     } else if (drag.what === "tight") {
-      this.host.shapeBody({ tight: clamp(drag.from - (y - drag.y) / 110, 0, 1) }, drag.gesture);
+      this.app.body.shape({ tight: clamp(drag.from - (y - drag.y) / 110, 0, 1) }, drag.gesture);
     } else {
       // Dragged across the body, it is knocked on again and again: so it is heard where it sounds how.
       const spot = this.whereAt(body, x, y);
@@ -664,7 +652,7 @@ export class BenchView {
   private up(event: PointerEvent): void {
     if (this.drag?.pointer !== event.pointerId) return;
     this.drag = null;
-    this.host.endGesture();
+    this.app.endGesture();
     this.dirty = true;
   }
 
@@ -677,8 +665,8 @@ export class BenchView {
     const notches = Math.trunc(this.wheelRest / 45);
     if (notches === 0) return;
     this.wheelRest -= notches * 45;
-    if (event.shiftKey) this.host.shapeBody({ tight: clamp(body.tight - notches * 0.05, 0, 1) }, "straff-rad");
-    else this.host.shapeBody({ size: clamp(body.size - notches * 0.05, 0, 1) }, "groesse-rad");
+    if (event.shiftKey) this.app.body.shape({ tight: clamp(body.tight - notches * 0.05, 0, 1) }, "straff-rad");
+    else this.app.body.shape({ size: clamp(body.size - notches * 0.05, 0, 1) }, "groesse-rad");
   }
 
   /** With the keyboard on the bench: left and right move the place, Enter knocks. */
@@ -689,8 +677,8 @@ export class BenchView {
     if (step === null) return;
     event.preventDefault();
     event.stopPropagation();
-    this.host.wake();
+    this.app.wake();
     this.strike(body, { where: clamp(body.where + step, 0, 1), side: this.side, angle: this.angle }, "koerper-taste");
-    this.host.endGesture();
+    this.app.endGesture();
   }
 }

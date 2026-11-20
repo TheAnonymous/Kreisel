@@ -272,9 +272,12 @@ export function clone<T>(value: T): T {
 
 export const clamp = (value: number, low: number, high: number): number => Math.max(low, Math.min(high, value));
 
+/** Where `value` lands on a circle of `length` places: 0 up to, but not including, `length`, also for values below 0. */
+export const wrap = (value: number, length: number): number => ((value % length) + length) % length;
+
 /** The step at `index` of a pattern (the array always holds MAX_STEPS). */
 export function stepAt(pattern: Pattern, index: number): Step {
-  const step = pattern.steps[((index % MAX_STEPS) + MAX_STEPS) % MAX_STEPS];
+  const step = pattern.steps[wrap(index, MAX_STEPS)];
   if (!step) throw new Error("pattern without steps");
   return step;
 }

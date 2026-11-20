@@ -1,3 +1,5 @@
+import type { App } from "../app/app";
+
 /*
  * The mouth that sings: drawn in the hub of the wheel while a voice sounds,
  * and large in the voice's window. It is as open as the vowel's first
@@ -45,12 +47,6 @@ export function drawMouth(context: CanvasRenderingContext2D, x: number, y: numbe
   context.restore();
 }
 
-/** What the mouth's window needs from the app. */
-export interface BoothHost {
-  readonly booth: boolean;
-  mouth(): MouthShape | null;
-}
-
 /** The big mouth in the voice's window. */
 export class BoothView {
   private readonly context: CanvasRenderingContext2D;
@@ -60,7 +56,7 @@ export class BoothView {
   private ink = "#2a2233";
   private color = "#e4572e";
 
-  constructor(private readonly canvas: HTMLCanvasElement, private readonly host: BoothHost) {
+  constructor(private readonly canvas: HTMLCanvasElement, private readonly app: App) {
     const context = canvas.getContext("2d");
     if (!context) throw new Error("no canvas");
     this.context = context;
@@ -93,8 +89,8 @@ export class BoothView {
   }
 
   private frame(): void {
-    if (!this.host.booth || this.width === 0) return;
-    const mouth = this.host.mouth();
+    if (!this.app.voice.isOpen || this.width === 0) return;
+    const mouth = this.app.voice.mouth();
     if (!this.dirty && !mouth) return;
     this.dirty = mouth !== null;
     const context = this.context;

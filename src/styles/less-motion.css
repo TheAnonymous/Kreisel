@@ -1,0 +1,22 @@
+/* ---- less motion: whoever asked the system for it gets none of the above (this has to come last) ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+
+  .brand .mark {
+    --squash: 1 !important;
+  }
+
+  .track.hit .dot,
+  .syllable.sung {
+    transform: none;
+  }
+}

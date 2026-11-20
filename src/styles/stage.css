@@ -1,0 +1,82 @@
+/* ---- the stage: only the wheel, in the dark ------------------------------------------------- */
+
+.stage-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  opacity: 0.7;
+}
+
+.stage-toggle:hover,
+.stage-toggle:focus-visible,
+.stage-toggle[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.stage-toggle .shrink,
+.stage-toggle[aria-pressed="true"] .grow {
+  display: none;
+}
+
+.stage-toggle[aria-pressed="true"] .shrink {
+  display: inline;
+}
+
+body {
+  transition: background-color 0.35s;
+}
+
+/* A soft light from above the middle of the stage. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(circle at 50% 44%, rgb(132 96 214 / 0.22), transparent 62%);
+  opacity: 0;
+  transition: opacity 0.5s;
+  pointer-events: none;
+}
+
+:root[data-stage="true"] {
+  color-scheme: dark;
+  --bg: #0b0910;
+  --paper: #1a1624;
+  --ink: #f3ecdf;
+  --soft: #a8a0b4;
+  --hair: rgb(243 236 223 / 0.18);
+}
+
+:root[data-stage="true"] body::before {
+  opacity: 1;
+}
+
+:root[data-stage="true"] .bar,
+:root[data-stage="true"] .side {
+  display: none;
+}
+
+:root[data-stage="true"] .app {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+:root[data-stage="true"] .table {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:root[data-stage="true"] #licht {
+  opacity: 1;
+}
+
+@media (max-width: 1099px), (max-height: 539px) {
+  :root[data-stage="true"] .stage {
+    height: min(calc(100vw - 220px), calc(100dvh - 90px));
+  }
+}
+
+@media (max-width: 719px) {
+  :root[data-stage="true"] .stage {
+    height: auto;
+  }
+}

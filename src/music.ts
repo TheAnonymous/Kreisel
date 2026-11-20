@@ -1,4 +1,4 @@
-import { BAR, type Project, type Scene, type ScaleId } from "./model";
+import { BAR, type Project, type Scene, type ScaleId, wrap } from "./model";
 
 /*
  * The key: scales, the chords that live in them and where each ring's notes
@@ -21,16 +21,15 @@ export const SCALE_IDS = Object.keys(SCALES) as ScaleId[];
 /** German note names: H is B natural, B is B flat. */
 export const NOTE_NAMES = ["C", "Cis", "D", "Es", "E", "F", "Fis", "G", "As", "A", "B", "H"] as const;
 
-const mod = (value: number, by: number): number => ((value % by) + by) % by;
 
 /** Semitones above the key's root for a scale step (7 is the octave, −1 the step below the root). */
 export function scaleSemis(scale: ScaleId, degree: number): number {
   const steps = SCALES[scale].steps;
-  return (steps[mod(degree, 7)] ?? 0) + 12 * Math.floor(degree / 7);
+  return (steps[wrap(degree, 7)] ?? 0) + 12 * Math.floor(degree / 7);
 }
 
 export function noteName(midi: number): string {
-  return NOTE_NAMES[mod(Math.round(midi), 12)] ?? "C";
+  return NOTE_NAMES[wrap(Math.round(midi), 12)] ?? "C";
 }
 
 /** The triad on a scale step: "", "m", "°" or "+". */
@@ -51,20 +50,20 @@ const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"] as const;
 /** The step as a Roman numeral, lower case for minor and diminished chords. */
 export function chordRoman(scale: ScaleId, degree: number): string {
   const quality = chordQuality(scale, degree);
-  const numeral = ROMAN[mod(degree, 7)] ?? "I";
+  const numeral = ROMAN[wrap(degree, 7)] ?? "I";
   return quality === "m" || quality === "°" ? `${numeral.toLowerCase()}${quality === "°" ? "°" : ""}` : `${numeral}${quality}`;
 }
 
 /** The root moved into the octave around `center` (never more than a tritone away). */
 function rootNear(root: number, center: number): number {
-  return center + mod(root - center + 6, 12) - 6;
+  return center + wrap(root - center + 6, 12) - 6;
 }
 
 /** Bass notes follow the chord: step 0 is its root, 4 its fifth, 7 the octave. Chords a fifth or more above the tonic fold below it. */
 export function bassMidi(project: Project, chord: number, pitch: number): number {
   const base = rootNear(project.root, 36);
-  const fold = scaleSemis(project.scale, mod(chord, 7)) >= 7 ? -12 : 0;
-  return base + fold + scaleSemis(project.scale, mod(chord, 7) + pitch);
+  const fold = scaleSemis(project.scale, wrap(chord, 7)) >= 7 ? -12 : 0;
+  return base + fold + scaleSemis(project.scale, wrap(chord, 7) + pitch);
 }
 
 /** Melody notes are steps of the key, whatever the chord. */
@@ -83,10 +82,10 @@ export function percMidi(project: Project, pitch: number): number {
  * over: each step up lifts the lowest note an octave.
  */
 export function chordMidis(project: Project, chord: number, pitch: number): number[] {
-  const degree = mod(chord, 7);
+  const degree = wrap(chord, 7);
   const notes = [0, 2, 4].map((offset) => {
     const midi = project.root + scaleSemis(project.scale, degree + offset);
-    return 55 + mod(midi - 55, 12);
+    return 55 + wrap(midi - 55, 12);
   }).sort((a, b) => a - b);
   for (let turn = 0; turn < Math.abs(pitch); turn += 1) {
     if (pitch > 0) notes.push((notes.shift() ?? 60) + 12);

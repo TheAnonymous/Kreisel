@@ -1,4 +1,4 @@
-import { PITCH_MIN, type Step } from "../model";
+import { PITCH_MIN, type Step, wrap } from "../model";
 
 /*
  * How things move. Kreisel is a tin toy on a paper table: what appears hops
@@ -75,7 +75,7 @@ export function compare(before: readonly number[], after: readonly number[]): Ri
     if (same) return change;
     for (const by of [1, -1, 2, -2]) {
       let turned = true;
-      for (let index = 0; index < length && turned; index += 1) turned = after[index] === before[(((index - by) % length) + length) % length];
+      for (let index = 0; index < length && turned; index += 1) turned = after[index] === before[wrap(index - by, length)];
       if (turned) {
         change.turned = by;
         return change;

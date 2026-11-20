@@ -1,6 +1,9 @@
-import { BRUSH_TOOLS, FX, MALLETS, TOOLS, type App } from "../app";
+import { FX, TOOLS, type App } from "../app/app";
+import { MALLETS } from "../app/body";
+import { BRUSH_TOOLS } from "../app/paint";
 import { SCENE_COUNT, stepAt, patternOf, TRACK_COUNT } from "../model";
-import { FX_CODES, PLAY_CODES, TOOL_CODES, WEATHER_CODES, type Panels } from "./panels";
+import { FX_CODES, PLAY_CODES, TOOL_CODES, WEATHER_CODES } from "./keymap";
+import type { Panels } from "./panels";
 
 /*
  * The keyboard, by where the keys are rather than what is printed on them:
@@ -66,61 +69,61 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
     if (event.key === "Escape") {
       // Escape puts away what is open, one thing at a time from the top: the tour, a window, and last the stage.
       if (panels.endTour()) return;
-      const open = app.easel || app.bench || app.booth || app.openSlot !== null;
+      const open = app.paint.isOpen || app.body.isOpen || app.voice.isOpen || app.chords.openSlot !== null;
       if (!open && app.stage) app.toggleStage(false);
       panels.closeMenu();
-      app.closeChord();
+      app.chords.close();
       app.hideCursor();
-      app.closeEasel();
-      app.closeBench();
-      app.closeBooth();
+      app.paint.close();
+      app.body.close();
+      app.voice.close();
       // Away from the weather, back to the ring that was in focus.
-      if (app.weatherFocus) app.select(app.selected);
-      app.look(null);
+      if (app.weather.focused) app.select(app.selected);
+      app.relay.look(null);
       return;
     }
     // While the paint box is open, the top row holds the brushes and Enter puts the sheet away.
-    if (app.easel && !event.repeat) {
+    if (app.paint.isOpen && !event.repeat) {
       const brush = TOOL_CODES.indexOf(code as (typeof TOOL_CODES)[number]);
       if (brush >= 0 && brush < BRUSH_TOOLS.length) {
-        app.setBrush(brush);
+        app.paint.setBrush(brush);
         return;
       }
       if (code === "KeyT") {
-        app.setBrushSize((app.brushSize + 1) % 3);
+        app.paint.setBrushSize((app.paint.brushSize + 1) % 3);
         return;
       }
       if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
         event.preventDefault();
-        app.closeEasel();
+        app.paint.close();
         return;
       }
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
-        if (event.shiftKey) app.clearOwn();
-        else app.eraseLast();
+        if (event.shiftKey) app.paint.clear();
+        else app.paint.eraseLast();
         return;
       }
       if (code === "KeyN") {
-        app.diceOwn();
+        app.paint.dice();
         return;
       }
     }
     // While the workbench is open, the top row holds what sets the body going, and Enter puts the bench away.
-    if (app.bench && !event.repeat) {
+    if (app.body.isOpen && !event.repeat) {
       const mallet = TOOL_CODES.indexOf(code as (typeof TOOL_CODES)[number]);
       if (mallet >= 0 && mallet < MALLETS.length) {
-        app.shapeBody({ exciter: mallet });
-        app.hearBody();
+        app.body.shape({ exciter: mallet });
+        app.body.hear();
         return;
       }
       if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
         event.preventDefault();
-        app.closeBench();
+        app.body.close();
         return;
       }
       if (code === "KeyN") {
-        app.diceBody();
+        app.body.dice();
         return;
       }
     }
@@ -137,37 +140,37 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
 
     const range = event.target instanceof HTMLInputElement && event.target.type === "range";
     // Under the weather the top row holds its six kinds; the keys that write into a ring rest.
-    if (app.weatherFocus && !range) {
+    if (app.weather.focused && !range) {
       const kind = WEATHER_CODES.indexOf(code as (typeof WEATHER_CODES)[number]);
       if (kind >= 0) {
-        if (!event.repeat) app.setCloud(kind);
+        if (!event.repeat) app.weather.setCloud(kind);
         return;
       }
       if (code === "KeyN") {
-        if (!event.repeat) app.diceWeather();
+        if (!event.repeat) app.weather.dice();
         return;
       }
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
-        if (event.shiftKey) app.clearWeather();
-        else app.clearWeather(app.cloud);
+        if (event.shiftKey) app.weather.clear();
+        else app.weather.clear(app.weather.cloud);
         return;
       }
       if (code.startsWith("Arrow") || event.key === "Enter" || event.key === "+" || event.key === "-") {
         if (code === "ArrowDown") {
           event.preventDefault();
-          app.focusPiece();
+          app.piece.focus();
         }
         return;
       }
     }
     // On the piece's ring the keys mean bars and tension.
-    if (app.pieceFocus && !range) {
+    if (app.piece.focused && !range) {
       if (code === "ArrowLeft" || code === "ArrowRight") {
         event.preventDefault();
         const by = code === "ArrowLeft" ? -1 : 1;
-        if (event.shiftKey) app.rotatePiece(by);
-        else app.movePieceKey(by);
+        if (event.shiftKey) app.piece.rotate(by);
+        else app.piece.moveKey(by);
         return;
       }
       if (code === "ArrowDown") {
@@ -181,20 +184,20 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
       }
       if (event.key === "+" || event.key === "-") {
         event.preventDefault();
-        app.nudgeTension(event.key === "+" ? 2 : -2);
+        app.piece.nudgeTension(event.key === "+" ? 2 : -2);
         return;
       }
       if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
         event.preventDefault();
-        if (app.pieceKey !== null) app.seekPiece(app.pieceKey);
+        if (app.piece.key !== null) app.piece.seek(app.piece.key);
         return;
       }
       if (!event.repeat && code === "KeyN") {
-        app.diceThePiece();
+        app.piece.dice();
         return;
       }
       if (!event.repeat && code === "KeyM") {
-        app.togglePiece();
+        app.piece.toggle();
         return;
       }
     }
@@ -203,32 +206,32 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
       app.wake();
       if (code === "ArrowLeft" || code === "ArrowRight") {
         const by = code === "ArrowLeft" ? -1 : 1;
-        if (event.shiftKey) app.rotate(app.selected, by);
+        if (event.shiftKey) app.rings.rotate(app.selected, by);
         else app.moveCursor(by);
       } else {
         const by = code === "ArrowUp" ? 1 : -1;
-        if (event.shiftKey) app.nudgePitch(by, true);
-        else if (by > 0 && app.selected === TRACK_COUNT - 1) app.focusPiece();
+        if (event.shiftKey) app.rings.nudgePitch(by, true);
+        else if (by > 0 && app.selected === TRACK_COUNT - 1) app.piece.focus();
         else app.select(app.selected + by);
       }
       return;
     }
     if (event.key === "+" || event.key === "-") {
       event.preventDefault();
-      app.nudgePitch(event.key === "+" ? 1 : -1, false);
+      app.rings.nudgePitch(event.key === "+" ? 1 : -1, false);
       return;
     }
     if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
       event.preventDefault();
       app.wake();
-      app.strikeCursor();
+      app.rings.strikeCursor();
       return;
     }
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault();
       const cursor = app.keyCursor;
-      if (event.shiftKey) app.clearRing(app.selected);
-      else if (cursor !== null && stepAt(patternOf(app.project, app.selected), cursor).on) app.removeNote(app.selected, cursor, "taste");
+      if (event.shiftKey) app.rings.clear(app.selected);
+      else if (cursor !== null && stepAt(patternOf(app.project, app.selected), cursor).on) app.rings.removeNote(app.selected, cursor, "taste");
       app.store.settle();
       return;
     }
@@ -237,10 +240,10 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
     const digit = /^Digit([1-9])$/.exec(code)?.[1];
     if (digit) {
       const track = Number(digit) - 1;
-      if (track === TRACK_COUNT) app.focusPiece();
-      if (track === TRACK_COUNT + 1) app.focusWeather();
+      if (track === TRACK_COUNT) app.piece.focus();
+      if (track === TRACK_COUNT + 1) app.weather.focus();
       if (track >= TRACK_COUNT) return;
-      if (event.shiftKey) app.toggleMute(track);
+      if (event.shiftKey) app.rings.toggleMute(track);
       else app.select(track);
       return;
     }
@@ -252,7 +255,7 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
     }
     const degree = PLAY_CODES.indexOf(code as (typeof PLAY_CODES)[number]);
     if (degree >= 0) {
-      app.playKey(degree);
+      app.rings.playKey(degree);
       return;
     }
     const fx = FX_CODES.indexOf(code as (typeof FX_CODES)[number]);
@@ -269,19 +272,19 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
       return;
     }
     if (code === "KeyN") {
-      if (event.shiftKey) app.varyRing(app.selected);
-      else app.diceRing(app.selected);
+      if (event.shiftKey) app.rings.vary(app.selected);
+      else app.rings.dice(app.selected);
     } else if (code === "KeyM") {
-      if (event.shiftKey) app.toggleSolo(app.selected);
-      else app.toggleMute(app.selected);
+      if (event.shiftKey) app.rings.toggleSolo(app.selected);
+      else app.rings.toggleMute(app.selected);
     } else if (code === "KeyL") {
-      app.toggleLive();
+      app.rings.toggleLive();
     } else if (code === "Comma" || code === "Period") {
       const direction = code === "Comma" ? -1 : 1;
       for (let offset = 1; offset < SCENE_COUNT; offset += 1) {
         const index = (app.project.scene + direction * offset + SCENE_COUNT * 2) % SCENE_COUNT;
         if (app.project.scenes[index]) {
-          app.pickScene(index);
+          app.scenes.pick(index);
           break;
         }
       }

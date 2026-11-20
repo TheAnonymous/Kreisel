@@ -1,0 +1,182 @@
+/* ---- the table: rings, wheel, panel ---------------------------------------- */
+
+.table {
+  display: grid;
+  grid-template-columns: minmax(200px, 236px) minmax(0, 1fr) minmax(256px, 312px);
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 2px solid var(--ink);
+  border-radius: 20px;
+  background: var(--paper);
+  box-shadow: 0 4px 0 var(--ink);
+  scrollbar-width: thin;
+}
+
+.side h2 {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.side h2:not(:first-child) {
+  margin-top: 6px;
+}
+
+.tracks {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.track {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 3px 1px 1px;
+  border: 2px solid transparent;
+  border-radius: 13px;
+}
+
+.track.selected {
+  border-color: var(--ink);
+  background: color-mix(in srgb, var(--c) 24%, transparent);
+}
+
+.track .pick {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 9px;
+  padding: 2px 7px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.dot {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--c);
+}
+
+.track .dot {
+  grid-row: span 2;
+}
+
+.track .name {
+  font-weight: 800;
+  font-size: 0.93rem;
+}
+
+.track .sound {
+  grid-column: 2;
+  font-size: 0.7rem;
+  color: var(--soft);
+}
+
+.track.silent .pick {
+  opacity: 0.5;
+}
+
+.track .mute,
+.track .roll {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+}
+
+.track .mute:hover,
+.track .roll:hover,
+.track .pick:hover {
+  background: var(--hair);
+}
+
+.track svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mute .off,
+.mute[aria-pressed="true"] .on {
+  display: none;
+}
+
+.mute[aria-pressed="true"] .off {
+  display: inline;
+}
+
+.mute[aria-pressed="true"] {
+  color: var(--go);
+}
+
+.track.solo .mute {
+  color: var(--focus);
+}
+
+.scenes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.scene {
+  aspect-ratio: 1.45;
+  padding: 0;
+  border: 2px dashed var(--hair);
+  border-radius: 12px;
+  background: none;
+  color: var(--soft);
+  font-weight: 800;
+}
+
+.scene.filled {
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 0 2px 0 var(--ink);
+  color: var(--ink);
+}
+
+.scene.current {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.scene.queued {
+  animation: blink 0.5s steps(2, start) infinite;
+}
+
+.chain {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chain select {
+  height: 30px;
+}

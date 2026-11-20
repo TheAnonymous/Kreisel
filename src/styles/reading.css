@@ -1,0 +1,56 @@
+/* ---- easier to read ---------------------------------------------------------------------------
+ * The smallest writing a little larger, the frame of the keyboard's focus in ink (a ring's colour can be
+ * too pale to see on paper), and more contrast for whoever asked the system for it.
+ */
+
+:focus-visible {
+  outline-color: var(--ink);
+}
+
+.field,
+.line .label,
+.tour-count {
+  font-size: 0.7rem;
+}
+
+.side > h2 {
+  font-size: 0.72rem;
+}
+
+.track .sound {
+  font-size: 0.74rem;
+}
+
+.info {
+  font-size: 0.78rem;
+}
+
+.status {
+  font-size: 0.82rem;
+}
+
+.axis {
+  font-size: 0.64rem;
+}
+
+.key {
+  font-size: 0.66rem;
+  opacity: 0.62;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --soft: var(--ink);
+    --hair: color-mix(in srgb, var(--ink) 45%, transparent);
+  }
+
+  .track.silent .pick,
+  .button:disabled,
+  .tool:disabled {
+    opacity: 0.6;
+  }
+
+  #licht {
+    display: none;
+  }
+}

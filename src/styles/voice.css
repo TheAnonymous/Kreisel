@@ -1,0 +1,108 @@
+/* ---- the voice: a ring that sings ---------------------------------------------------- */
+
+/* The three own sounds lie closer together than the rest of the panel. */
+.panel-ring .own + .own {
+  margin-top: -3px;
+}
+
+.own-pick .thumb.lips {
+  position: relative;
+}
+
+.own-pick .thumb.lips::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 11px;
+  border: 2.5px solid var(--c);
+  border-radius: 50%;
+  background: var(--ink);
+  transform: translate(-50%, -50%);
+}
+
+/* The vowels on the sound pad, where the mouth makes them. */
+.vowels i {
+  position: absolute;
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--soft);
+  transform: translate(-50%, 50%);
+  pointer-events: none;
+}
+
+.booth .easel-card {
+  grid-template-rows: auto auto minmax(90px, 1fr) auto auto;
+}
+
+.booth-line {
+  display: flex;
+  gap: 8px;
+}
+
+.booth-line input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.booth-stage {
+  position: relative;
+  min-height: 0;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--c) 9%, var(--paper));
+}
+
+.booth-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.syllables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 31px;
+  align-items: center;
+}
+
+.syllable {
+  padding: 3px 9px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* A new word stands a little apart. */
+.syllable.word {
+  margin-left: 9px;
+}
+
+.syllable.sung {
+  background: var(--c);
+  color: #fff;
+}
+
+.booth-foot {
+  display: grid;
+  gap: 6px;
+}
+
+.booth-foot .bench-shape {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}

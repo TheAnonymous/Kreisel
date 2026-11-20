@@ -1,6 +1,7 @@
 import { bildSeconds } from "../audio/bild";
 import { guides, makeStroke, snapHeight, strokeAt, strokeLevel, type RawPoint } from "../bild";
-import { HEIGHT_MAX, TIME_MAX, trackInfo, trackOf, type Bild, type Project, type Stroke } from "../model";
+import { HEIGHT_MAX, TIME_MAX, trackInfo, trackOf, type Bild, type Stroke } from "../model";
+import type { App } from "../app/app";
 
 /*
  * The paint box: a sheet on which the ring's own sound is painted. Time runs
@@ -8,23 +9,6 @@ import { HEIGHT_MAX, TIME_MAX, trackInfo, trackOf, type Bild, type Project, type
  * sounds: thick and strong where the brush was set down, thinner as the
  * paint runs out; a saw is a zigzag, a hiss a spray of dots.
  */
-
-/** What the paint box needs from the app. */
-export interface EaselHost {
-  readonly project: Project;
-  readonly selected: number;
-  readonly easel: boolean;
-  /** 0 hum, 1 saw, 2 hiss, 3 eraser. */
-  readonly brush: number;
-  readonly brushSize: number;
-  sinceStruck(track: number): number;
-  wake(): void;
-  paint(drawn: readonly RawPoint[]): void;
-  eraseStroke(index: number, gesture: string): void;
-  setHold(value: number | null, gesture?: string): void;
-  setBrushSize(size: number): void;
-  endGesture(): void;
-}
 
 export interface BildStyle {
   color: string;
@@ -154,7 +138,7 @@ export class EaselView {
   private ink = "#2a2233";
   private font = "system-ui, sans-serif";
 
-  constructor(private readonly canvas: HTMLCanvasElement, private readonly host: EaselHost) {
+  constructor(private readonly canvas: HTMLCanvasElement, private readonly app: App) {
     const context = canvas.getContext("2d");
     if (!context) throw new Error("no canvas");
     this.context = context;
@@ -216,30 +200,30 @@ export class EaselView {
   }
 
   private bild(): Bild | null {
-    return trackOf(this.host.project, this.host.selected).bild;
+    return trackOf(this.app.project, this.app.selected).bild;
   }
 
   /** Whether the ring holds notes (then the picture can hold, too). */
   private holds(): boolean {
-    return trackInfo(this.host.selected).melodic;
+    return trackInfo(this.app.selected).melodic;
   }
 
   // ---- drawing ----------------------------------------------------------------
 
   private frame(): void {
-    if (!this.host.easel || this.width === 0) return;
-    const track = this.host.selected;
-    const seconds = bildSeconds(track, trackOf(this.host.project, track));
-    const sounding = this.host.sinceStruck(track) < seconds + 0.25;
+    if (!this.app.paint.isOpen || this.width === 0) return;
+    const track = this.app.selected;
+    const seconds = bildSeconds(track, trackOf(this.app.project, track));
+    const sounding = this.app.sinceStruck(track) < seconds + 0.25;
     if (!this.dirty && !sounding && !this.drawn) return;
     this.dirty = false;
-    this.draw(sounding ? this.host.sinceStruck(track) / seconds : null);
+    this.draw(sounding ? this.app.sinceStruck(track) / seconds : null);
   }
 
   private draw(playhead: number | null): void {
     const context = this.context;
-    const host = this.host;
-    const track = host.selected;
+    const app = this.app;
+    const track = app.selected;
     const info = trackInfo(track);
     const inner = this.inner();
     const bild = this.bild();
@@ -302,8 +286,8 @@ export class EaselView {
 
     // The stroke under the brush right now, already as it will sound.
     if (this.drawn && this.mode === "paint") {
-      const kind = Math.min(host.brush, 2);
-      const stroke = makeStroke(kind, host.brushSize, this.drawn, (y) => snapHeight(track, kind, y));
+      const kind = Math.min(app.paint.brush, 2);
+      const stroke = makeStroke(kind, app.paint.brushSize, this.drawn, (y) => snapHeight(track, kind, y));
       if (stroke) paintStroke(context, stroke, 99, inner.x, inner.y, inner.width, inner.height, style);
     }
 
@@ -321,11 +305,11 @@ export class EaselView {
 
     // The brush under the pointer.
     if (this.pointer && !this.mode) {
-      const radius = host.brush === ERASER ? 9 : ((WIDTHS[host.brushSize] ?? 7) * style.scale) / 2 + 1;
+      const radius = app.paint.brush === ERASER ? 9 : ((WIDTHS[app.paint.brushSize] ?? 7) * style.scale) / 2 + 1;
       context.strokeStyle = this.ink;
       context.lineWidth = 1.25;
       context.globalAlpha = 0.7;
-      if (host.brush === ERASER) context.setLineDash([3, 3]);
+      if (app.paint.brush === ERASER) context.setLineDash([3, 3]);
       context.beginPath();
       context.arc(this.pointer.x, this.pointer.y, radius, 0, Math.PI * 2);
       context.stroke();
@@ -350,11 +334,11 @@ export class EaselView {
     if (!bild) return;
     const inner = this.inner();
     const index = strokeAt(bild, t, h, 13 / inner.height, inner.width / inner.height);
-    if (index >= 0) this.host.eraseStroke(index, gesture);
+    if (index >= 0) this.app.paint.eraseStroke(index, gesture);
   }
 
   private down(event: PointerEvent): void {
-    this.host.wake();
+    this.app.wake();
     event.preventDefault();
     try {
       this.canvas.setPointerCapture(event.pointerId);
@@ -367,7 +351,7 @@ export class EaselView {
     this.gestures += 1;
     const hold = this.holds() ? (bild?.hold ?? null) : null;
     const holdX = hold === null ? null : inner.x + (hold / TIME_MAX) * inner.width;
-    if (event.button === 2 || this.host.brush === ERASER) {
+    if (event.button === 2 || this.app.paint.brush === ERASER) {
       this.mode = "erase";
       this.eraseAt(spot.t, spot.h, `radieren${this.gestures}`);
     } else if (holdX !== null && Math.abs(spot.x - holdX) < 11 && spot.y < inner.y + 22) {
@@ -390,15 +374,15 @@ export class EaselView {
     } else if (this.mode === "erase") {
       this.eraseAt(spot.t, spot.h, `radieren${this.gestures}`);
     } else if (this.mode === "hold") {
-      this.host.setHold(spot.t * TIME_MAX, `halten${this.gestures}`);
+      this.app.paint.setHold(spot.t * TIME_MAX, `halten${this.gestures}`);
     }
   }
 
   private up(event: PointerEvent): void {
-    if (this.mode === "paint" && this.drawn && event.type === "pointerup") this.host.paint(this.drawn);
+    if (this.mode === "paint" && this.drawn && event.type === "pointerup") this.app.paint.stroke(this.drawn);
     this.drawn = null;
     this.mode = null;
-    this.host.endGesture();
+    this.app.endGesture();
     this.dirty = true;
   }
 
@@ -408,6 +392,6 @@ export class EaselView {
     const notches = Math.trunc(this.wheelRest / 45);
     if (notches === 0) return;
     this.wheelRest -= notches * 45;
-    this.host.setBrushSize(this.host.brushSize - Math.sign(notches));
+    this.app.paint.setBrushSize(this.app.paint.brushSize - Math.sign(notches));
   }
 }

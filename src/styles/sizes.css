@@ -1,0 +1,195 @@
+/* ---- sizes ------------------------------------------------------------------- */
+
+/* A laptop: everything on one screen, the wheel as tall as there is room. */
+@media (min-width: 1100px) and (min-height: 540px) {
+  .app {
+    height: 100dvh;
+    overflow: hidden;
+  }
+}
+
+/* In between: the wheel on top, rings and panel side by side below. */
+@media (max-width: 1099px), (max-height: 539px) {
+  .table {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .wheel {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  .stage {
+    height: min(calc(100vw - 232px), 72dvh);
+    min-height: 300px;
+  }
+
+  .side {
+    overflow: visible;
+  }
+}
+
+/* A phone: one column, tools and effects as rows under the wheel. */
+@media (max-width: 719px) {
+  .app {
+    gap: 10px;
+    padding: 10px 12px 28px;
+  }
+
+  .bar {
+    gap: 8px 10px;
+  }
+
+  .brand h1 {
+    font-size: 1.2rem;
+  }
+
+  .actions {
+    gap: 6px;
+  }
+
+  .knobs {
+    order: 3;
+    flex-wrap: nowrap;
+    width: 100%;
+    padding-bottom: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .bar .button.go {
+    min-width: 0;
+  }
+
+  #relay {
+    display: none;
+  }
+
+  #share,
+  .button.rec {
+    min-width: 38px;
+    height: 38px;
+    padding: 0 9px;
+  }
+
+  #share .label,
+  .button.rec .label {
+    display: none;
+  }
+
+  .button.rec[aria-pressed="true"] .label {
+    display: inline;
+  }
+
+  .table {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .wheel {
+    grid-template: "stage" auto "tools" auto "fx" auto "status" auto / minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .stage {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 1;
+  }
+
+  .tools,
+  .fx {
+    flex-direction: row;
+    gap: 5px;
+  }
+
+  .tool,
+  .pad-fx {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    padding-inline: 2px;
+    font-size: 0.64rem;
+  }
+
+  .tool.live {
+    margin-top: 0;
+  }
+
+  .pad-fx {
+    min-height: 50px;
+    font-size: 0.72rem;
+  }
+
+  .key {
+    display: none;
+  }
+
+  .tracks {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .scenes {
+    grid-template-columns: repeat(8, 1fr);
+  }
+
+  .scene {
+    aspect-ratio: 1;
+  }
+
+  .easel-card {
+    gap: 6px;
+    padding: 9px;
+  }
+
+  .easel-actions {
+    gap: 4px;
+  }
+
+  .easel-hint {
+    display: none;
+  }
+
+  .easel-head h2 {
+    font-size: 0.95rem;
+  }
+
+  .easel-card .button.small {
+    padding: 3px 8px;
+    font-size: 0.74rem;
+  }
+
+  .tool.size .name {
+    display: none;
+  }
+
+  .toast {
+    bottom: 12px;
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 479px) {
+  .brand h1 {
+    display: none;
+  }
+}
+
+@media (min-width: 720px) {
+  #share svg {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .pad-fx {
+    transition: none;
+  }
+
+  .scene.queued,
+  .button.rec[aria-pressed="true"] .lamp {
+    animation: none;
+  }
+}
