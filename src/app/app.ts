@@ -126,11 +126,9 @@ export class App {
           this.store.touch((project) => { project.scene = scene; });
         }
       },
-      onState: () => {
-        // Stopping lets every effect go, latched or held.
-        if (!this.engine.playing) this.latched.clear();
-        this.notify();
-      },
+      onState: () => this.notify(),
+      // Stopping lets every effect go, latched or held. (A latch set while it stands is kept: it takes hold at the start.)
+      onStopped: () => this.latched.clear(),
       onStep: (local) => this.weather.trail(local),
       scene: (index) => this.project.scenes[index] ?? null,
       pieceStart: () => (this.project.piece.on ? this.piece.start % barCount(this.project.piece) : 0),

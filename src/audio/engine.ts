@@ -431,6 +431,7 @@ export class Player {
 }
 
 export type FxName = "dumpf" | "duenn" | "stotter" | "wurf" | "pause";
+const FX_NAMES: readonly FxName[] = ["dumpf", "duenn", "stotter", "wurf", "pause"];
 
 export interface EngineView {
   /** Whether a ring is heard (not muted, not silenced by another ring's solo). */
@@ -439,6 +440,8 @@ export interface EngineView {
   onScene(scene: number): void;
   /** Playing, recording or an effect changed. */
   onState(): void;
+  /** It has stopped, and with that it lets every effect go. */
+  onStopped(): void;
   /** The bar a piece starts from. */
   pieceStart(): number;
   /** A step is heard: how many steps the scene has played by now. */
@@ -502,6 +505,8 @@ export class Engine {
     this.player.reset(this.project().scene, this.view.pieceStart());
     this.transport.begin(context, context.currentTime + 0.06);
     this.playing = true;
+    // An effect that was switched on while it stood takes hold now: a stutter and a pause need something that plays.
+    for (const name of FX_NAMES) if (this.fx[name]) this.applyFx(name);
     this.view.onState();
   }
 
@@ -516,7 +521,8 @@ export class Engine {
       this.player?.leavePiece(graph.context.currentTime);
       hush(graph, graph.context.currentTime);
     }
-    for (const name of Object.keys(this.fx) as FxName[]) this.setFx(name, false);
+    this.view.onStopped();
+    for (const name of FX_NAMES) this.setFx(name, false);
     this.view.onState();
   }
 
@@ -589,34 +595,39 @@ export class Engine {
   setFx(name: FxName, on: boolean): void {
     if (this.fx[name] === on) return;
     this.fx[name] = on;
+    this.applyFx(name);
+    this.view.onState();
+  }
+
+  /** Brings the sound in line with whether an effect is on: when it changes, and at the start for one that was on already. */
+  private applyFx(name: FxName): void {
+    const on = this.fx[name];
     const graph = this.host.graph;
-    if (graph) {
-      const now = graph.context.currentTime;
-      if (name === "dumpf") {
-        // A piece keeps the lowpass moving by its line: the key takes it over and hands it back.
-        if (this.player) this.player.filterHeld = on;
-        graph.lowpass.frequency.cancelScheduledValues(now);
-        graph.lowpass.frequency.setTargetAtTime(on ? 300 : (this.player?.cutoffNow ?? 20_000), now, on ? 0.2 : 0.07);
-        graph.lowpass.Q.setTargetAtTime(on ? 6 : 0.7, now, 0.05);
-      } else if (name === "duenn") {
-        graph.highpass.frequency.setTargetAtTime(on ? 1300 : 20, now, on ? 0.2 : 0.07);
-        graph.highpass.Q.setTargetAtTime(on ? 5 : 0.7, now, 0.05);
-      } else if (name === "wurf") {
-        graph.throwSend.gain.setTargetAtTime(on ? 0.9 : 0, now, 0.02);
-      } else if (name === "stotter") {
-        this.player?.setStutter(on && this.playing);
-      } else if (this.player) {
-        this.player.pause = on && this.playing;
-        if (on && this.playing) {
-          this.rise = rise(graph.kit, graph.mix, now, now + 2 * BAR * stepSeconds(this.project()), 0.22);
-        } else {
-          this.rise?.cut(now);
-          if (this.rise && this.playing) crash(graph.kit, graph.mix, now + 0.01, 0.4, 1.5).connect(graph.hall);
-          this.rise = null;
-        }
+    if (!graph) return;
+    const now = graph.context.currentTime;
+    if (name === "dumpf") {
+      // A piece keeps the lowpass moving by its line: the key takes it over and hands it back.
+      if (this.player) this.player.filterHeld = on;
+      graph.lowpass.frequency.cancelScheduledValues(now);
+      graph.lowpass.frequency.setTargetAtTime(on ? 300 : (this.player?.cutoffNow ?? 20_000), now, on ? 0.2 : 0.07);
+      graph.lowpass.Q.setTargetAtTime(on ? 6 : 0.7, now, 0.05);
+    } else if (name === "duenn") {
+      graph.highpass.frequency.setTargetAtTime(on ? 1300 : 20, now, on ? 0.2 : 0.07);
+      graph.highpass.Q.setTargetAtTime(on ? 5 : 0.7, now, 0.05);
+    } else if (name === "wurf") {
+      graph.throwSend.gain.setTargetAtTime(on ? 0.9 : 0, now, 0.02);
+    } else if (name === "stotter") {
+      this.player?.setStutter(on && this.playing);
+    } else if (this.player) {
+      this.player.pause = on && this.playing;
+      if (on && this.playing) {
+        this.rise = rise(graph.kit, graph.mix, now, now + 2 * BAR * stepSeconds(this.project()), 0.22);
+      } else {
+        this.rise?.cut(now);
+        if (this.rise && this.playing) crash(graph.kit, graph.mix, now + 0.01, 0.4, 1.5).connect(graph.hall);
+        this.rise = null;
       }
     }
-    this.view.onState();
   }
 
   /** The loudest sample leaving the master right now, 0..1. */

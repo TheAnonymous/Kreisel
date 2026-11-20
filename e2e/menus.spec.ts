@@ -213,6 +213,43 @@ test.describe("am Laptop", () => {
     await expect(page.locator(".panel-ring .line", { hasText: "Hall" }).locator("input")).toHaveValue("30");
     expect(problems).toEqual([]);
   });
+
+  test("rastet einen Effekt auch im Stehen ein, und er wirkt vom ersten Schlag an", async ({ page }) => {
+    const problems = await open(page);
+    const fx = () => page.evaluate(() => ({ ...window.kreisel.app.engine.fx }));
+    const struck = (track: number): Promise<boolean> => page.evaluate((ring) => (window.kreisel.app.engine.struck[ring] ?? -10) > 0, track);
+    // While the Kreisel stands, Shift and the key latch, and the latch holds; the same key lets it go.
+    const thin = page.locator(".pad-fx", { hasText: "Dünn" });
+    await page.keyboard.press("Shift+KeyX");
+    await expect(thin).toHaveClass(/latched/);
+    await expect(thin).toHaveAttribute("aria-pressed", "true");
+    expect((await fx()).duenn).toBe(true);
+    await page.keyboard.press("KeyX");
+    await expect(thin).not.toHaveClass(/latched/);
+    await expect(thin).not.toHaveClass(/held/);
+    expect((await fx()).duenn).toBe(false);
+    // The pause, latched before the start, holds drums and bass back from the first hit on: only the upper rings play.
+    const pause = page.locator(".pad-fx", { hasText: "Pause" });
+    await pause.click({ button: "right" });
+    await expect(pause).toHaveClass(/latched/);
+    await page.keyboard.press("Space");
+    await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => struck(6)).toBe(true);
+    await page.waitForTimeout(1500);
+    expect(await struck(0)).toBe(false);
+    await expect(pause).toHaveClass(/latched/);
+    // Letting it go brings them in.
+    await pause.click();
+    await expect(pause).not.toHaveClass(/latched/);
+    await expect.poll(() => struck(0)).toBe(true);
+    // Stopping lets everything go, as it did.
+    await page.keyboard.press("Shift+KeyX");
+    await expect(thin).toHaveClass(/latched/);
+    await page.keyboard.press("Space");
+    await expect(page.locator(".pad-fx.latched")).toHaveCount(0);
+    expect(await fx()).toEqual({ dumpf: false, duenn: false, stotter: false, wurf: false, pause: false });
+    expect(problems).toEqual([]);
+  });
 });
 
 test.describe("am Handy", () => {
