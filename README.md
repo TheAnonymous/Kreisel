@@ -53,8 +53,9 @@ and no knobs. So Kreisel has no knobs either:
 
 ## Part two: Klangmalerei
 
-Every ring has four built-in sounds and one of its own, and that one is
-painted. "Malen" opens the paint box on top of the turning wheel:
+Every ring has its ready-made sounds (fifty of them by now, see "Fifty
+sounds a ring") and one of its own, and that one is painted. "Malen" opens
+the paint box on top of the turning wheel:
 
 - **The picture is the sound.** Time runs from left to right, pitch from
   bottom to top (nine octaves). Every stroke of the brush is one tone.
@@ -312,6 +313,32 @@ Easier to get into, and more to look at.
   (a ring's colour can be too pale on paper), and `prefers-contrast: more` gets stronger lines and
   writing and no glow.
 
+## Fifty sounds a ring
+
+Each ring has a palette of fifty ready-made sounds, in five families of ten: for the kick "Rund", "Hart",
+"Tief", "Staub" and "Schräg", for the melody plucked strings, bells, pipes, saws and the square waves of
+old game consoles. That makes 350.
+
+- **Where they are**: in the ring's panel the sound's name stands between two arrows that leaf through
+  the palette (keys U and I). A click on the name (key P) opens the palette beside the panel: every sound
+  is one click away and is heard at once, and the palette stays open while sounds are tried, also when
+  another ring is picked. "Würfeln", or the right button on the name, takes any of the fifty. The ring's
+  right-click menu leafs as well.
+- **The four each ring always had** lead the first four families and keep their numbers, so a Kreisel
+  from an old link sounds as it did. The others are numbered from 7 on (4 to 6 are a ring's own painted,
+  built and sung sound); a number is a sound's place in the palette and travels in links, so sounds are
+  never moved and a palette never grows in the middle.
+- **A sound is a recipe**, plain numbers in `src/sounds/`: a struck one for the four drum rings (tones
+  and bursts of noise that ring out, some through a distortion), a played one for the three rings that
+  play notes (oscillators through a filter, frequency modulation, vibrato, a breath or a pick of noise).
+  Two players in `src/audio/sounds.ts` turn recipes into sound; the four classics are written out there
+  as ever. Every recipe reads the pad like the classics do: brightness to the right, length upwards.
+- **Evenly loud**: `npm run level` plays every sound once by itself (faster than it sounds, in a
+  headless browser), measures it, and writes `src/sounds/trims.ts`: each sound is turned up or down
+  until its loudest twentieth of a second is as loud as the ring's four classics on average, unless its
+  peak would then stand out (which holds very short clicks a little lower). The numbers are measured,
+  not chosen by ear.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the
@@ -322,6 +349,7 @@ is one canvas.
 npm install
 npm run dev      # http://localhost:5173/Kreisel/
 npm run verify   # lint, types, unit tests, build, browser tests under the production CSP
+npm run level    # after adding or changing a ready-made sound: measure all 350 and write their trims
 ```
 
 The toolchain is pinned in `mise.toml` (Node 24.15.0, npm 12.0.0). All checks
@@ -329,7 +357,7 @@ run locally; see [AGENTS.md](AGENTS.md).
 
 The code lies in four layers, and each knows only the ones before it (the linter says so, too):
 
-1. **The project and its rules** (`src/*.ts`): plain data and pure functions. Nothing here needs a browser.
+1. **The project and its rules** (`src/*.ts`, `src/sounds/`): plain data and pure functions. Nothing here needs a browser.
 2. **Sound** (`src/audio/`): the project made audible, live and into a file.
 3. **The app** (`src/app/`): the project on the table and everything that can be done to it. `app.ts` holds
    what all of it shares; what can be done to one subject is at that subject's desk (`app.piece.dice()`,
@@ -346,7 +374,8 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/bild.ts`, `src/imitate.ts`, `src/collection.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes; the shelf of kept pictures |
 | `src/body.ts`, `src/voice.ts`, `src/rumble.ts`, `src/weather.ts` | the rules of the Klangkörper, the voice, the Nachbeben and the weather |
 | `src/piece.ts`, `src/relay.ts` | the piece: what a bar's tension asks for; Reihum: what a turn touched, people's colours |
-| `src/audio/` | the 28 built-in sounds, painted sounds, bodies and voices, listening, the mixer, the player (live and offline), effects, recording |
+| `src/sounds/` | the palettes: 350 ready-made sounds as recipes (`shapes.ts` says what a recipe is, a file for each ring holds its fifty, `index.ts` knows their numbers and names, `trims.ts` how loud each is) |
+| `src/audio/` | the ready-made sounds made audible, painted sounds, bodies and voices, listening, the mixer, the player (live and offline), effects, recording; `hear.ts` renders one hit by itself and measures it |
 | `src/app/app.ts` | the app's core: the table, what is in focus, starting and stopping, steps back, messages |
 | `src/app/rings.ts`, `voice.ts`, `weather.ts`, `rumble.ts`, `relay.ts`, `piece.ts`, `paint.ts`, `body.ts`, `chords.ts`, `scenes.ts`, `files.ts` | one desk for each subject |
 | `src/app/workshop.ts`, `prefs.ts` | what the three windows for a ring's own sound share; what the browser remembers |
@@ -355,9 +384,11 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/easel.ts`, `bench.ts`, `booth.ts` | the canvases in the three windows: the sheet, the body, the mouth |
 | `src/ui/panels.ts` | everything around the wheel: the bar, the list of rings, scenes, tools, the panel of the ring in focus |
 | `src/ui/easel-window.ts`, `bench-window.ts`, `booth-window.ts`, `piece-panel.ts`, `weather-panel.ts`, `relay-dialog.ts`, `chord-menu.ts`, `toast.ts`, `help.ts`, `tour-guide.ts`, `tour.ts` | the parts of the page that have a file of their own |
+| `src/ui/sound-palette.ts` | the row with the ring's sound in its panel, and the palette of all fifty |
 | `src/ui/menu.ts`, `menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
-| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`), and `helpers.ts` for what they share |
+| `scripts/level-sounds.mjs` | `npm run level`: measures every ready-made sound and writes `src/sounds/trims.ts` |
+| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`), and `helpers.ts` for what they share |
 
 ## License
 

@@ -1,11 +1,11 @@
 import { FX, TOOLS, type App, type Deed, type Tool } from "../app/app";
 import type { FxName } from "../audio/engine";
 import { describeBild } from "../bild";
-import { BODY_NAMES, describeBody } from "../body";
+import { describeBody } from "../body";
 import { describeRumble, hasRumble } from "../rumble";
 import { describeVoice, FIELD_LETTERS } from "../voice";
 import { describeWeather } from "../weather";
-import { BODY_SOUND, clamp, currentScene, VOICE_SOUND, MAX_STEPS, MIN_STEPS, patternOf, SCENE_COUNT, SCENE_NAMES, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
+import { clamp, currentScene, VOICE_SOUND, MAX_STEPS, MIN_STEPS, patternOf, SCENE_COUNT, SCENE_NAMES, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
 import { NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
 import { activeSteps, describe } from "../patterns";
 import { describePiece } from "../piece";
@@ -27,6 +27,7 @@ import { WeatherPanel } from "./weather-panel";
 import { EaselWindow } from "./easel-window";
 import { BoothWindow } from "./booth-window";
 import { BenchWindow } from "./bench-window";
+import { SoundPalette, soundLabel } from "./sound-palette";
 
 /*
  * Everything around the Kreisel: transport and key in the bar, the list of
@@ -63,7 +64,6 @@ export class Panels {
   private readonly sceneButtons: HTMLButtonElement[] = [];
   private readonly toolButtons = new Map<Tool, HTMLButtonElement>();
   private readonly fxButtons = new Map<FxName, HTMLButtonElement>();
-  private readonly soundButtons: HTMLButtonElement[] = [];
   readonly own = { pick: button("own-pick", ""), thumb: el("canvas", "thumb"), label: el("span", "own-label") };
   readonly built = { pick: button("own-pick", ""), thumb: el("canvas", "thumb"), label: el("span", "own-label") };
   private readonly quake = el("div", "group quake");
@@ -96,6 +96,7 @@ export class Panels {
   private readonly easelWindow: EaselWindow;
   private readonly boothWindow: BoothWindow;
   private readonly benchWindow: BenchWindow;
+  private readonly palette: SoundPalette;
 
   constructor(private readonly app: App, private readonly ring: RingView, private readonly easel: EaselView, private readonly bench: BenchView, private readonly mouth: BoothView) {
     this.relayDialog = new RelayDialog(this, app);
@@ -108,6 +109,7 @@ export class Panels {
     this.easelWindow = new EaselWindow(this, app, easel);
     this.boothWindow = new BoothWindow(this, app, mouth);
     this.benchWindow = new BenchWindow(this, app, bench);
+    this.palette = new SoundPalette(app);
     this.buildBar();
     this.buildTracks();
     this.buildScenes();
@@ -118,6 +120,7 @@ export class Panels {
     this.weatherPanel.build();
     this.buildFx();
     this.buildPanel();
+    this.palette.build();
     this.piecePanel.build();
     this.relayDialog.build();
     this.tourGuide.build();
@@ -458,7 +461,7 @@ export class Panels {
   /** The panel of the ring in focus, and the cloth over a ring that someone else has built (Stille Post). */
   private buildPanel(): void {
     this.head.append(el("span", "dot"), this.panel.name);
-    this.ringBox.append(this.head, this.panel.info, this.buildDoing(), this.buildSounds(), ...this.buildOwnSounds(), this.buildPad(), this.buildSteps(), this.buildQuake(), this.buildMix());
+    this.ringBox.append(this.head, this.panel.info, this.buildDoing(), this.palette.buildRow(), ...this.buildOwnSounds(), this.buildPad(), this.buildSteps(), this.buildQuake(), this.buildMix());
     this.veilBox.append(
       el("header", "panel-head"),
       el("p", "veil-text", "Stille Post: Dieser Ring ist verdeckt. Jemand hat hier schon gebaut, aber du hörst und siehst nur den Ring der Person vor dir. Bau deinen eigenen dazu: Nimm einen Ring, der noch leer ist. Wenn alle fertig sind, deckt ihr im Reihum-Fenster auf."),
@@ -477,21 +480,6 @@ export class Panels {
     wipe.addEventListener("click", () => app.rings.clear(app.selected));
     doing.append(roll, vary, wipe);
     return doing;
-  }
-
-  /** The four sounds every ring comes with. */
-  private buildSounds(): HTMLElement {
-    const app = this.app;
-    const sounds = el("div", "chips");
-    sounds.setAttribute("role", "group");
-    sounds.setAttribute("aria-label", "Klang");
-    for (let sound = 0; sound < 4; sound += 1) {
-      const chip = button("chip", "");
-      chip.addEventListener("click", () => app.rings.setSound(app.selected, sound));
-      sounds.append(chip);
-      this.soundButtons.push(chip);
-    }
-    return sounds;
   }
 
   /** The three sounds a ring can have of its own: a painted one, a body, a voice. Each row picks it, and its button opens the window where it is made. */
@@ -688,6 +676,7 @@ export class Panels {
     const target = event.target instanceof Element ? event.target : null;
     if (!target?.closest(".more")) this.closeMenu();
     if (!target?.closest("#chord-menu") && target?.id !== "kreisel") this.app.chords.close();
+    this.palette.outside(target);
   }
 
   // ---- showing ----------------------------------------------------------------
@@ -710,6 +699,7 @@ export class Panels {
     this.boothWindow.sync();
     this.weatherPanel.sync();
     this.chordMenu.sync();
+    this.palette.sync();
     this.toast.sync();
     this.ring.invalidate();
     this.easel.invalidate();
@@ -805,7 +795,7 @@ export class Panels {
       row.classList.toggle("selected", track === selected && !app.piece.focused && !app.weather.focused);
       row.classList.toggle("silent", !app.audible(track));
       row.classList.toggle("solo", app.rings.solo === track);
-      row.querySelector(".sound")!.textContent = one.sound === VOICE_SOUND ? "Stimme" : one.sound === BODY_SOUND && one.body ? (BODY_NAMES[one.body.kind] ?? "") : (trackInfo(track).sounds[one.sound] ?? "Gemalt");
+      row.querySelector(".sound")!.textContent = soundLabel(track, one);
       row.querySelector(".pick")!.setAttribute("aria-pressed", String(track === selected && !app.piece.focused && !app.weather.focused));
       row.querySelector(".mute")!.setAttribute("aria-pressed", String(!app.audible(track)));
       this.moved(row.querySelector(".mute svg"), !app.audible(track), "pop");
@@ -870,11 +860,7 @@ export class Panels {
     byId("panel").style.setProperty("--c", info.color);
     parts.name.textContent = info.name;
     parts.info.textContent = describe(pattern);
-    this.soundButtons.forEach((chip, sound) => {
-      chip.textContent = info.sounds[sound] ?? "";
-      chip.setAttribute("aria-pressed", String(sound === settings.sound));
-      this.moved(chip, sound === settings.sound, "pop", "true", !sameRing);
-    });
+    this.moved(byId("sound-pick"), settings.sound, "pop", undefined, !sameRing);
     parts.puck.style.left = `${settings.x * 100}%`;
     parts.puck.style.bottom = `${settings.y * 100}%`;
     const sings = settings.sound === VOICE_SOUND;

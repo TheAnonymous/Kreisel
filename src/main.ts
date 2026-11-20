@@ -1,6 +1,8 @@
 import "./style.css";
 import { App } from "./app/app";
+import { hear, type Heard } from "./audio/hear";
 import { serialize } from "./codec";
+import { PALETTE_ORDER } from "./sounds/index";
 import { bindKeys } from "./ui/keys";
 import { BenchView } from "./ui/bench";
 import { BoothView } from "./ui/booth";
@@ -86,6 +88,10 @@ declare global {
       motion(): { popping: number; shrinking: number; sliding: number };
       /** What the light show has in the air right now. */
       light(): { sparks: number; waves: number; glowing: boolean };
+      /** One hit of a ring's ready-made sound by itself, measured; x and y are where the pad's point stands (the middle unless said). */
+      hear(track: number, sound: number, x?: number, y?: number): Promise<Heard>;
+      /** The numbers of a ring's fifty ready-made sounds, in the order of its palette. */
+      palette: readonly number[];
     };
   }
 }
@@ -103,4 +109,6 @@ window.kreisel = {
   quake: (step, share) => ring.rumblePosition(step, share),
   motion: () => ring.motion(),
   light: () => ring.light(),
+  hear: (track, sound, x, y) => hear(app.project, track, sound, x, y),
+  palette: PALETTE_ORDER,
 };

@@ -147,10 +147,11 @@ class Keyboard {
     if (key !== "Escape") return false;
     const { app, panels } = this;
     if (panels.endTour()) return true;
-    const open = app.paint.isOpen || app.body.isOpen || app.voice.isOpen || app.chords.openSlot !== null;
+    const open = app.paint.isOpen || app.body.isOpen || app.voice.isOpen || app.chords.openSlot !== null || app.rings.paletteOpen;
     if (!open && app.stage) app.toggleStage(false);
     panels.closeMenu();
     app.chords.close();
+    app.rings.closePalette();
     app.hideCursor();
     app.paint.close();
     app.body.close();
@@ -393,10 +394,14 @@ class Keyboard {
     if (wanted) this.app.setFx(wanted.id, false);
   }
 
-  /** Dice, mute, playing in, and the scene before or after. */
+  /** Dice, mute, playing in, the sound before or after on the palette, and the scene before or after. */
   private letter({ code, shift }: Press): boolean {
     const { app } = this;
-    if (code === "KeyN") {
+    if (code === "KeyU" || code === "KeyI") {
+      app.rings.stepSound(app.selected, code === "KeyU" ? -1 : 1);
+    } else if (code === "KeyP") {
+      app.rings.togglePalette();
+    } else if (code === "KeyN") {
       if (shift) app.rings.vary(app.selected);
       else app.rings.dice(app.selected);
     } else if (code === "KeyM") {

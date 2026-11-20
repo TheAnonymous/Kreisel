@@ -36,6 +36,47 @@
   gap: 4px;
 }
 
+/* The ring's sound: its name between two arrows that leaf through the palette. */
+.sound-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.sound-pick {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 4px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sound-pick[aria-expanded="true"] {
+  background: var(--c);
+  color: var(--ink);
+}
+
+.sound-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sound-family {
+  flex: none;
+  font-size: 0.66rem;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
 .chip {
   min-width: 0;
   padding: 5px 2px;

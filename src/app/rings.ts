@@ -1,6 +1,7 @@
 import { hasRumble, shakes } from "../rumble";
 import { clamp, clone, currentScene, emptyRumble, emptyStep, factoryProject, MAX_NOTE_LENGTH, MAX_STEPS, MIN_STEPS, patternOf, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, stepAt, TRACK_COUNT, trackInfo, trackOf, type Pattern, type Step, type Track, wrap } from "../model";
 import { activeSteps, clear, dice, resize, rotate, spread, transpose, vary } from "../patterns";
+import { alongPalette, PALETTE_ORDER } from "../sounds/index";
 import type { App, Tool } from "./app";
 
 /** New hits start here: the melody on the fifth, everything else on its root. */
@@ -16,6 +17,8 @@ export class RingDesk {
   live = false;
   /** A ring's pattern taken with "Muster kopieren", to put into another ring or scene. */
   copied: { track: number; pattern: Pattern } | null = null;
+  /** The palette with all the ready-made sounds of the ring in focus is open. */
+  paletteOpen = false;
   /** The pitch each ring's last hit had: where its next one starts. */
   private readonly pitches = [...FIRST_PITCH];
 
@@ -223,10 +226,33 @@ export class RingDesk {
     this.app.store.edit((project) => { Object.assign(trackOf(project, track), change); }, key ? `${key}${track}` : undefined);
   }
 
-  /** Changes the sound and plays it once, so a click on a sound is heard. */
+  /** Changes the sound and plays it once, so a click on a sound is heard. Trying one sound after another is one step back. */
   setSound(track: number, sound: number): void {
-    this.setTrack(track, { sound });
+    this.setTrack(track, { sound }, "sound");
     this.preview(track);
+  }
+
+  /** Goes to the sound before or after on the ring's palette. */
+  stepSound(track: number, by: 1 | -1): void {
+    this.setSound(track, alongPalette(trackOf(this.app.project, track).sound, by));
+  }
+
+  /** Takes some other sound from the ring's palette. */
+  diceSound(track: number): void {
+    const now = trackOf(this.app.project, track).sound;
+    const others = PALETTE_ORDER.filter((sound) => sound !== now);
+    this.setSound(track, others[Math.floor(this.app.random() * others.length)] ?? 0);
+  }
+
+  togglePalette(): void {
+    this.paletteOpen = !this.paletteOpen;
+    this.app.notify();
+  }
+
+  closePalette(): void {
+    if (!this.paletteOpen) return;
+    this.paletteOpen = false;
+    this.app.notify();
   }
 
   /** Strikes the ring once, at the pitch its last hit had; a voice sings syllable `number` of its line. */

@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json --pretty false",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "level": "node scripts/level-sounds.mjs",
     "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e"
   },
   "dependencies": {

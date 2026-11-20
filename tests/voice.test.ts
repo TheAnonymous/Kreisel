@@ -340,7 +340,7 @@ describe("a voice in a link", () => {
     // A ring cannot sing with a voice it does not have.
     const data = pack(factoryProject()) as unknown as { t: unknown[][] };
     data.t[3] = [VOICE_SOUND, 0.5, 0.5, 0.7, 0, 0, 0, 0, 0, 77];
-    data.t[2] = [99, 0.5, 0.5, 0.7, 0, 0, 0, 0, 0, "50.15.la"];
+    data.t[2] = [VOICE_SOUND, 0.5, 0.5, 0.7, 0, 0, 0, 0, 0, "50.15.la"];
     const project = unpack(data);
     expect(project.tracks[3]).toMatchObject({ sound: 0, voice: null });
     expect(project.tracks[2]).toMatchObject({ sound: VOICE_SOUND, voice: { text: "la", mouth: 0.5, breath: 0.15 } });

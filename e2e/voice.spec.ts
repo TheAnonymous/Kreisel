@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { heard, onLaptop, onPhone, open, soundOf, state, status, voiceOf, where } from "./helpers";
+import { heard, onLaptop, onPhone, open, pickSound, soundOf, state, status, voiceOf, where } from "./helpers";
 
 /*
  * Stimme: a ring that sings a typed line, a syllable a hit.
@@ -65,7 +65,7 @@ test.describe("am Laptop", () => {
     // In the ring's field the voice is one of its sounds: picked with a click, written further with the next.
     const pick = page.locator("#voice-pick");
     await expect(pick).toHaveAttribute("aria-pressed", "true");
-    await page.locator(".panel-ring .chips .chip").nth(1).click();
+    await pickSound(page, "Glocke");
     expect(await soundOf(page, 6)).toBe(1);
     await expect(letters.first()).toBeHidden();
     await pick.click();

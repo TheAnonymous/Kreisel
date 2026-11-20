@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { bodyOf, heard, knockAt, onLaptop, onPhone, open, soundOf, state, status, where } from "./helpers";
+import { bodyOf, heard, knockAt, onLaptop, onPhone, open, pickSound, soundOf, state, status, where } from "./helpers";
 
 /*
  * Klangkörper: a ring's own sound as a body that rings, built on the
@@ -88,7 +88,7 @@ test.describe("am Laptop", () => {
     const pick = page.locator("#built-pick");
     await expect(pick).toHaveAttribute("aria-pressed", "true");
     await expect(pick).toContainText("Klangkörper: Stab");
-    await page.locator(".panel-ring .chips .chip").nth(1).click();
+    await pickSound(page, "Glocke");
     expect(await soundOf(page, 6)).toBe(1);
     await pick.click();
     expect(await soundOf(page, 6)).toBe(5);

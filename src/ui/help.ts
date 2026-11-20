@@ -28,6 +28,7 @@ export class HelpDialog {
       ["Eingabe", "am Zeiger setzen oder löschen"],
       ["+ −", "Ton am Zeiger höher oder tiefer"],
       [key("KeyN"), "Ring würfeln · mit Umschalt nur variieren"],
+      [`${key("KeyU")} ${key("KeyI")}`, `voriger und nächster Klang aus der Palette · ${key("KeyP")} zeigt alle 50`],
       ["Im Fenster der Stimme", "Eingabe singt die Zeile vor · ein Bindestrich trennt eine Silbe, wo du willst · Esc fertig"],
       ["An der Werkbank", `${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")} Schlägel weich und hart, Zupfen, Streichen, Blasen · ${key("KeyN")} würfeln · Esc fertig`],
       ["Im Malkasten", `${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} Pinsel und Radierer · ${key("KeyT")} Dicke · ${key("KeyN")} würfeln · Entf nimmt den letzten Strich · Esc fertig`],

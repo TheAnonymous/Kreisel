@@ -240,6 +240,11 @@
   animation: unfold 0.14s var(--snap);
 }
 
+.palette:not([hidden]) {
+  transform-origin: 100% 0;
+  animation: unfold 0.14s var(--snap);
+}
+
 .tip:not([hidden]) {
   animation: fade 0.1s;
 }

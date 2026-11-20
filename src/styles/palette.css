@@ -1,0 +1,80 @@
+/* ---- the palette: a ring's fifty sounds ---------------------------------------- */
+
+.palette {
+  position: fixed;
+  z-index: 30;
+  display: grid;
+  gap: 4px;
+  width: min(560px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  padding: 12px 14px 14px;
+  overflow: auto;
+  border: 2px solid var(--ink);
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: 0 5px 0 var(--ink);
+}
+
+.palette-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.palette-head strong {
+  flex: 1;
+}
+
+.palette-head strong::before {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.5em;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--c);
+  content: "";
+}
+
+.palette-name {
+  margin: 6px 0 0;
+  color: var(--soft);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.palette-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.palette .chip[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--c);
+  color: var(--ink);
+}
+
+/* On a phone the palette lies along the bottom, and the sounds stand three abreast. */
+@media (max-width: 719px) {
+  .palette {
+    inset: auto 0 0;
+    width: auto;
+    max-height: 72dvh;
+    border-width: 2px 0 0;
+    border-radius: 18px 18px 0 0;
+    box-shadow: none;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+
+  .palette-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .palette .chip {
+    padding: 8px 2px;
+  }
+}

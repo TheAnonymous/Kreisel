@@ -22,6 +22,10 @@ export default [
     rules: { "no-restricted-imports": ["error", { patterns: [{ group: ["./audio/*", "./app/*", "./ui/*"], message: "The project's rules know nothing of sound, the app or the page." }] }] },
   },
   {
+    files: ["src/sounds/**/*.ts"],
+    rules: { "no-restricted-imports": ["error", { patterns: [{ group: ["../audio/*", "../app/*", "../ui/*"], message: "The palettes of sounds are plain numbers: they know nothing of sound, the app or the page." }] }] },
+  },
+  {
     files: ["src/audio/**/*.ts"],
     rules: { "no-restricted-imports": ["error", { patterns: [{ group: ["../app/*", "../ui/*"], message: "Sound knows nothing of the app or the page." }] }] },
   },

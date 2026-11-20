@@ -69,6 +69,15 @@ export async function paint(page: Page, points: readonly (readonly [number, numb
   await page.mouse.up();
 }
 
+/** Picks a ready-made sound of the ring in focus by its name, in the palette, and puts the palette away again. */
+export async function pickSound(page: Page, name: string): Promise<void> {
+  const palette = page.locator("#palette");
+  if (!(await palette.isVisible())) await page.locator("#sound-pick").click();
+  await palette.getByRole("button", { name, exact: true }).click();
+  await page.locator("#palette-done").click();
+  await expect(palette).toBeHidden();
+}
+
 export const bodyOf = (page: Page, track: number) => page.evaluate((ring) => window.kreisel.app.project.tracks[ring]!.body, track);
 export const voiceOf = (page: Page, track: number) => page.evaluate((ring) => window.kreisel.app.project.tracks[ring]!.voice, track);
 /** Where a place on the body on the workbench is on the page (0 its middle, 1 its edge). */

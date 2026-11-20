@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { barAt, focus, focusPiece, onLaptop, onPhone, open, paint, pieceOf, state, status, where } from "./helpers";
+import { barAt, focus, focusPiece, onLaptop, onPhone, open, paint, pickSound, pieceOf, state, status, where } from "./helpers";
 
 /*
  * The wheel itself: hits by pointer, by finger and by key, notes, chords and
@@ -166,7 +166,7 @@ test.describe("am Laptop", () => {
     await expect(menu).toBeHidden();
 
     await page.keyboard.press("5");
-    await page.locator(".chips .chip", { hasText: "Acid" }).click();
+    await pickSound(page, "Acid");
     await expect(page.locator(".track.selected .sound")).toHaveText("Acid");
     await page.locator("#scale").selectOption("dur");
     await page.locator("#root").selectOption("0");

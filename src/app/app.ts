@@ -252,6 +252,7 @@ export class App {
     this.focus = focus;
     this.workshop = null;
     this.chords.openSlot = null;
+    this.rings.paletteOpen = false;
     this.keyCursor = null;
     this.notify();
   }
@@ -260,6 +261,7 @@ export class App {
   openWorkshop(which: Workshop): void {
     this.workshop = which;
     this.chords.openSlot = null;
+    this.rings.paletteOpen = false;
     this.notify();
   }
 

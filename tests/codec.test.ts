@@ -59,7 +59,7 @@ describe("projects", () => {
 
   it("clamps what a hostile link claims", () => {
     const data = pack(factoryProject()) as unknown as Record<string, unknown>;
-    Object.assign(data, { b: 99_999, s: -4, r: 44, m: "<script>", p: "viel", i: 7, n: 3, t: [[9, 7, -2, 5, "x", null, 1]] });
+    Object.assign(data, { b: 99_999, s: -4, r: 44, m: "<script>", p: "viel", i: 7, n: 3, t: [[99, 7, -2, 5, "x", null, 1]] });
     const project = unpack(data);
     expect(project.bpm).toBe(200);
     expect(project.swing).toBe(0);

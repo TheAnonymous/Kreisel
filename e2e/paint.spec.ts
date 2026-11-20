@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { bildOf, onPhone, open, paint, sheet, soundOf, state, status } from "./helpers";
+import { bildOf, onPhone, open, paint, pickSound, sheet, soundOf, state, status } from "./helpers";
 
 /*
  * Klangmalerei: a ring's own sound, painted in the paint box or made to the
@@ -50,7 +50,7 @@ test.describe("am Laptop", () => {
     await page.keyboard.press("Space");
 
     // A built-in sound again; the picture waits, one click brings it back, another opens the paint box.
-    await page.locator(".chips .chip", { hasText: "Hart" }).click();
+    await pickSound(page, "Hart");
     expect(await soundOf(page, 0)).toBe(1);
     await expect(page.locator("#own-pick")).toHaveAttribute("aria-pressed", "false");
     await page.locator("#own-pick").click();

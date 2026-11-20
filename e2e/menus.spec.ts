@@ -49,8 +49,9 @@ test.describe("am Laptop", () => {
     // The whole ring: its length, its sound, who is heard.
     await menu.getByRole("menuitemradio", { name: "12 Schritte" }).click();
     await expect(status(page)).toContainText("von 12");
-    await menu.getByRole("menuitemradio", { name: "Acid" }).click();
-    expect(await soundOf(page, 4)).toBe(2);
+    await menu.getByRole("menuitem", { name: "Nächster Klang aus der Palette" }).click();
+    expect(await soundOf(page, 4)).toBe(34);
+    await expect(menu.getByRole("menuitem", { name: "Alle 50 Klänge dieses Rings zeigen" })).toHaveText("Flummi");
     await menu.getByRole("menuitemradio", { name: /stumm schalten/ }).click();
     expect(await page.evaluate(() => window.kreisel.app.project.tracks[4]!.mute)).toBe(true);
     await expect(menu.getByRole("menuitemradio", { name: /stumm schalten/ })).toHaveAttribute("aria-checked", "true");

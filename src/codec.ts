@@ -5,6 +5,7 @@ import { cleanWind, packWeather, unpackWeather } from "./weather";
 import { BODY_SOUND, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Body, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { soundPiece } from "./piece";
+import { LAST_SOUND } from "./sounds/index";
 import { cleanName } from "./relay";
 
 /*
@@ -263,7 +264,9 @@ function unpackTrack(value: unknown): Track {
   const bild = unpackBild(list[7]);
   const body = unpackBody(list[8]);
   const voice = unpackVoice(list[9]);
-  const sound = integer(list[0], 0, VOICE_SOUND, 0);
+  // A number that is no sound (a damaged link, or one from a later Kreisel that has more sounds) is read as the ring's first.
+  const stored = integer(list[0], -1, LAST_SOUND + 1, 0);
+  const sound = stored < 0 || stored > LAST_SOUND ? 0 : stored;
   return {
     // A ring cannot play a picture, a body or a voice it does not have.
     sound: (sound === OWN_SOUND && !bild) || (sound === BODY_SOUND && !body) || (sound === VOICE_SOUND && !voice) ? 0 : sound,

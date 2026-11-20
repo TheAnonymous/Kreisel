@@ -5,7 +5,9 @@ import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
 import { hasWeather, WEATHER_NAMES, windName } from "../weather";
 import { barCount } from "../piece";
+import { SOUND_COUNT } from "../sounds/index";
 import type { MenuRow, MenuSpec } from "./menu";
+import { soundLabel } from "./sound-palette";
 
 /*
  * What the right button offers, place by place: a hit, a ring, the piece, a
@@ -88,7 +90,16 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
         { label: "+", title: "Den Ring einen Schritt länger machen", disabled: pattern.len >= MAX_STEPS, run: () => app.rings.resize(track, pattern.len + 1) },
       ],
     },
-    { kind: "choice", label: "Klang", options: info.sounds.map((label, sound) => ({ label, active: settings.sound === sound, run: () => app.rings.setSound(track, sound) })) },
+    {
+      kind: "choice",
+      label: "Klang",
+      options: [
+        { label: "‹", title: "Voriger Klang aus der Palette", run: () => app.rings.stepSound(track, -1) },
+        { label: soundLabel(track, settings), title: `Alle ${SOUND_COUNT} Klänge dieses Rings zeigen`, close: true, run: () => { app.select(track); if (!app.rings.paletteOpen) app.rings.togglePalette(); } },
+        { label: "›", title: "Nächster Klang aus der Palette", run: () => app.rings.stepSound(track, 1) },
+        { label: "Würfeln", title: "Irgendeinen Klang aus der Palette nehmen", run: () => app.rings.diceSound(track) },
+      ],
+    },
     {
       kind: "choice",
       label: "Eigener Klang",

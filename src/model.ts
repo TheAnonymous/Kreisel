@@ -105,7 +105,7 @@ export interface Voice {
 }
 
 export interface Track {
-  /** Which of the ring's four sounds, OWN_SOUND for its picture, BODY_SOUND for its body or VOICE_SOUND for its voice. */
+  /** Which sound of the ring's shelf (see sounds/index.ts), or OWN_SOUND for its picture, BODY_SOUND for its body, VOICE_SOUND for its voice. */
   sound: number;
   /** The two macros of the sound pad, 0..1. */
   x: number;
@@ -218,7 +218,6 @@ export interface TrackInfo {
   name: string;
   /** Whether the ring plays notes of the key (bass, chords, melody). */
   melodic: boolean;
-  sounds: readonly [string, string, string, string];
   xLabel: string;
   yLabel: string;
   /** What moving a step outwards does. */
@@ -229,13 +228,13 @@ export interface TrackInfo {
 }
 
 export const TRACK_INFO: Record<TrackKind, TrackInfo> = {
-  kick: { name: "Kick", melodic: false, sounds: ["Rund", "Hart", "Tief", "Staub"], xLabel: "Ton", yLabel: "Länge", pitchLabel: "Stimmung", color: "#e4572e", refHz: 0 },
-  snare: { name: "Snare", melodic: false, sounds: ["Snare", "Klatsch", "Rand", "Schnipp"], xLabel: "Ton", yLabel: "Länge", pitchLabel: "Stimmung", color: "#f29a2e", refHz: 0 },
-  hat: { name: "Hi-Hat", melodic: false, sounds: ["Seide", "Blech", "Shaker", "Zisch"], xLabel: "Helligkeit", yLabel: "Länge", pitchLabel: "Offenheit", color: "#e9bd24", refHz: 0 },
-  perc: { name: "Trommel", melodic: false, sounds: ["Tom", "Conga", "Kuhglocke", "Holz"], xLabel: "Ton", yLabel: "Länge", pitchLabel: "Tonhöhe", color: "#5fb85a", refHz: 110 },
-  bass: { name: "Bass", melodic: true, sounds: ["Sub", "Säge", "Acid", "Gummi"], xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Tonhöhe", color: "#27a79c", refHz: 55 },
-  chord: { name: "Akkorde", melodic: true, sounds: ["Fläche", "Stab", "E-Piano", "Orgel"], xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Lage", color: "#3d7edb", refHz: 220 },
-  lead: { name: "Melodie", melodic: true, sounds: ["Zupf", "Glocke", "Pfeife", "Säge"], xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Tonhöhe", color: "#a45de0", refHz: 440 },
+  kick: { name: "Kick", melodic: false, xLabel: "Ton", yLabel: "Länge", pitchLabel: "Stimmung", color: "#e4572e", refHz: 0 },
+  snare: { name: "Snare", melodic: false, xLabel: "Ton", yLabel: "Länge", pitchLabel: "Stimmung", color: "#f29a2e", refHz: 0 },
+  hat: { name: "Hi-Hat", melodic: false, xLabel: "Helligkeit", yLabel: "Länge", pitchLabel: "Offenheit", color: "#e9bd24", refHz: 0 },
+  perc: { name: "Trommel", melodic: false, xLabel: "Ton", yLabel: "Länge", pitchLabel: "Tonhöhe", color: "#5fb85a", refHz: 110 },
+  bass: { name: "Bass", melodic: true, xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Tonhöhe", color: "#27a79c", refHz: 55 },
+  chord: { name: "Akkorde", melodic: true, xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Lage", color: "#3d7edb", refHz: 220 },
+  lead: { name: "Melodie", melodic: true, xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Tonhöhe", color: "#a45de0", refHz: 440 },
 };
 
 export const trackInfo = (index: number): TrackInfo => TRACK_INFO[TRACK_KINDS[index] ?? "kick"];
