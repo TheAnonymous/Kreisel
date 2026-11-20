@@ -16,6 +16,18 @@
   border-width: 4px;
 }
 
+/* The row for the piece's length holds a number of three digits and four chips:
+   its label is only as wide as its word, and nothing beside it gives way. */
+.panel-piece .line .label {
+  width: auto;
+  margin-right: 4px;
+}
+
+.panel-piece .line output,
+.panel-piece .line .button {
+  flex: none;
+}
+
 .piece-toggle {
   min-width: 34px;
   height: 24px;

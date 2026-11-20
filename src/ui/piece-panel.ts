@@ -46,7 +46,7 @@ export class PiecePanel {
     more.setAttribute("aria-label", "Vier Takte länger");
     more.addEventListener("click", () => app.piece.resize(barCount(app.project.piece) + 4));
     const quick = el("span", "quick");
-    for (const bars of [16, 32, 64, 128]) {
+    for (const bars of [32, 64, 128, 256]) {
       const chip = button("chip tiny", String(bars), `${bars} Takte`);
       chip.addEventListener("click", () => app.piece.resize(bars));
       quick.append(chip);

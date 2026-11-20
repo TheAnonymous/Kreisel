@@ -37,6 +37,7 @@ export class HelpDialog {
       [", .", "Szene zurück oder vor"],
       ["8", "den Stück-Ring wählen · dort: ← → Takt, + − Spannung, Eingabe spielt ab dem Takt"],
       ["9", `das Wetter wählen · dort: ${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")} ${key("KeyY")} Nebel, Sonne, Wolken, Regen, Funken, Hagel · ${key("KeyN")} würfeln · Entf nimmt das gewählte Wetter weg`],
+      ["Hinter den drei Punkten", "Techno-Kreisel oder Werks-Kreisel laden · „Techno würfeln“: Die Würfel werfen Kick auf jedem Schlag, offene Hi-Hat dazwischen und Acid-Linien, das Stück bekommt Abschnitte von 16 und 32 Takten"],
       ["Strg+Z", "Rückgängig · mit Umschalt wiederholen"],
       ["?", "diese Hilfe"],
     ];

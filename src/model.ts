@@ -144,7 +144,8 @@ export interface Scene {
 }
 
 export const MIN_BARS = 4;
-export const MAX_BARS = 128;
+/** 256 bars are a little under seven minutes at 150 beats a minute. */
+export const MAX_BARS = 256;
 /** The highest tension a bar can have. */
 export const TENSION_MAX = 31;
 
@@ -187,8 +188,17 @@ export interface Relay {
   turns: Turn[];
 }
 
+/**
+ * The manner a Kreisel is built in: what its dice throw, what a new piece is
+ * shaped like, and which values its controls go back to. "frei" is the
+ * Kreisel as it always was; "techno" is hard and acid techno.
+ */
+export const STYLE_IDS = ["frei", "techno"] as const;
+export type StyleId = (typeof STYLE_IDS)[number];
+
 export interface Project {
   v: 1;
+  style: StyleId;
   bpm: number;
   /** 0..1 */
   swing: number;
@@ -301,7 +311,7 @@ export function firstPiece(scene = 0): Piece {
   return { on: false, tension: shape, scenes: shape.map(() => scene), order: [...FIRST_ORDER] };
 }
 
-/** The groove a first visit starts with: A minor, four chords, one ring of twelve against the sixteens. */
+/** The Werks-Kreisel: A minor, four chords, one ring of twelve against the sixteens. */
 export function factoryProject(): Project {
   const scene: Scene = {
     rumble: emptyRumble(),
@@ -320,6 +330,7 @@ export function factoryProject(): Project {
   };
   return {
     v: 1,
+    style: "frei",
     bpm: 112,
     swing: 0.18,
     root: 9,
@@ -344,6 +355,87 @@ export function factoryProject(): Project {
     piece: firstPiece(),
     relay: null,
   };
+}
+
+/** In techno the kick is there first, then hi-hat and clap around it, the tuned drum, the acid line, and stab and melody last. */
+export const TECHNO_ORDER = [0, 2, 1, 3, 4, 5, 6] as const;
+
+/**
+ * The piece a techno Kreisel starts with, in the sections such a track has:
+ * sixteen bars that build from the kick, thirty-two at full height, sixteen
+ * that fall back, thirty-two at the top, sixteen that take it apart again.
+ * It waits switched off.
+ */
+export function technoPiece(scene = 0): Piece {
+  const climb = (from: number, to: number, bars: number): number[] => Array.from({ length: bars }, (_, bar) => Math.round(from + ((to - from) * bar) / (bars - 1)));
+  const hold = (level: number, bars: number): number[] => Array.from({ length: bars }, () => level);
+  const shape = [...climb(3, 17, 16), ...hold(27, 16), ...hold(31, 16), ...hold(9, 8), ...climb(9, 20, 8), ...hold(31, 32), ...climb(24, 3, 16)];
+  return { on: false, tension: shape, scenes: shape.map(() => scene), order: [...TECHNO_ORDER] };
+}
+
+/**
+ * The techno Kreisel, which a first visit starts with: 150 beats a minute and
+ * no swing, G Phrygian over one chord, the kick on every beat with the ground
+ * shaking between, an open hi-hat on the off-beats, a clap on two and four, a
+ * low drum on a ring of twelve, and an acid line that slides three times.
+ */
+export function technoProject(): Project {
+  const scene: Scene = {
+    // Between two kicks the ground swells and is gone before the next: the Nachbeben's off-beat shape for a kick on every beat.
+    rumble: Array.from({ length: MAX_STEPS }, (_, step) => (step < 16 ? ([0, 12, 15, 12][step % 4] ?? 0) : 0)),
+    weather: emptyWeather(),
+    wind: emptyWind(),
+    chords: [0],
+    patterns: [
+      pattern(16, [0, 4, 8, 12]),
+      pattern(16, [[4, 0, 1, 2], [12, 0, 1, 2]]),
+      // Sixteenths that leave the kick alone; the off-beats are open and loud.
+      pattern(16, [[1, 0, 1, 0], [2, 3, 1, 2], [3, 0, 1, 0], [5, 0, 1, 0], [6, 3, 1, 2], [7, 0, 1, 0], [9, 0, 1, 0], [10, 3, 1, 2], [11, 0, 1, 0], [13, 0, 1, 0], [14, 3, 1, 2], [15, 0, 1, 0, 0, 2]]),
+      pattern(12, [[3, -3], [7, 0, 1, 0], [10, -3, 1, 1, 1]]),
+      // An octave above the ground the Nachbeben shakes on: the root (7), the small step above it (8) and the octave (14).
+      // A note right after another of a different pitch slides into it: the octave down to the root, the root up
+      // the small step, and that step back to the root over the bar line.
+      pattern(16, [[0, 7], [1, 7, 1, 0], [3, 14, 1, 2], [4, 7], [6, 7], [7, 8, 1, 2], [9, 7], [10, 7, 1, 0], [12, 14, 1, 2], [13, 14], [15, 8]]),
+      pattern(16, [[6, 0, 1, 2], [13, 0, 1, 0]]),
+      emptyPattern(16),
+    ],
+  };
+  return {
+    v: 1,
+    style: "techno",
+    bpm: 150,
+    swing: 0,
+    root: 7,
+    scale: "phrygisch",
+    pump: 0.55,
+    dirt: 0.45,
+    roll: 0.2,
+    volume: 0.8,
+    tracks: [
+      // The hard kick, tuned down to the root (49 Hz).
+      { sound: 1, x: 0.3, y: 0.55, level: 0.9, hall: 0, echo: 0, mute: false, bild: null, body: null, voice: null },
+      { sound: 1, x: 0.5, y: 0.35, level: 0.7, hall: 0.12, echo: 0, mute: false, bild: null, body: null, voice: null },
+      { sound: 1, x: 0.5, y: 0.5, level: 0.62, hall: 0.03, echo: 0, mute: false, bild: null, body: null, voice: null },
+      { sound: 0, x: 0.3, y: 0.45, level: 0.55, hall: 0.1, echo: 0.15, mute: false, bild: null, body: null, voice: null },
+      { sound: 2, x: 0.5, y: 0.35, level: 0.72, hall: 0, echo: 0.12, mute: false, bild: null, body: null, voice: null },
+      { sound: 1, x: 0.55, y: 0.3, level: 0.5, hall: 0.25, echo: 0.3, mute: false, bild: null, body: null, voice: null },
+      { sound: 3, x: 0.55, y: 0.4, level: 0.6, hall: 0.1, echo: 0.3, mute: false, bild: null, body: null, voice: null },
+    ],
+    scenes: [scene, null, null, null, null, null, null, null],
+    scene: 0,
+    chain: false,
+    repeats: 1,
+    piece: technoPiece(),
+    relay: null,
+  };
+}
+
+/** What a Kreisel of a style starts as, and what its controls go back to. */
+export const startProject = (style: StyleId): Project => (style === "techno" ? technoProject() : factoryProject());
+
+/** A scene with nothing on its rings: over one chord in techno, over four otherwise. */
+export function emptySceneFor(style: StyleId): Scene {
+  return style === "techno" ? { ...emptyScene(), chords: [0] } : emptyScene();
 }
 
 /** The scene on the table (there is always one). */

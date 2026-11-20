@@ -2,7 +2,7 @@ import { cleanBody } from "./body";
 import { cleanVoice } from "./voice";
 import { cleanRumble } from "./rumble";
 import { cleanWind, packWeather, unpackWeather } from "./weather";
-import { BODY_SOUND, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Body, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type Stroke, type Track } from "./model";
+import { BODY_SOUND, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Body, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { soundPiece } from "./piece";
 import { LAST_SOUND } from "./sounds/index";
@@ -121,6 +121,8 @@ interface PackedScene {
 
 interface Packed {
   v: 1;
+  /** The style, where it is not "frei": links from before there were styles have none. */
+  g?: string;
   b: number;
   s: number;
   r: number;
@@ -145,6 +147,7 @@ const round = (value: number): number => Math.round(value * 100) / 100;
 export function packState(project: Project): Packed {
   return {
     v: 1,
+    ...(project.style === "frei" ? {} : { g: project.style }),
     b: project.bpm,
     s: round(project.swing),
     r: project.root,
@@ -300,6 +303,7 @@ export function unpack(value: unknown, inTurn = false): Project {
   piece.scenes = piece.scenes.map((scene) => (scenes[scene] ? scene : first));
   return {
     v: 1,
+    style: STYLE_IDS.includes(data.g as StyleId) ? (data.g as StyleId) : "frei",
     bpm: integer(data.b, 60, 200, 112),
     swing: number(data.s, 0, 1, 0),
     root: integer(data.r, 0, 11, 9),

@@ -1,5 +1,5 @@
 import { hasRumble, shakes } from "../rumble";
-import { clamp, clone, currentScene, emptyRumble, emptyStep, factoryProject, MAX_NOTE_LENGTH, MAX_STEPS, MIN_STEPS, patternOf, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, stepAt, TRACK_COUNT, trackInfo, trackOf, type Pattern, type Step, type Track, wrap } from "../model";
+import { clamp, clone, currentScene, emptyRumble, emptyStep, startProject, MAX_NOTE_LENGTH, MAX_STEPS, MIN_STEPS, patternOf, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, stepAt, TRACK_COUNT, trackInfo, trackOf, type Pattern, type Step, type Track, wrap } from "../model";
 import { activeSteps, clear, dice, resize, rotate, spread, transpose, vary } from "../patterns";
 import { alongPalette, PALETTE_ORDER } from "../sounds/index";
 import type { App, Tool } from "./app";
@@ -172,7 +172,7 @@ export class RingDesk {
     if (this.app.relay.refuse(track)) return;
     this.app.store.edit((project) => {
       const scene = currentScene(project);
-      scene.patterns[track] = dice(track, patternOf(project, track).len, this.app.random);
+      scene.patterns[track] = dice(track, patternOf(project, track).len, this.app.random, project.style);
     });
     this.app.onDeed({ what: "dice", track });
   }
@@ -202,7 +202,7 @@ export class RingDesk {
     }
     this.app.store.edit((project) => {
       const scene = currentScene(project);
-      scene.patterns = scene.patterns.map((pattern, track) => dice(track, pattern.len, this.app.random));
+      scene.patterns = scene.patterns.map((pattern, track) => dice(track, pattern.len, this.app.random, project.style));
     });
     this.app.say("Alle Ringe neu gewürfelt.", this.app.takeBack);
     this.app.onDeed({ what: "dice-all" });
@@ -268,12 +268,12 @@ export class RingDesk {
 
   /** The right button on a control puts it back where a fresh Kreisel has it. */
   resetTrack(track: number, field: "level" | "hall" | "echo"): void {
-    const fresh = trackOf(factoryProject(), track);
+    const fresh = trackOf(startProject(this.app.project.style), track);
     this.setTrack(track, { [field]: fresh[field] });
   }
 
   resetPad(track: number): void {
-    const fresh = trackOf(factoryProject(), track);
+    const fresh = trackOf(startProject(this.app.project.style), track);
     this.setTrack(track, { x: fresh.x, y: fresh.y });
     this.preview(track);
   }

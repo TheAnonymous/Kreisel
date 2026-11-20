@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { expect, type Download, type Page } from "@playwright/test";
+import { serialize } from "../src/codec";
+import { factoryProject } from "../src/model";
 import { readOggOpus } from "../src/ogg";
+import { STORAGE_KEY } from "../src/store";
 
 /*
  * What the browser tests share. They look at the built app behind the preview
@@ -18,20 +21,44 @@ declare global {
   }
 }
 
-/** Opens the Kreisel as someone who has been here before; with `firstVisit`, as someone who has not (then the tour comes). */
-export async function open(page: Page, path = "./", firstVisit = false): Promise<string[]> {
+/** The Werks-Kreisel as the browser keeps a Kreisel. Most tests begin with it on the table, as if it had been loaded from the menu. */
+const WERK = serialize(factoryProject());
+
+/** Collects what goes wrong on the page: errors, and whatever the Content-Security-Policy blocks. */
+async function watch(page: Page): Promise<string[]> {
   const problems: string[] = [];
   page.on("pageerror", (error) => problems.push(String(error)));
   page.on("console", (message) => {
     if (message.type() === "error") problems.push(message.text());
   });
-  await page.addInitScript((seen) => {
-    if (seen) localStorage.setItem("kreisel.hinweis", "1");
+  await page.addInitScript(() => {
     window.cspViolations = [];
     document.addEventListener("securitypolicyviolation", (event) => window.cspViolations.push(`${event.violatedDirective} ${event.blockedURI}`));
-  }, !firstVisit);
+  });
+  return problems;
+}
+
+/**
+ * Opens the Kreisel as someone who has been here before, with the Werks-Kreisel on the table;
+ * with `firstVisit`, as someone who has not seen the tour yet (then it comes).
+ */
+export async function open(page: Page, path = "./", firstVisit = false): Promise<string[]> {
+  const problems = await watch(page);
+  await page.addInitScript(([seen, key, werk]) => {
+    if (seen) localStorage.setItem("kreisel.hinweis", "1");
+    // Only where nothing is kept yet: after a reload the page has to find what the test left.
+    if (localStorage.getItem(key) === null) localStorage.setItem(key, werk);
+  }, [!firstVisit, STORAGE_KEY, WERK] as const);
   await page.goto(path);
   await expect(page.locator("#status")).toContainText("Schläge");
+  return problems;
+}
+
+/** Opens the Kreisel as on a very first visit: nothing is kept in the browser, so the techno Kreisel is on the table and the tour comes. */
+export async function firstLook(page: Page): Promise<string[]> {
+  const problems = await watch(page);
+  await page.goto("./");
+  await expect(page.locator("#status")).toContainText("Melodie");
   return problems;
 }
 

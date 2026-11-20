@@ -1,4 +1,4 @@
-import { clamp, MAX_BARS, MIN_BARS, SCENE_COUNT, TENSION_MAX, TRACK_COUNT, FIRST_ORDER, type Piece, wrap } from "./model";
+import { clamp, MAX_BARS, MIN_BARS, SCENE_COUNT, TENSION_MAX, TRACK_COUNT, FIRST_ORDER, type Piece, type StyleId, wrap } from "./model";
 import type { Random } from "./patterns";
 
 /*
@@ -119,14 +119,89 @@ export function moveInOrder(piece: Piece, ring: number, by: number): void {
 
 const pick = <T>(random: Random, items: readonly T[]): T => items[Math.floor(random() * items.length) % items.length] as T;
 
+/** A stretch of a techno track. */
+export interface Section {
+  role: "intro" | "full" | "break" | "outro";
+  bars: number;
+}
+
+/** The shortest piece that has room for a techno form: an intro and an outro of eight bars. */
+export const TECHNO_FORM_MIN = 16;
+
 /**
- * A new line for the piece, in sections of four or eight bars, with the form
- * of a track: it starts low and climbs, perhaps breaks, lands on a peak,
- * stays up or breaks once more, and fades out in its last section. The scenes
- * stay as they are.
+ * The sections of a techno track over `count` bars, each as a role and a
+ * length. Sections are 16 or 32 bars long (8 or 16 in a piece under 64 bars):
+ * an intro, then full sections with a break between them, and an outro. Bars
+ * that do not fill a section go to the last full one.
  */
-export function dicePiece(piece: Piece, random: Random): void {
+export function technoSections(count: number, random: Random): Section[] {
+  const unit = count >= 64 ? 16 : 8;
+  const units = Math.floor(count / unit);
+  const sections: Section[] = [{ role: "intro", bars: unit }];
+  // What lies between intro and outro, counted in units: two full, one break, two full … and whatever is left at the end.
+  let left = units - 2;
+  while (left >= 5) {
+    sections.push({ role: "full", bars: unit * 2 }, { role: "break", bars: unit });
+    left -= 3;
+  }
+  const tail: readonly (readonly [role: "full" | "break", units: number])[] = left === 4
+    ? (random() < 0.5 ? [["full", 2], ["break", 1], ["full", 1]] : [["full", 1], ["break", 1], ["full", 2]])
+    : left === 3 ? [["full", 1], ["break", 1], ["full", 1]]
+      : left > 0 ? [["full", left]] : [];
+  for (const [role, long] of tail) sections.push({ role, bars: long * unit });
+  sections.push({ role: "outro", bars: unit });
+  // The rest goes to the last full section, or to the intro where there is none.
+  const rest = count - units * unit;
+  const grows = [...sections].reverse().find((section) => section.role === "full") ?? sections[0];
+  if (grows) grows.bars += rest;
+  return sections;
+}
+
+/**
+ * A techno form for the line. The intro climbs from the kick alone until four
+ * rings play. A full section arrives at once (which takes a run-up) and lifts
+ * a little at its half. A break falls at once and climbs again through its
+ * second half. The outro takes the piece apart, ring by ring.
+ */
+function technoLine(count: number, random: Random): number[] {
+  const between = (low: number, high: number): number => low + random() * (high - low);
+  const tension: number[] = [];
+  let fulls = 0;
+  for (const { role, bars } of technoSections(count, random)) {
+    let from: number;
+    let to: number;
+    if (role === "intro") [from, to] = [between(0.06, 0.12), between(0.44, 0.52)];
+    else if (role === "outro") [from, to] = [between(0.7, 0.8), between(0.06, 0.12)];
+    else if (role === "break") [from, to] = [between(0.2, 0.3), between(0.5, 0.62)];
+    else {
+      fulls += 1;
+      // The first full section holds something back for the ones after it.
+      from = fulls === 1 ? between(0.84, 0.9) : between(0.92, 1);
+      to = Math.min(1, from + 0.07);
+    }
+    for (let bar = 0; bar < bars; bar += 1) {
+      const level = role === "full" ? (bar < bars / 2 ? from : to)
+        : role === "break" ? (bar < bars / 2 ? from : from + ((to - from) * (bar - bars / 2 + 1)) / (bars / 2))
+          : from + ((to - from) * bar) / Math.max(1, bars - 1);
+      tension.push(clamp(Math.round(level * TENSION_MAX), 0, TENSION_MAX));
+    }
+  }
+  return tension;
+}
+
+/**
+ * A new line for the piece, with the form of a track. In the free style it
+ * comes in sections of four or eight bars: it starts low and climbs, perhaps
+ * breaks, lands on a peak, stays up or breaks once more, and fades out in its
+ * last section. In techno it is a techno form (see `technoSections`), where
+ * the piece is long enough for one. The scenes stay as they are.
+ */
+export function dicePiece(piece: Piece, random: Random, style: StyleId = "frei"): void {
   const count = barCount(piece);
+  if (style === "techno" && count >= TECHNO_FORM_MIN) {
+    piece.tension = technoLine(count, random);
+    return;
+  }
   const lengths: number[] = [];
   for (let left = count; left > 0; left -= lengths[lengths.length - 1] ?? left) lengths.push(Math.min(left, pick(random, [4, 8, 8])));
   const sections = lengths.length;
@@ -170,7 +245,7 @@ export function describePiece(piece: Piece, bpm: number): string {
   return `${count} Takte, ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} Minuten, im Mittel ${mean} % Spannung`;
 }
 
-/** Whatever a link claims, a piece is 4 to 128 bars with tensions and scenes in range and every ring once in its order. */
+/** Whatever a link claims, a piece is 4 to 256 bars with tensions and scenes in range and every ring once in its order. */
 export function soundPiece(on: boolean, tension: readonly number[], scenes: readonly number[], order: readonly number[], fallbackScene: number): Piece {
   const count = clamp(tension.length, MIN_BARS, MAX_BARS);
   const rings = order.filter((ring, index) => Number.isInteger(ring) && ring >= 0 && ring < TRACK_COUNT && order.indexOf(ring) === index);

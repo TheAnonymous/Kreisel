@@ -1,5 +1,5 @@
 import { diceRumble, RUMBLE_SHAPES, rumbleShape, SHAPE_ROLL, shapeOf } from "../rumble";
-import { clamp, currentScene, emptyRumble, factoryProject, patternOf, RUMBLE_MAX, type Project } from "../model";
+import { clamp, currentScene, emptyRumble, startProject, patternOf, RUMBLE_MAX, type Project } from "../model";
 import { activeSteps } from "../patterns";
 import type { App } from "./app";
 
@@ -63,7 +63,7 @@ export class RumbleDesk {
   }
 
   reset(field: "dirt" | "roll"): void {
-    this.set({ [field]: factoryProject()[field] });
+    this.set({ [field]: startProject(this.app.project.style)[field] });
   }
 
   /** Picks the kick's ring and the tool that paints its Nachbeben. */

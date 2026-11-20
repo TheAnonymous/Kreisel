@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { factoryProject, patternOf, stepAt } from "../src/model";
+import { factoryProject, patternOf, stepAt, technoProject } from "../src/model";
 import { Store } from "../src/store";
 
 const memory = new Map<string, string>();
@@ -81,7 +81,7 @@ describe("store", () => {
     store.undo();
     expect(store.project.bpm).toBe(101);
     store.undo();
-    expect(store.project.bpm).toBe(factoryProject().bpm);
+    expect(store.project.bpm).toBe(technoProject().bpm);
   });
 
   it("a new edit forgets what could be redone", () => {
@@ -100,9 +100,10 @@ describe("store", () => {
     expect(new Store().project.bpm).toBe(77);
   });
 
-  it("starts with the factory project when the storage holds rubbish", () => {
+  it("starts with the techno Kreisel on a first visit, and when the storage holds rubbish", () => {
+    expect(new Store().project).toEqual(technoProject());
     memory.set("kreisel.projekt.v1", "{nope");
-    expect(new Store().project).toEqual(factoryProject());
+    expect(new Store().project).toEqual(technoProject());
   });
 
   it("brings the old project back after a replaced one", () => {

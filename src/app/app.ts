@@ -1,5 +1,5 @@
 import { Engine, type FxName } from "../audio/engine";
-import { BAR, clamp, currentScene, emptyScene, factoryProject, patternOf, TRACK_COUNT, trackOf, wrap, type Project } from "../model";
+import { BAR, clamp, currentScene, emptySceneFor, patternOf, startProject, TRACK_COUNT, trackOf, wrap, type Project, type StyleId } from "../model";
 import { chordAt } from "../music";
 import { seeded } from "../patterns";
 import { barCount } from "../piece";
@@ -300,10 +300,10 @@ export class App {
   }
 
   resetGlobal(field: "swing" | "pump" | "volume"): void {
-    this.setGlobal({ [field]: factoryProject()[field] });
+    this.setGlobal({ [field]: startProject(this.project.style)[field] });
   }
 
-  setGlobal(change: Partial<Pick<Project, "bpm" | "swing" | "root" | "scale" | "pump" | "volume" | "chain" | "repeats">>, key?: string): void {
+  setGlobal(change: Partial<Pick<Project, "style" | "bpm" | "swing" | "root" | "scale" | "pump" | "volume" | "chain" | "repeats">>, key?: string): void {
     this.store.edit((project) => { Object.assign(project, change); }, key);
   }
 
@@ -319,12 +319,23 @@ export class App {
     this.onDeed({ what: "redo" });
   }
 
-  newProject(empty: boolean): void {
-    const project = factoryProject();
-    if (empty) project.scenes[0] = emptyScene();
+  /**
+   * A fresh Kreisel: the one its style starts with, or that one with nothing on its rings.
+   * Without a `style` it stays in the style of the Kreisel on the table.
+   */
+  newProject(empty: boolean, style: StyleId = this.project.style): void {
+    const project = startProject(style);
+    if (empty) project.scenes[0] = emptySceneFor(style);
     this.store.replace(project);
     if (this.playing) this.engine.queueScene(0);
-    this.say(empty ? "Ein leerer Kreisel." : "Der Werks-Kreisel ist wieder da.", this.takeBack);
+    this.say(empty ? "Ein leerer Kreisel." : style === "techno" ? "Der Techno-Kreisel ist da." : "Der Werks-Kreisel ist wieder da.", this.takeBack);
+  }
+
+  /** Whether the dice throw techno, and what the controls go back to. */
+  toggleStyle(): void {
+    const style: StyleId = this.project.style === "techno" ? "frei" : "techno";
+    this.setGlobal({ style });
+    this.say(style === "techno" ? "Die Würfel werfen jetzt Techno: Kick auf jedem Schlag, offene Hi-Hat dazwischen, Acid-Linien." : "Die Würfel werfen wieder frei.");
   }
 
   // ---- how it looks ----------------------------------------------------------------

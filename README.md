@@ -85,7 +85,7 @@ dozen bytes a stroke), are rendered into the saved file and can be undone.
 ## Part three: the piece
 
 The outermost ring is the whole piece: one turn of it is as many bars as the
-piece is long (4 to 128). Only one thing is painted into it, the tension:
+piece is long (4 to 256). Only one thing is painted into it, the tension:
 far out means a lot is going on, far in means little. The Kreisel arranges by
 that line, bar by bar:
 
@@ -339,6 +339,44 @@ old game consoles. That makes 350.
   peak would then stand out (which holds very short clicks a little lower). The numbers are measured,
   not chosen by ear.
 
+## Techno
+
+Kreisel is being made fit for acid techno and hard techno, step by step. The
+first step is where a Kreisel begins.
+
+- **The techno Kreisel** is what a first visit finds: 150 beats a minute and
+  no swing, G Phrygian over one chord, the kick on every beat with the
+  Nachbeben shaking between, an open hi-hat on the off-beats, a clap on two
+  and four, a low drum on a ring of twelve, and an acid line that slides three
+  times. The Werks-Kreisel of before is still in the menu behind the three
+  dots, beside it.
+- **A Kreisel has a style**, free or techno, which it takes from its start
+  and which the menu can switch ("Techno würfeln"). The style decides what the
+  dice throw, what a control goes back to on a right click, and what an empty
+  Kreisel is like. It travels in the link; a link from before there were
+  styles is free.
+- **Techno dice** go by what the genre's own tutorials say. The kick is on
+  every beat and only the end of its ring varies. The open hi-hat sits between
+  the kicks, with sixteenths, eighths or nothing around it. The clap is on two
+  and four. An acid line plays about two steps in three and has at most five
+  different notes (the root most of the time, its octaves, one or two notes of
+  the scale). A note that follows another without a rest keeps that one's
+  pitch, except where the line is meant to slide, one to three times: the acid
+  bass glides between touching notes of different pitch, so a slide is written
+  simply as two such notes. Two to four notes are accented, the ones slid into
+  first.
+- **A techno form** for the piece: its dice cut it into an intro that builds
+  from the kick alone, full sections that arrive with a run-up, breaks that
+  fall and climb again, and an outro; sections are 16 and 32 bars long (8 and
+  16 in a piece under 64 bars). In a techno piece the kick comes in first. A
+  piece can be 256 bars now, a little under seven minutes at 150.
+
+The rules are in `src/model.ts` (the two starts), `src/patterns.ts` (the dice)
+and `src/piece.ts` (the form). Still to come: distortion as a control, a real
+303 voice with slides one can see, breaks that take the kick out, and a techno
+Kreisel that uses the ride, the open hi-hat and the claps of the new palettes
+(it starts on the classics for now).
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the
@@ -368,8 +406,8 @@ The code lies in four layers, and each knows only the ones before it (the linter
 
 | Where | What |
 | --- | --- |
-| `src/model.ts`, `src/music.ts` | the project as plain data; scales, chords and where each ring's notes sit |
-| `src/patterns.ts` | turning, spreading, dice and small variations (pure, seeded) |
+| `src/model.ts`, `src/music.ts` | the project as plain data and the two Kreisel one can start with; scales, chords and where each ring's notes sit |
+| `src/patterns.ts` | turning, spreading, dice in both styles and small variations (pure, seeded) |
 | `src/codec.ts`, `src/store.ts` | the project as a link and in the browser's storage; undo |
 | `src/bild.ts`, `src/imitate.ts`, `src/collection.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes; the shelf of kept pictures |
 | `src/body.ts`, `src/voice.ts`, `src/rumble.ts`, `src/weather.ts` | the rules of the Klangkörper, the voice, the Nachbeben and the weather |
@@ -388,7 +426,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/menu.ts`, `menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
 | `scripts/level-sounds.mjs` | `npm run level`: measures every ready-made sound and writes `src/sounds/trims.ts` |
-| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`), and `helpers.ts` for what they share |
+| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
 
 ## License
 

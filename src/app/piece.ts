@@ -75,7 +75,7 @@ export class PieceDesk {
   }
 
   dice(): void {
-    this.app.store.edit((project) => dicePiece(project.piece, this.app.random));
+    this.app.store.edit((project) => dicePiece(project.piece, this.app.random, project.style));
   }
 
   smooth(): void {

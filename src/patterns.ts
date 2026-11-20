@@ -1,4 +1,4 @@
-import { clamp, emptyPattern, emptyStep, MAX_NOTE_LENGTH, MAX_STEPS, PITCH_MAX, PITCH_MIN, stepAt, TRACK_KINDS, type Pattern, type Step, type TrackKind, wrap } from "./model";
+import { clamp, emptyPattern, emptyStep, MAX_NOTE_LENGTH, MAX_STEPS, PITCH_MAX, PITCH_MIN, stepAt, TRACK_KINDS, type Pattern, type Step, type StyleId, type TrackKind, wrap } from "./model";
 
 /*
  * What can be done to a ring as a whole: turn it, spread its hits evenly,
@@ -215,19 +215,175 @@ function diceLead(len: number, random: Random): Pattern {
   return pattern;
 }
 
-const DICE: Record<TrackKind, (len: number, random: Random) => Pattern> = {
-  kick: diceKick,
-  snare: diceSnare,
-  hat: diceHat,
-  perc: dicePerc,
-  bass: diceBass,
-  chord: diceChord,
-  lead: diceLead,
+// ---- techno ----------------------------------------------------------------------
+//
+// The dice of a techno Kreisel go by what the genre's own tutorials say: the
+// kick on every beat, an open hi-hat between the kicks, a clap on two and four,
+// and an acid line of few notes that jumps octaves and slides now and then.
+
+/** The steps between the beats: the "and" of every beat. */
+const offbeat = (index: number): boolean => index % 4 === 2;
+
+/** The kick on every beat. What changes is the end of the ring: a quiet kick more after the last beat, always or every other time. */
+function technoKick(len: number, random: Random): Pattern {
+  const pattern = emptyPattern(len);
+  for (const beat of beats(len)) put(pattern, beat);
+  const last = beats(len).at(-1) ?? 0;
+  const ending = pick(random, ["plain", "plain", "push", "sometimes", "late"] as const);
+  if (ending === "push" && last + 2 < len) put(pattern, last + 2, { vel: 0 });
+  if (ending === "sometimes" && last + 2 < len) put(pattern, last + 2, { vel: 0, chance: 2 });
+  if (ending === "late" && last + 3 < len) put(pattern, last + 3, { vel: 0, chance: 2 });
+  return pattern;
+}
+
+/** A clap on two and four, or only on four; sometimes it rolls into the next round. */
+function technoClap(len: number, random: Random): Pattern {
+  const pattern = emptyPattern(len);
+  const sparse = chance(random, 0.25);
+  for (const beat of beats(len)) if (sparse ? beat % 16 === 12 : beat % 8 === 4) put(pattern, beat, { vel: 2 });
+  if (activeSteps(pattern).length === 0) put(pattern, Math.min(len - 1, 4), { vel: 2 });
+  if (chance(random, 0.3)) put(pattern, len - 1, { vel: 0, ratchet: 2 });
+  return pattern;
+}
+
+/** The open hi-hat between the kicks is always there; around it run sixteenths, eighths or nothing. */
+function technoHat(len: number, random: Random): Pattern {
+  const pattern = emptyPattern(len);
+  const around = pick(random, ["sixteenths", "sixteenths", "nothing", "eighths"] as const);
+  for (let index = 0; index < len; index += 1) {
+    if (offbeat(index)) put(pattern, index, { vel: 2, pitch: 3 });
+    else if (around === "sixteenths" && index % 2 === 1) put(pattern, index, { vel: 0, chance: chance(random, 0.15) ? 1 : 0 });
+    else if (around === "eighths" && index % 4 === 0) put(pattern, index, { vel: 0 });
+  }
+  // Very short rings have no off-beat: they still get a hi-hat.
+  if (activeSteps(pattern).length === 0) put(pattern, len - 1, { vel: 1, pitch: 3 });
+  if (chance(random, 0.35)) stepAt(pattern, activeSteps(pattern).at(-1) ?? 0).ratchet = 2;
+  return pattern;
+}
+
+/** A low drum, a few hits spread evenly and turned off the beat. */
+function technoPerc(len: number, random: Random): Pattern {
+  const pattern = emptyPattern(len);
+  const shape = euclid(pick(random, [2, 3, 3, 5]), len);
+  const turn = 1 + Math.floor(random() * Math.max(1, len - 1));
+  shape.forEach((on, index) => {
+    if (on) put(pattern, (index + turn) % len, { pitch: pick(random, [-3, -3, 0, 0, -5, 2]), vel: chance(random, 0.35) ? 0 : 1, chance: chance(random, 0.2) ? 1 : 0 });
+  });
+  return pattern;
+}
+
+/** The acid line's ground: an octave above the lowest note of the bass ring, so that it can jump both ways. */
+export const ACID_ROOT = 7;
+
+/** Which steps an acid line plays: about two in three, with no hole of more than two steps and no run of more than five. */
+function acidRhythm(len: number, random: Random): boolean[] {
+  const played = Array.from({ length: len }, (_, index) => index === 0 || chance(random, 0.64));
+  let rests = 0;
+  let run = 0;
+  for (let index = 0; index < len; index += 1) {
+    if (played[index] && run >= 5) played[index] = false;
+    if (!played[index] && rests >= 2) played[index] = true;
+    rests = played[index] ? 0 : rests + 1;
+    run = played[index] ? run + 1 : 0;
+  }
+  // A line needs somewhere to breathe.
+  if (len > 2 && played.every(Boolean)) played[1 + Math.floor(random() * (len - 1))] = false;
+  return played;
+}
+
+/**
+ * An acid line: few notes, octave jumps, rests, and now and then a slide.
+ *
+ * It has at most five different notes: the root most of the time, its
+ * octaves, and one or two notes of the scale. A note that follows another
+ * without a rest keeps that one's pitch, except where the line is meant to
+ * slide (one to three times): there it jumps, and the bass glides into it.
+ * Two to four notes are accented, first the ones slid into, then ones between
+ * the beats. The ring is a circle, so its last step counts as coming before
+ * its first.
+ */
+function technoAcid(len: number, random: Random): Pattern {
+  const pattern = emptyPattern(len);
+  const played = acidRhythm(len, random);
+  const hits = played.flatMap((on, index) => (on ? [index] : []));
+  const touches = (index: number): boolean => hits.length > 1 && played[wrap(index - 1, len)] === true;
+  // The walk starts where a rest ends, so that it meets every run of notes at its beginning.
+  const first = Math.max(0, hits.findIndex((index) => !touches(index)));
+  const walk = hits.map((_, place) => hits[(first + place) % hits.length] ?? 0);
+
+  const colours = [1, 2, 4, 6].map((step) => ({ step, order: random() })).sort((a, b) => a.order - b.order).slice(0, pick(random, [1, 1, 2])).map(({ step }) => ACID_ROOT + step);
+  const octaves = chance(random, 0.75) ? [ACID_ROOT + 7, ACID_ROOT - 7] : [ACID_ROOT + 7];
+  const notes = [ACID_ROOT, ...octaves, ...colours];
+  const wanted = pick(random, [1, 2, 2, 3]);
+  const slides: number[] = [];
+  let pitch = ACID_ROOT;
+  walk.forEach((index, place) => {
+    if (place === 0 || !touches(index)) {
+      pitch = chance(random, 0.6) ? ACID_ROOT : pick(random, notes);
+    } else if (slides.length < wanted && chance(random, 0.4)) {
+      pitch = pick(random, notes.filter((note) => note !== pitch));
+      slides.push(index);
+    }
+    put(pattern, index, { pitch });
+  });
+  // Where notes touch, the line slides at least once: up an octave from the root, or back down to it.
+  if (slides.length === 0) {
+    const place = walk.findIndex((index, at) => at > 0 && touches(index));
+    if (place > 0) {
+      const to = stepAt(pattern, walk[place - 1] ?? 0).pitch === ACID_ROOT ? ACID_ROOT + 7 : ACID_ROOT;
+      // What follows without a rest stays where the slide went.
+      for (let at = place; at < walk.length && (at === place || touches(walk[at] ?? 0)); at += 1) stepAt(pattern, walk[at] ?? 0).pitch = to;
+      slides.push(walk[place] ?? 0);
+    }
+  }
+
+  const between = hits.filter((index) => index % 4 !== 0 && !slides.includes(index)).map((index) => ({ index, order: random() })).sort((a, b) => a.order - b.order).map(({ index }) => index);
+  const onBeat = hits.filter((index) => index % 4 === 0 && !slides.includes(index));
+  const accents = [...slides, ...between, ...onBeat].slice(0, clamp(pick(random, [2, 3, 3, 4]), 1, Math.max(1, hits.length - 1)));
+  for (const index of hits) {
+    if (accents.includes(index)) stepAt(pattern, index).vel = 2;
+    else if (index % 4 !== 0 && chance(random, 0.18)) stepAt(pattern, index).vel = 0;
+  }
+  return pattern;
+}
+
+/** A stab now and then: between the beats, short, the same chord every time. */
+function technoStab(len: number, random: Random): Pattern {
+  const pattern = emptyPattern(len);
+  const lage = pick(random, [0, 0, 1]);
+  const places = pick(random, [[6], [6, 13], [3, 11], [10], [2, 10], [6, 14, 22, 27]] as const);
+  for (const index of places) if (index < len) put(pattern, index, { pitch: lage, vel: index === places[0] ? 2 : 0 });
+  if (activeSteps(pattern).length === 0) put(pattern, Math.min(len - 1, 2), { pitch: lage, vel: 2 });
+  return pattern;
+}
+
+/** A hook of two or three notes on a figure that repeats: three steps long against the four of the beat, or on the off-beats. */
+function technoHook(len: number, random: Random): Pattern {
+  const pattern = emptyPattern(len);
+  const figure = pick(random, ["threes", "threes", "offbeats", "call"] as const);
+  const second = pick(random, [1, 2, 4, 7]);
+  if (figure === "threes") {
+    for (let index = 0; index < len; index += 3) put(pattern, index, { pitch: index % 12 === 9 ? second : 0, vel: index % 12 === 0 ? 2 : 1 });
+  } else if (figure === "offbeats") {
+    for (let index = 2; index < len; index += 4) put(pattern, index, { pitch: index % 16 === 14 ? second : 0, vel: index % 8 === 6 ? 2 : 1 });
+  } else {
+    for (const [index, pitch, vel] of [[0, 0, 2], [3, 0, 1], [6, second, 1], [16, 0, 2], [19, second, 1], [22, 0, 1], [25, second, 0]] as const) {
+      if (index < len) put(pattern, index, { pitch, vel });
+    }
+  }
+  return pattern;
+}
+
+type Dice = Record<TrackKind, (len: number, random: Random) => Pattern>;
+
+const DICE: Record<StyleId, Dice> = {
+  frei: { kick: diceKick, snare: diceSnare, hat: diceHat, perc: dicePerc, bass: diceBass, chord: diceChord, lead: diceLead },
+  techno: { kick: technoKick, snare: technoClap, hat: technoHat, perc: technoPerc, bass: technoAcid, chord: technoStab, lead: technoHook },
 };
 
-/** A new idea for a ring of `len` steps, in the manner of its instrument. */
-export function dice(track: number, len: number, random: Random): Pattern {
-  const pattern = DICE[TRACK_KINDS[track] ?? "kick"](len, random);
+/** A new idea for a ring of `len` steps, in the manner of its instrument and of the Kreisel's style. */
+export function dice(track: number, len: number, random: Random, style: StyleId = "frei"): Pattern {
+  const pattern = DICE[style][TRACK_KINDS[track] ?? "kick"](len, random);
   // Very short rings can miss every place a style would use: they still get their first step.
   if (activeSteps(pattern).length === 0) put(pattern, 0, { pitch: track === 6 ? 4 : 0 });
   return pattern;

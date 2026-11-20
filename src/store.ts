@@ -1,5 +1,5 @@
 import { deserialize, serialize } from "./codec";
-import { factoryProject, type Project } from "./model";
+import { technoProject, type Project } from "./model";
 
 /*
  * The project on the table, with undo. Every edit goes through `edit`, which
@@ -7,7 +7,8 @@ import { factoryProject, type Project } from "./model";
  * slider being dragged) count as one step back.
  */
 
-const STORAGE_KEY = "kreisel.projekt.v1";
+/** Where the browser keeps the Kreisel on the table. */
+export const STORAGE_KEY = "kreisel.projekt.v1";
 const BACKUP_KEY = "kreisel.vorher.v1";
 const HISTORY = 200;
 const COALESCE_MS = 900;
@@ -25,7 +26,7 @@ export class Store {
   refused: () => void = () => undefined;
 
   constructor(project?: Project) {
-    this.project = project ?? Store.load() ?? factoryProject();
+    this.project = project ?? Store.load() ?? technoProject();
   }
 
   static load(): Project | null {

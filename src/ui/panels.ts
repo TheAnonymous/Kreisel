@@ -310,7 +310,9 @@ export class Panels {
       if (action === "save") void app.files.exportSound();
       else if (action === "clear-scene") app.scenes.clear(app.project.scene);
       else if (action === "empty") app.newProject(true);
-      else if (action === "factory") app.newProject(false);
+      else if (action === "techno") app.newProject(false, "techno");
+      else if (action === "factory") app.newProject(false, "frei");
+      else if (action === "style") app.toggleStyle();
       else if (action === "help") this.help.show();
       else if (action === "relay") this.relayDialog.show();
       else if (action === "stage") app.toggleStage();
@@ -735,6 +737,7 @@ export class Panels {
     }
     const lights = document.querySelector<HTMLElement>('#menu [data-do="lights"]');
     lights?.setAttribute("aria-checked", String(app.lights));
+    document.querySelector<HTMLElement>('#menu [data-do="style"]')?.setAttribute("aria-checked", String(project.style === "techno"));
     this.tourGuide.check();
     // What belongs to the ring in focus only moves when it changes, not when another ring comes into focus.
     const sameRing = this.shownRing === selected;
