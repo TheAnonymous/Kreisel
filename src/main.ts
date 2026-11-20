@@ -81,6 +81,8 @@ declare global {
       grip(what: "size" | "tight"): { x: number; y: number };
       /** Where on the page a share (0..1) of the Nachbeben is painted at a step of the kick's ring. */
       quake(step: number, share: number): { x: number; y: number };
+      /** How much on the wheel is in motion right now: hits popping in, hits shrinking away, rings sliding. */
+      motion(): { popping: number; shrinking: number; sliding: number };
     };
   }
 }
@@ -96,4 +98,5 @@ window.kreisel = {
   knock: (where) => bench.position(where),
   grip: (what) => bench.grip(what),
   quake: (step, share) => ring.rumblePosition(step, share),
+  motion: () => ring.motion(),
 };

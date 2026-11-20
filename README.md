@@ -263,6 +263,31 @@ through three band filters that move from sound to sound, with noise through
 a filter of its own for every hiss and pop. It is the same live and in the
 saved file.
 
+## Motion
+
+Kreisel is a tin toy on a paper table, and it moves like one: what appears hops into place with a little
+overshoot, what goes shrinks away quickly, what is pressed gives way, what is chosen clicks in. Nothing
+floats, and nothing takes longer than about a quarter of a second.
+
+- On the wheel (`src/ui/ring.ts`, rules and curves in `src/ui/motion.ts`): a hit that is set hops in, one
+  that is taken shrinks away, one whose accent, chance or roll changes swells once. A ring that is turned
+  slides into its new place. A new pattern (dice, another scene, a Kreisel from a link, the first look) is
+  dealt around the ring, hit by hit. A muted ring fades to grey. At a start or a stop the hub gives way like
+  a pressed button and its sign is stamped in anew; the runner grows out of the middle and fades where it
+  stood. The bar that plays lights up in the middle, and the mark at the top hops on the one.
+- Around it, answers to what was done are played by the page (`src/ui/panels.ts`, with the Web Animations
+  API): dice tumble, the arrows of undo and redo wind back and on (also when a key did it), a button
+  lights up in the ring's colour, a chosen scene, sound or tool clicks in, numbers tick, the name of the
+  ring in focus arrives, the frame of the keyboard's focus lands.
+- What goes with a state or with something appearing is in the style sheet (under "motion"): buttons stand
+  higher under the pointer, menus unfold, messages come up, windows fade in, the lamp of every ring in the
+  list jumps when the ring strikes, a held effect shows on its key what it does, the point on the sound
+  pad glides, and the mark in the bar wobbles while the Kreisel plays.
+
+Two rules keep it out of the way. Boxes that a pointer is aimed at (the wheel, the sound pad, the paint
+box, the windows around them) never move; only what lies in them does. And whoever asked the system for
+less motion (`prefers-reduced-motion`) gets none of it.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the

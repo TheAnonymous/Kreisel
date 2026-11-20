@@ -1341,6 +1341,78 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
+  test("bewegt sich, wo sich etwas ändert, und hält still, wenn weniger Bewegung gewünscht ist", async ({ page }) => {
+    const problems = await open(page);
+    /** What is in motion on the wheel two frames from now (a change is looked at in the next frame). */
+    const moving = (): Promise<{ popping: number; shrinking: number; sliding: number }> =>
+      page.evaluate(async () => {
+        await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+        return window.kreisel.motion();
+      });
+    /** The motions that play on a node or in it right now, by name. */
+    const playing = (selector: string): Promise<string[]> =>
+      page.evaluate((query) => [...document.querySelectorAll(query)].flatMap((node) => node.getAnimations({ subtree: true })).map((motion) => motion.id || (motion instanceof CSSAnimation ? motion.animationName : "")), selector);
+    const still = { popping: 0, shrinking: 0, sliding: 0 };
+
+    // At first the hits of the factory Kreisel are dealt around their rings; then the wheel lies still.
+    expect((await moving()).popping).toBeGreaterThan(10);
+    await expect.poll(moving).toEqual(still);
+
+    // A hit that is set hops in, one that is taken shrinks away, a ring that is turned slides.
+    const free = await where(page, 6, 1);
+    await page.mouse.click(free.x, free.y);
+    expect(await moving()).toEqual({ popping: 1, shrinking: 0, sliding: 0 });
+    await expect.poll(moving).toEqual(still);
+    await page.mouse.click(free.x, free.y);
+    expect(await moving()).toEqual({ popping: 0, shrinking: 1, sliding: 0 });
+    await expect.poll(moving).toEqual(still);
+    await page.mouse.move(free.x, free.y);
+    await page.mouse.wheel(0, -100);
+    expect(await moving()).toEqual({ popping: 0, shrinking: 0, sliding: 1 });
+    await expect.poll(moving).toEqual(still);
+
+    // A diced ring deals its new pattern, the dice in its row tumble and the button answers; so does a key.
+    await page.locator(".panel-ring .doing .button", { hasText: "Würfeln" }).click();
+    expect(await playing(".track.selected .roll")).toContain("tumble");
+    expect(await playing(".panel-ring .doing")).toContain("flash");
+    await expect.poll(moving).toEqual(still);
+    await page.keyboard.press("Control+z");
+    expect(await playing("#undo")).toContain("wind-back");
+    await page.keyboard.press("Control+Shift+z");
+    expect(await playing("#redo")).toContain("wind-on");
+
+    // Menus unfold, the head of the ring's panel arrives, a held effect shows on its key what it does.
+    await page.locator("#more").click();
+    expect(await playing("#menu")).toContain("unfold");
+    await page.keyboard.press("Escape");
+    await page.mouse.click(4, 400);
+    await expect(page.locator("#menu")).toBeHidden();
+    await page.keyboard.press("5");
+    expect(await playing(".panel-head")).toEqual(expect.arrayContaining(["pop", "slide-in"]));
+    await page.keyboard.down("KeyC");
+    await expect.poll(() => playing('.pad-fx[data-fx="stotter"]')).toContain("stutter");
+    await page.keyboard.up("KeyC");
+    await expect.poll(() => playing('.pad-fx[data-fx="stotter"]')).not.toContain("stutter");
+
+    // At rest nothing runs.
+    await expect.poll(() => page.evaluate(() => document.getAnimations().filter((motion) => motion.playState === "running").length)).toBe(0);
+
+    // Whoever asked the system for less motion gets none: nothing hops on the wheel, and nothing plays on the page.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await expect(status(page)).toContainText("Schläge");
+    expect(await moving()).toEqual(still);
+    const again = await where(page, 6, 1);
+    await page.mouse.click(again.x, again.y);
+    expect(await moving()).toEqual(still);
+    await page.locator(".panel-ring .doing .button", { hasText: "Würfeln" }).click();
+    expect(await moving()).toEqual(still);
+    await page.locator("#more").click();
+    expect(await page.evaluate(() => document.getAnimations().filter((motion) => Number(motion.effect?.getComputedTiming().activeDuration ?? 0) > 1).length)).toBe(0);
+    expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
+    expect(problems).toEqual([]);
+  });
+
   test("malt einem Ring einen eigenen Klang", async ({ page }) => {
     const problems = await open(page);
     await page.keyboard.press("1");

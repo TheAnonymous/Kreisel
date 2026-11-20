@@ -37,6 +37,9 @@ export interface Toast {
   action?: { label: string; run(): void };
 }
 
+/** Something done that a button on the page stands for. */
+export type Deed = { what: "undo" | "redo" | "dice-all" | "share" } | { what: "dice" | "vary" | "clear"; track: number };
+
 export const TOOLS: readonly { id: Tool; name: string; hint: string }[] = [
   { id: "setzen", name: "Setzen", hint: "Klick setzt oder löscht, ziehen malt, nach außen ziehen macht höher" },
   { id: "betonen", name: "Betonen", hint: "Klick wechselt zwischen laut, leise und normal" },
@@ -93,6 +96,8 @@ export class App implements RingHost, EaselHost {
   exporting: number | null = null;
   /** Shows the menu for what a right click landed on, at that place of the page (set by whoever draws the menu). */
   onContext: (target: ContextTarget, x: number, y: number, fromKeyboard: boolean) => void = () => undefined;
+  /** Something was done that a button stands for: that button answers with a little motion, also when a key did it. */
+  onDeed: (deed: Deed) => void = () => undefined;
   /** A ring's pattern taken with "Muster kopieren", to put into another ring or scene. */
   copied: { track: number; pattern: Pattern } | null = null;
   /** Effects that were latched with the right button: they stay on without being held. */
@@ -459,11 +464,13 @@ export class App implements RingHost, EaselHost {
       const scene = currentScene(project);
       scene.patterns[track] = dice(track, patternOf(project, track).len, this.random);
     });
+    this.onDeed({ what: "dice", track });
   }
 
   varyRing(track: number): void {
     if (this.refuse(track)) return;
     this.store.edit((project) => vary(track, patternOf(project, track), this.random));
+    this.onDeed({ what: "vary", track });
   }
 
   clearRing(track: number): void {
@@ -475,6 +482,7 @@ export class App implements RingHost, EaselHost {
       // An empty kick ring has no Nachbeben either.
       if (track === 0) currentScene(project).rumble = emptyRumble();
     });
+    this.onDeed({ what: "clear", track });
   }
 
   // ---- the voice: a ring that sings --------------------------------------------------------
@@ -752,6 +760,7 @@ export class App implements RingHost, EaselHost {
       scene.patterns = scene.patterns.map((pattern, track) => dice(track, pattern.len, this.random));
     });
     this.say("Alle Ringe neu gewürfelt.", { label: "Zurück", run: () => this.undo() });
+    this.onDeed({ what: "dice-all" });
   }
 
   /** Takes a ring's pattern (of the scene on the table) to put somewhere else. */
@@ -1451,11 +1460,15 @@ export class App implements RingHost, EaselHost {
   // ---- project ------------------------------------------------------------------
 
   undo(): void {
-    if (this.store.undo() && this.playing) this.engine.queueScene(this.project.scene);
+    if (!this.store.undo()) return;
+    if (this.playing) this.engine.queueScene(this.project.scene);
+    this.onDeed({ what: "undo" });
   }
 
   redo(): void {
-    if (this.store.redo() && this.playing) this.engine.queueScene(this.project.scene);
+    if (!this.store.redo()) return;
+    if (this.playing) this.engine.queueScene(this.project.scene);
+    this.onDeed({ what: "redo" });
   }
 
   newProject(empty: boolean): void {
@@ -1471,6 +1484,7 @@ export class App implements RingHost, EaselHost {
     try {
       await navigator.clipboard.writeText(link);
       this.say("Link kopiert. Wer ihn öffnet, bekommt eine eigene Kopie deines Kreisels.");
+      this.onDeed({ what: "share" });
     } catch {
       history.replaceState(null, "", link);
       this.say("Der Link steht jetzt in der Adresszeile: von dort kopieren.");

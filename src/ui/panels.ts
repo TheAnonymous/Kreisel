@@ -1,4 +1,4 @@
-import { BRUSH_TOOLS, FX, MALLETS, TOOLS, type App } from "../app";
+import { BRUSH_TOOLS, FX, MALLETS, TOOLS, type App, type Deed } from "../app";
 import type { FxName } from "../audio/engine";
 import { describeBild } from "../bild";
 import { BODY_NAMES, describeBody, materialName, TIGHT_NAMES } from "../body";
@@ -99,6 +99,48 @@ function iconButton(className: string, icon: string, label: string, title = labe
 }
 
 /** Keeps a drag with the element it began on, where the browser knows the pointer. */
+/*
+ * The little motions a node plays once, when something was done or has changed: a tin toy on a paper table, so
+ * things hop into place and click, quickly. What goes with a state or with something appearing is in the style
+ * sheet (under "motion"); what the wheel does is drawn on its canvas (ring.ts, motion.ts).
+ */
+const SPRING = "cubic-bezier(0.34, 1.56, 0.64, 1)";
+const SNAP = "cubic-bezier(0.2, 0.9, 0.3, 1)";
+const MOTIONS = {
+  /** Something clicks in: a chosen scene or sound, a switched sign. */
+  pop: { frames: [{ transform: "scale(0.55)" }, { transform: "scale(1)" }], duration: 240, easing: SPRING },
+  /** Dice. */
+  tumble: { frames: [{ transform: "rotate(0deg)" }, { transform: "translateY(-4px) rotate(200deg)", offset: 0.45 }, { transform: "rotate(360deg)" }], duration: 420, easing: SNAP },
+  /** The arrows of undo and redo wind back and on. */
+  "wind-back": { frames: [{ transform: "rotate(0deg)" }, { transform: "rotate(-55deg)", offset: 0.35 }, { transform: "rotate(0deg)" }], duration: 300, easing: SNAP },
+  "wind-on": { frames: [{ transform: "rotate(0deg)" }, { transform: "rotate(55deg)", offset: 0.35 }, { transform: "rotate(0deg)" }], duration: 300, easing: SNAP },
+  /** A number that counts on. */
+  tick: { frames: [{ opacity: 0.2, transform: "translateY(-5px)" }, { opacity: 1, transform: "translateY(0)" }], duration: 180, easing: SNAP },
+  /** A tool that was taken up. */
+  wiggle: { frames: [{ transform: "rotate(0deg) scale(1)" }, { transform: "rotate(-14deg) scale(1.12)", offset: 0.3 }, { transform: "rotate(9deg) scale(1)", offset: 0.65 }, { transform: "rotate(0deg) scale(1)" }], duration: 300, easing: SNAP },
+  /** A name that arrives. */
+  "slide-in": { frames: [{ opacity: 0, transform: "translateX(-7px)" }, { opacity: 1, transform: "translateX(0)" }], duration: 240, easing: SNAP },
+  /** The frame around what the keyboard is on lands there. */
+  land: { frames: [{ outlineOffset: "8px" }, { outlineOffset: "2px" }], duration: 160, easing: SNAP },
+} as const satisfies Record<string, { frames: Keyframe[]; duration: number; easing: string }>;
+type Motion = keyof typeof MOTIONS;
+const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+/** Plays a motion on a node once, from its start even if it is still playing. Not for someone who asked for less motion. */
+function playMotion(node: Element | null, motion: Motion, delay = 0): void {
+  if (!node || calm.matches) return;
+  for (const running of node.getAnimations()) if (running.id === motion) running.cancel();
+  const { frames, duration, easing } = MOTIONS[motion];
+  node.animate([...frames], { id: motion, duration, easing, delay, fill: delay > 0 ? "backwards" : "none" });
+}
+
+/** A button answers that what it stands for was done: it lights up in a colour and fades back. */
+function flash(node: Element | null, color: string): void {
+  if (!node || calm.matches) return;
+  for (const running of node.getAnimations()) if (running.id === "flash") running.cancel();
+  node.animate([{ backgroundColor: color }, { backgroundColor: getComputedStyle(node).backgroundColor }], { id: "flash", duration: 400, easing: "ease-out" });
+}
+
 function capture(node: HTMLElement, event: PointerEvent): void {
   try {
     node.setPointerCapture(event.pointerId);
@@ -161,6 +203,12 @@ export class Panels {
   private chordSignature = "";
   private recordTimer: ReturnType<typeof setInterval> | null = null;
   private lastPreview = 0;
+  // ---- motion: what each node showed last, so that it moves when that changes (and not when the page is built) ----
+  private readonly seen = new WeakMap<Element, string>();
+  private shownRing = -1;
+  private readonly lamps: boolean[] = [];
+  private readonly doing = { roll: button("button small", "Würfeln", "Eine neue Idee für diesen Ring (N)"), vary: button("button small", "Variieren", "Nur ein wenig verändern (Umschalt+N)"), wipe: button("button small", "Leeren", "Alle Schläge dieses Rings entfernen (Umschalt+Entf)") };
+  private readonly head = el("header", "panel-head");
 
   constructor(private readonly app: App, private readonly ring: RingView, private readonly easel: EaselView, private readonly bench: BenchView, private readonly mouth: BoothView) {
     this.buildBar();
@@ -203,9 +251,61 @@ export class Panels {
         });
       });
     }
+    // The frame around what the keyboard is on lands there (a click shows no frame, so nothing lands).
+    document.addEventListener("focusin", (event) => {
+      if (event.target instanceof Element && event.target.matches(":focus-visible")) playMotion(event.target, "land");
+    });
+    app.onDeed = (deed) => this.answer(deed);
+    const frame = (): void => {
+      this.everyFrame();
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
     void this.readKeyboard();
     app.subscribe(() => this.sync());
     this.sync();
+  }
+
+  /** Plays a motion on a node when what it shows has changed since the last time (never the first time). With `when`, only for a change to that value; with `quiet`, the change is only noted. */
+  private moved(node: Element | null, value: string | number | boolean, motion: Motion, when?: string, quiet = false): void {
+    if (!node) return;
+    const text = String(value);
+    const before = this.seen.get(node);
+    this.seen.set(node, text);
+    if (quiet || before === undefined || before === text) return;
+    if (when === undefined || when === text) playMotion(node, motion);
+  }
+
+  /** A button answers what was done, whether a click did it or a key. */
+  private answer(deed: Deed): void {
+    const color = trackInfo(this.app.selected).color;
+    const tumble = (track: number, delay: number): void => playMotion(this.trackRows[track]?.querySelector(".roll svg") ?? null, "tumble", delay);
+    if (deed.what === "undo") playMotion(byId("undo").querySelector("svg"), "wind-back");
+    else if (deed.what === "redo") playMotion(byId("redo").querySelector("svg"), "wind-on");
+    else if (deed.what === "share") flash(byId("share"), color);
+    else if (deed.what === "dice-all") {
+      flash(byId("dice-all"), color);
+      // Down the list, one after the other.
+      for (let track = 0; track < TRACK_COUNT; track += 1) tumble(track, (TRACK_COUNT - 1 - track) * 30);
+    } else if (deed.what === "dice") {
+      tumble(deed.track, 0);
+      if (deed.track === this.app.selected) flash(this.doing.roll, color);
+    } else if (deed.what === "vary" || deed.what === "clear") {
+      if (deed.track === this.app.selected) flash(deed.what === "vary" ? this.doing.vary : this.doing.wipe, color);
+    }
+  }
+
+  /** What moves with the music rather than with a change: the lamp of every ring in the list, the syllable being sung. */
+  private everyFrame(): void {
+    const app = this.app;
+    this.trackRows.forEach((row, track) => {
+      const since = app.sinceStruck(track);
+      const lit = since > -0.02 && since < 0.09 && app.audible(track);
+      if (lit === (this.lamps[track] ?? false)) return;
+      this.lamps[track] = lit;
+      row.classList.toggle("hit", lit);
+    });
+    this.lightSyllable();
   }
 
   keyLabel(code: string): string {
@@ -483,11 +583,6 @@ export class Panels {
     shaper("Mundraum", "mouth", "Der Raum im Mund: klein und hell bis groß und dunkel", "voice-mouth");
     shaper("Hauch", "breath", "Wie viel Atem in der Stimme liegt: klar bis geflüstert", "voice-breath");
     // A click beside the window puts it away, like a click beside any open box.
-    const light = (): void => {
-      this.lightSyllable();
-      requestAnimationFrame(light);
-    };
-    requestAnimationFrame(light);
     byId("booth").addEventListener("pointerdown", (event) => {
       if (event.target === event.currentTarget) app.closeBooth();
     });
@@ -605,6 +700,8 @@ export class Panels {
     const holder = byId("fx");
     for (const fx of FX) {
       const pad = button("pad-fx", "", `${fx.hint} (halten · Rechtsklick rastet ein)`);
+      // Each effect's name shows what it does while it is held (see "motion" in the style sheet).
+      pad.dataset.fx = fx.id;
       pad.append(el("span", "name", fx.name), el("kbd", "key"));
       pad.setAttribute("aria-pressed", "false");
       const release = (): void => this.app.setFx(fx.id, false);
@@ -638,14 +735,12 @@ export class Panels {
     const holder = byId("panel");
     const parts = this.panel;
 
-    const head = el("header", "panel-head");
+    const head = this.head;
     head.append(el("span", "dot"), parts.name);
     const doing = el("div", "doing");
-    const roll = button("button small", "Würfeln", "Eine neue Idee für diesen Ring (N)");
+    const { roll, vary, wipe } = this.doing;
     roll.addEventListener("click", () => app.diceRing(app.selected));
-    const vary = button("button small", "Variieren", "Nur ein wenig verändern (Umschalt+N)");
     vary.addEventListener("click", () => app.varyRing(app.selected));
-    const wipe = button("button small", "Leeren", "Alle Schläge dieses Rings entfernen (Umschalt+Entf)");
     wipe.addEventListener("click", () => app.clearRing(app.selected));
     doing.append(roll, vary, wipe);
 
@@ -718,9 +813,12 @@ export class Panels {
         return;
       }
       capture(pad, event);
+      // While it is dragged the point follows the pointer at once; let go, it glides to wherever it is put.
+      pad.classList.add("dragging");
       this.lastPreview = 0;
       place(event);
     });
+    for (const end of ["pointerup", "pointercancel", "lostpointercapture"] as const) pad.addEventListener(end, () => pad.classList.remove("dragging"));
     pad.addEventListener("contextmenu", (event) => event.preventDefault());
     pad.addEventListener("pointermove", (event) => {
       if (pad.hasPointerCapture(event.pointerId)) place(event);
@@ -1073,11 +1171,23 @@ export class Panels {
     const info = trackInfo(selected);
     const pattern = patternOf(project, selected);
     const settings = trackOf(project, selected);
-    document.documentElement.style.setProperty("--focus", info.color);
+    const root = document.documentElement;
+    root.style.setProperty("--focus", info.color);
+    // For the motions that go with the music: whether it plays, and how long a beat is.
+    root.dataset.playing = String(app.playing);
+    root.style.setProperty("--beat", `${(60 / project.bpm).toFixed(3)}s`);
+    // What belongs to the ring in focus only moves when it changes, not when another ring comes into focus.
+    const sameRing = this.shownRing === selected;
+    if (!sameRing && this.shownRing !== -1) {
+      playMotion(this.head.querySelector(".dot"), "pop");
+      playMotion(this.panel.name, "slide-in");
+    }
+    this.shownRing = selected;
 
     const play = byId("play");
     play.setAttribute("aria-pressed", String(app.playing));
     play.querySelector(".label")!.textContent = app.playing ? "Stopp" : "Start";
+    this.moved(play.querySelector(".glyph"), app.playing, "pop");
     const bpm = byId<HTMLInputElement>("bpm");
     if (document.activeElement !== bpm) bpm.value = String(project.bpm);
     byId<HTMLSelectElement>("root").value = String(project.root);
@@ -1117,6 +1227,7 @@ export class Panels {
       row.querySelector(".sound")!.textContent = one.sound === VOICE_SOUND ? "Stimme" : one.sound === BODY_SOUND && one.body ? (BODY_NAMES[one.body.kind] ?? "") : (trackInfo(track).sounds[one.sound] ?? "Gemalt");
       row.querySelector(".pick")!.setAttribute("aria-pressed", String(track === selected && !app.pieceFocus && !app.weatherFocus));
       row.querySelector(".mute")!.setAttribute("aria-pressed", String(!app.audible(track)));
+      this.moved(row.querySelector(".mute svg"), !app.audible(track), "pop");
     });
 
     const queued = app.engine.queuedScene;
@@ -1126,11 +1237,13 @@ export class Panels {
       node.classList.toggle("current", index === project.scene);
       node.classList.toggle("queued", index === queued && index !== project.scene);
       node.setAttribute("aria-pressed", String(index === project.scene));
+      this.moved(node, index === project.scene, "pop", "true");
       node.title = filled ? `Szene ${SCENE_NAMES[index]} · mit Umschalt leeren` : `Leer: Klick macht eine Kopie von Szene ${SCENE_NAMES[project.scene]}`;
     });
 
     for (const [tool, node] of this.toolButtons) {
       node.setAttribute("aria-checked", String(tool === app.tool));
+      this.moved(node.querySelector("svg"), tool === app.tool, "wiggle", "true");
       node.disabled = tool === "laenge" && !info.melodic && selected !== 0;
     }
     // A drum has no notes to hold: on the kick's ring that tool paints the Nachbeben instead.
@@ -1157,6 +1270,7 @@ export class Panels {
     this.soundButtons.forEach((chip, sound) => {
       chip.textContent = info.sounds[sound] ?? "";
       chip.setAttribute("aria-pressed", String(sound === settings.sound));
+      this.moved(chip, sound === settings.sound, "pop", "true", !sameRing);
     });
     parts.puck.style.left = `${settings.x * 100}%`;
     parts.puck.style.bottom = `${settings.y * 100}%`;
@@ -1167,10 +1281,12 @@ export class Panels {
     parts.pad.title = sings ? "Das Vokalfeld: Der Punkt zieht alle Vokale zu sich, am Rand ganz, in der Mitte gar nicht" : "";
     parts.pad.setAttribute("aria-label", `Klangfeld: ${info.xLabel} ${Math.round(settings.x * 100)} %, ${info.yLabel} ${Math.round(settings.y * 100)} %. Pfeiltasten verändern.`);
     parts.steps.textContent = String(pattern.len);
+    this.moved(parts.steps, pattern.len, "tick", undefined, !sameRing);
     const hits = activeSteps(pattern).length;
     parts.spread.max = String(pattern.len);
     if (document.activeElement !== parts.spread || Number(parts.spread.value) !== hits) parts.spread.value = String(hits);
     parts.spreadValue.textContent = String(hits);
+    this.moved(parts.spreadValue, hits, "tick", undefined, !sameRing);
     for (const node of byId("panel").querySelectorAll<HTMLButtonElement>(".line .button")) {
       if (node.textContent === "−") node.disabled = pattern.len <= MIN_STEPS;
       if (node.textContent === "+") node.disabled = pattern.len >= MAX_STEPS;

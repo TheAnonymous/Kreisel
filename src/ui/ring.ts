@@ -4,6 +4,7 @@ import { shakes } from "../rumble";
 import { drawMouth, type MouthShape } from "./booth";
 import { WEATHER_COLORS, WEATHER_NAMES, windDrift } from "../weather";
 import { LONG_PRESS_MS, LONG_PRESS_SLACK } from "./menu";
+import { approach, compare, DEAL, dealt, face, hop, MANY, POP, rest, SHRINK, SLIDE, SWELL, swell, unface } from "./motion";
 import { entry } from "../piece";
 import { turnColor } from "../relay";
 
@@ -142,6 +143,11 @@ const LANE = 0.22;
 const CHANCE_ALPHA = [1, 0.72, 0.48, 0.28] as const;
 /** How far the weather brush reaches, in pixels, at its three widths. */
 const BRUSH = [9, 18, 32] as const;
+/** How long the runner takes to grow out of the middle at a start, and to fade where it stood at a stop (seconds). */
+const RUNNER_IN = 0.16;
+const RUNNER_OUT = 0.22;
+/** How long the hub takes to give way and hop back when the Kreisel starts or stops. */
+const HUB_PRESS = 0.3;
 const lerp = (from: number, to: number, share: number): number => from + (to - from) * share;
 
 export class RingView {
@@ -164,6 +170,28 @@ export class RingView {
   private palette: Palette = { bg: "#f4ecdd", ink: "#2a2233", paper: "#fffaf0" };
   private font = "system-ui, sans-serif";
   private readonly calm = window.matchMedia("(prefers-reduced-motion: reduce)");
+  // ---- motion (see motion.ts): what each ring looked like at the last look, and what is still moving ----
+  /** Something on the table has changed since the rings were last looked at. */
+  private changed = true;
+  private readonly faces: (number[] | undefined)[] = [];
+  private readonly patterns: (Pattern | undefined)[] = [];
+  /** When each step's hit pops in (dealt hits lie a moment ahead), and when it was last nudged. */
+  private readonly born: number[][] = Array.from({ length: TRACK_COUNT }, () => []);
+  private readonly nudged: number[][] = Array.from({ length: TRACK_COUNT }, () => []);
+  /** Hits that were taken away and are still shrinking. */
+  private ghosts: { track: number; index: number; length: number; value: number; at: number }[] = [];
+  /** A ring that was turned slides into its new place: by how many steps, since when. */
+  private readonly turns: ({ by: number; at: number } | undefined)[] = [];
+  /** How much of each ring is heard (a muted ring fades to grey), how far the hub is lifted under the pointer, how lit each chord is. */
+  private readonly heard: number[] = [];
+  private lift = 0;
+  private readonly lit: number[] = [];
+  /** When the Kreisel last started or stopped, and where its runner last was. */
+  private wasPlaying = false;
+  private toggledAt = -10;
+  private lastHead = 0;
+  /** Frames are drawn until then even if nothing else asks for them. */
+  private liveUntil = 0;
 
   constructor(private readonly canvas: HTMLCanvasElement, private readonly host: RingHost, private readonly tip: HTMLElement) {
     const context = canvas.getContext("2d");
@@ -190,6 +218,63 @@ export class RingView {
 
   invalidate(): void {
     this.dirty = true;
+    this.changed = true;
+  }
+
+  /** How much is in motion right now (for the browser tests): hits popping in, hits shrinking away, rings sliding. */
+  motion(): { popping: number; shrinking: number; sliding: number } {
+    const now = performance.now() / 1000;
+    const popping = this.born.reduce((sum, ring) => sum + ring.filter((at) => now - at < POP).length, 0);
+    const sliding = this.turns.filter((turn, track) => turn !== undefined && this.sliding(track, now) !== 0).length;
+    return { popping, shrinking: this.ghosts.filter((ghost) => now - ghost.at < SHRINK).length, sliding };
+  }
+
+  private live(now: number, seconds: number): void {
+    this.liveUntil = Math.max(this.liveUntil, now + seconds);
+  }
+
+  /** The steps a turned ring still has to slide until it is where it belongs. */
+  private sliding(track: number, now: number): number {
+    const turn = this.turns[track];
+    if (!turn) return 0;
+    const t = (now - turn.at) / SLIDE;
+    return t >= 1 ? 0 : turn.by * (1 - rest(t));
+  }
+
+  /** Looks at every ring again and sets in motion what has changed: a new hit pops in, a taken one shrinks away, a turned ring slides, a new pattern is dealt around the circle. */
+  private look(now: number): void {
+    const scene = currentScene(this.host.project);
+    for (let track = 0; track < TRACK_COUNT; track += 1) {
+      const pattern = scene.patterns[track];
+      if (!pattern) continue;
+      const after = Array.from({ length: pattern.len }, (_, index) => face(stepAt(pattern, index)));
+      const before = this.faces[track];
+      const replaced = this.patterns[track] !== pattern;
+      this.faces[track] = after;
+      this.patterns[track] = pattern;
+      if (this.calm.matches) continue;
+      const change = compare(before ?? [], after);
+      const born = this.born[track] ?? [];
+      const nudged = this.nudged[track] ?? [];
+      if (change.turned !== 0) {
+        this.turns[track] = { by: change.turned + this.sliding(track, now), at: now };
+        born.length = 0;
+        nudged.length = 0;
+        this.live(now, SLIDE + 0.05);
+        continue;
+      }
+      const count = change.born.length + change.gone.length + change.nudged.length;
+      if (count === 0) continue;
+      // A whole new pattern (dice, another scene, a Kreisel from a link) is dealt hit by hit, also where a hit stays.
+      const wave = replaced && count >= MANY;
+      const coming = wave ? after.flatMap((value, index) => (value === 0 ? [] : [index])) : change.born;
+      const going = wave && before ? before.flatMap((value, index) => (value === 0 ? [] : [index])) : change.gone;
+      const many = wave || coming.length + going.length >= MANY;
+      for (const index of coming) born[index] = now + (many ? dealt(index, after.length) : 0);
+      for (const index of going) this.ghosts.push({ track, index, length: before?.length ?? after.length, value: before?.[index] ?? 0, at: now + (many ? dealt(index, before?.length ?? after.length) : 0) });
+      if (!wave) for (const index of change.nudged) nudged[index] = now;
+      this.live(now, (many ? DEAL : 0) + Math.max(POP, SHRINK, SWELL) + 0.05);
+    }
   }
 
   /** Where a chord slot is on the page, for its menu. */
@@ -273,6 +358,9 @@ export class RingView {
   // ---- drawing ----------------------------------------------------------------
 
   private frame(): void {
+    const now = performance.now() / 1000;
+    const host = this.host;
+    const calm = this.calm.matches;
     let moving = false;
     for (let track = 0; track <= TRACK_COUNT; track += 1) {
       const target = track === PIECE ? (this.host.pieceFocus ? FOCUS : PIECE_REST) : track === this.host.selected && !this.host.pieceFocus && !this.host.weatherFocus ? FOCUS : 1;
@@ -284,10 +372,35 @@ export class RingView {
         this.weights[track] = target;
       }
     }
-    const flashing = Array.from({ length: TRACK_COUNT }, (_, track) => this.host.sinceStruck(track)).some((since) => since < 0.4);
-    if (!this.dirty && !moving && !this.host.playing && !flashing) return;
+    if (this.changed) {
+      this.changed = false;
+      this.look(now);
+    }
+    if (this.ghosts.length > 0) this.ghosts = this.ghosts.filter((ghost) => now - ghost.at < SHRINK);
+    // A muted ring fades to grey and back instead of switching.
+    for (let track = 0; track < TRACK_COUNT; track += 1) {
+      const target = host.audible(track) ? 1 : 0;
+      const share = this.heard[track] ?? target;
+      const next = calm ? target : approach(share, target, 0.3);
+      if (next !== share) moving = true;
+      this.heard[track] = next;
+    }
+    // The hub rises a little under the pointer.
+    const over = this.hover?.kind === "hub" ? 1 : 0;
+    const lift = calm ? over : approach(this.lift, over, 0.35);
+    if (lift !== this.lift) moving = true;
+    this.lift = lift;
+    if (host.playing !== this.wasPlaying) {
+      this.wasPlaying = host.playing;
+      if (!calm) {
+        this.toggledAt = now;
+        this.live(now, 0.45);
+      }
+    }
+    const flashing = Array.from({ length: TRACK_COUNT }, (_, track) => host.sinceStruck(track)).some((since) => since < 0.4);
+    if (!this.dirty && !moving && !host.playing && !flashing && now > this.liveUntil) return;
     this.dirty = false;
-    this.draw();
+    this.draw(now);
   }
 
   private sector(inner: number, outer: number, from: number, to: number): void {
@@ -299,7 +412,7 @@ export class RingView {
     context.closePath();
   }
 
-  private draw(): void {
+  private draw(now: number): void {
     const context = this.context;
     const host = this.host;
     const geometry = this.geometry();
@@ -307,6 +420,9 @@ export class RingView {
     const { bg, ink } = this.palette;
     const scene = currentScene(host.project);
     const playhead = host.playhead();
+    const calm = this.calm.matches;
+    const sinceToggle = now - this.toggledAt;
+    if (playhead !== null) this.lastHead = playhead;
     context.clearRect(0, 0, this.size, this.size);
     context.lineCap = "round";
     context.lineJoin = "round";
@@ -353,24 +469,40 @@ export class RingView {
         continue;
       }
 
+      // A ring is drawn in its colour as far as it is heard and in ink as far as it is muted; in between it fades.
+      const heard = this.heard[track] ?? (audible ? 1 : 0);
+      const tint = (paint: () => void, loud: number, quiet: number): void => {
+        if (heard > 0) {
+          context.globalAlpha = loud * heard;
+          context.fillStyle = info.color;
+          context.strokeStyle = info.color;
+          paint();
+        }
+        if (heard < 1) {
+          context.globalAlpha = quiet * (1 - heard);
+          context.fillStyle = ink;
+          context.strokeStyle = ink;
+          paint();
+        }
+        context.globalAlpha = 1;
+      };
+      const stroke = (): void => context.stroke();
+      const fill = (): void => context.fill();
+
       // The band, a little stronger for every second beat so the eye finds its way.
       context.lineCap = "butt";
       context.lineWidth = thickness;
-      context.strokeStyle = audible ? info.color : ink;
-      context.globalAlpha = (audible ? 0.15 : 0.07) + focus * 0.09 + flash * 0.05;
       context.beginPath();
       context.arc(center, center, middle, 0, TAU);
-      context.stroke();
-      context.globalAlpha = audible ? 0.1 : 0.04;
+      tint(stroke, 0.15 + focus * 0.09 + flash * 0.05, 0.07 + focus * 0.09 + flash * 0.05);
       for (let beat = 1; beat * 4 < length + 3; beat += 2) {
         const from = TOP + beat * 4 * cell;
         const to = TOP + Math.min(length, beat * 4 + 4) * cell;
         if (to <= from) continue;
         context.beginPath();
         context.arc(center, center, middle, from, to);
-        context.stroke();
+        tint(stroke, 0.1, 0.04);
       }
-      context.globalAlpha = 1;
       context.lineCap = "round";
 
       // Step lines: every step on the ring in focus, only the beats on the others.
@@ -388,47 +520,57 @@ export class RingView {
       }
       context.globalAlpha = 1;
 
+      // A ring that was just turned slides into its new place, with all that lies on it.
+      const slide = this.sliding(track, now);
+      if (slide !== 0) {
+        context.save();
+        context.translate(center, center);
+        context.rotate(-slide * cell);
+        context.translate(-center, -center);
+        this.live(now, 0.05);
+      }
+
       if (!host.weatherFocus) this.drawWeather(scene, track, pattern.len, center, band, playhead);
       if (track === 0) this.drawRumble(scene.rumble, pattern, center, band, focus, audible, playhead);
 
-      // The hits.
+      // The hits. One that was just set hops in, one that was just nudged swells once, one that was taken shrinks away.
       const tile = lerp(thickness * 0.74, Math.max(8, thickness * 0.23), focus);
       const low = band.inner + tile / 2 + 2;
       const high = band.outer - tile / 2 - 2;
       const current = playhead === null ? -1 : Math.floor(playhead) % length;
-      for (let index = 0; index < length; index += 1) {
-        const step = stepAt(pattern, index);
-        if (!step.on) continue;
+      /** One hit: at a step of a ring of `steps` steps, at a share of its size and of its strength. */
+      const paintHit = (step: Step, index: number, steps: number, size: number, strength: number, struck: number): void => {
+        const wide = TAU / steps;
         const share = (step.pitch - PITCH_MIN) / (PITCH_MAX - PITCH_MIN);
         const resting = Math.max(low, Math.min(high, middle + (share - 1 / 3) * thickness * 0.4));
         const radius = lerp(resting, lerp(low, high, share), focus);
-        const struck = index === current ? flash : 0;
-        const half = (tile * (step.vel === 0 ? 0.55 : 1)) / 2 + struck * 2;
+        const half = ((tile * (step.vel === 0 ? 0.55 : 1)) / 2) * size + struck * 2;
         const inner = Math.max(band.inner + 1, radius - half);
         const outer = Math.min(band.outer - 1, radius + half);
         const count = Math.max(1, step.ratchet);
-        const held = info.melodic && count === 1 ? Math.min(step.len, length) : 1;
-        const span = (held * cell) / count;
+        const held = info.melodic && count === 1 ? Math.min(step.len, steps) : 1;
+        const span = (held * wide) / count;
         const pad = Math.min(span * 0.22, 1.6 / radius);
+        const reach = (span / 2 - pad) * Math.min(size, 1.1);
         for (let repeat = 0; repeat < count; repeat += 1) {
-          const from = TOP + index * cell + repeat * span + pad;
-          const to = TOP + index * cell + (repeat + 1) * span - pad;
-          this.sector(inner, outer, from, to);
-          context.globalAlpha = (CHANCE_ALPHA[step.chance] ?? 1) * (audible ? 1 : 0.4);
-          context.fillStyle = audible ? info.color : ink;
-          context.fill();
-          context.globalAlpha = 1;
+          const at = TOP + index * wide + (repeat + 0.5) * span;
+          this.sector(inner, outer, at - reach, at + reach);
+          tint(fill, (CHANCE_ALPHA[step.chance] ?? 1) * strength, (CHANCE_ALPHA[step.chance] ?? 1) * 0.4 * strength);
           if (step.chance > 0) {
             context.setLineDash([3, 3]);
             context.lineWidth = 1.5;
-            context.strokeStyle = audible ? info.color : ink;
+            context.strokeStyle = heard > 0.5 ? info.color : ink;
+            context.globalAlpha = strength;
             context.stroke();
+            context.globalAlpha = 1;
             context.setLineDash([]);
           }
           if (step.vel === 2) {
             context.lineWidth = 1.75;
             context.strokeStyle = ink;
+            context.globalAlpha = strength;
             context.stroke();
+            context.globalAlpha = 1;
           }
           if (struck > 0) {
             context.globalAlpha = struck * 0.55;
@@ -437,9 +579,29 @@ export class RingView {
             context.globalAlpha = 1;
           }
         }
+      };
+      for (const ghost of this.ghosts) {
+        if (ghost.track !== track) continue;
+        const gone = (now - ghost.at) / SHRINK;
+        if (gone >= 1) continue;
+        const left = gone <= 0 ? 1 : 1 - rest(gone);
+        paintHit(unface(ghost.value), ghost.index, ghost.length, left, left, 0);
+      }
+      const born = this.born[track];
+      const nudged = this.nudged[track];
+      for (let index = 0; index < length; index += 1) {
+        const step = stepAt(pattern, index);
+        if (!step.on) continue;
+        const age = now - (born?.[index] ?? -10);
+        // Dealt around the ring, and its turn has not come yet.
+        if (age < 0) continue;
+        const poke = now - (nudged?.[index] ?? -10);
+        const size = (age < POP ? hop(age / POP) : 1) * (poke < SWELL ? 1 + 0.2 * swell(poke / SWELL) : 1);
+        paintHit(step, index, length, size, 1, index === current ? flash : 0);
       }
       // While the weather is what is being painted, it lies over the hits.
       if (host.weatherFocus) this.drawWeather(scene, track, pattern.len, center, band, playhead);
+      if (slide !== 0) context.restore();
 
       // The ring in focus gets a line around it.
       if (focus > 0.05) {
@@ -454,15 +616,20 @@ export class RingView {
         context.globalAlpha = 1;
       }
 
-      // The runner.
-      if (playhead !== null) {
-        const angle = TOP + ((playhead % length) / length) * TAU;
+      // The runner. At a start it grows out of the middle, at a stop it fades where it stood.
+      const head = playhead ?? (sinceToggle < RUNNER_OUT && !host.playing ? this.lastHead : null);
+      if (head !== null) {
+        const angle = TOP + ((head % length) / length) * TAU;
+        const reach = playhead !== null && sinceToggle < RUNNER_IN ? rest(sinceToggle / RUNNER_IN) : 1;
+        const end = band.inner + 1 + (thickness - 2) * reach;
         context.strokeStyle = ink;
         context.lineWidth = 2.5;
+        context.globalAlpha = playhead === null ? 1 - sinceToggle / RUNNER_OUT : 1;
         context.beginPath();
         context.moveTo(center + Math.cos(angle) * (band.inner + 1), center + Math.sin(angle) * (band.inner + 1));
-        context.lineTo(center + Math.cos(angle) * (band.outer - 1), center + Math.sin(angle) * (band.outer - 1));
+        context.lineTo(center + Math.cos(angle) * end, center + Math.sin(angle) * end);
         context.stroke();
+        context.globalAlpha = 1;
       }
 
       // What the mouse or the keyboard points at.
@@ -495,9 +662,14 @@ export class RingView {
       const to = TOP + ((slot + 1) / chords.length) * TAU - pad;
       const active = slot === playingBar;
       const pointed = this.hover?.kind === "chord" && this.hover.index === slot;
+      // The bar that plays lights up at once and dims slowly when the next one takes over.
+      const before = this.lit[slot] ?? 0;
+      const glow = calm ? (active ? 1 : 0) : approach(before, active ? 1 : 0, active ? 0.5 : 0.2);
+      this.lit[slot] = glow;
+      if (glow !== before) this.live(now, 0.1);
       this.sector(chordIn, chordOut, from, to);
       context.fillStyle = ink;
-      context.globalAlpha = active ? 1 : pointed || host.openSlot === slot ? 0.2 : 0.09;
+      context.globalAlpha = lerp(pointed || host.openSlot === slot ? 0.2 : 0.09, 1, glow);
       context.fill();
       context.globalAlpha = 1;
       if (host.openSlot === slot) {
@@ -506,19 +678,21 @@ export class RingView {
         context.stroke();
       }
       const angle = (from + to) / 2;
-      context.fillStyle = active ? bg : ink;
+      context.fillStyle = glow > 0.5 ? bg : ink;
       context.fillText(chordName(host.project.root, host.project.scale, chord), center + Math.cos(angle) * slotRadius, center + Math.sin(angle) * slotRadius + 0.5);
     });
 
     // The hub: start and stop, breathing with the music.
-    const pulse = this.calm.matches ? 0 : Math.min(0.07, host.level() * 0.09);
-    const size = hub * (1 + pulse);
+    // It rises a little under the pointer, and at a start or a stop it gives way like a pressed button and hops back.
+    const pulse = calm ? 0 : Math.min(0.07, host.level() * 0.09);
+    const press = sinceToggle < HUB_PRESS ? 1 - 0.09 * (1 - hop(sinceToggle / HUB_PRESS)) : 1;
+    const size = hub * (1 + pulse) * (1 + 0.035 * this.lift) * press;
     context.beginPath();
     context.arc(center, center, size, 0, TAU);
     context.fillStyle = ink;
     context.fill();
-    if (this.hover?.kind === "hub") {
-      context.lineWidth = 3;
+    if (this.lift > 0.01) {
+      context.lineWidth = 3 * this.lift;
       context.strokeStyle = TRACK_INFO[TRACK_KINDS[host.selected] ?? "kick"].color;
       context.stroke();
     }
@@ -551,7 +725,8 @@ export class RingView {
       context.lineCap = "round";
     }
     context.fillStyle = bg;
-    const icon = hub * 0.42;
+    // The sign for start or stop is stamped in anew when it changes.
+    const icon = hub * 0.42 * (sinceToggle < HUB_PRESS ? hop(sinceToggle / HUB_PRESS) : 1);
     // While a voice sings, the hub is its mouth.
     const mouth = host.mouth();
     if (mouth && mouth.amount > 0.02) drawMouth(context, center, center, hub * 0.62, mouth, bg, ink);
@@ -586,8 +761,8 @@ export class RingView {
       context.globalAlpha = 1;
     }
 
-    // A small mark where every ring begins.
-    const outer = geometry.piece.outer;
+    // A small mark where every ring begins. It hops on the one of every bar.
+    const outer = geometry.piece.outer + (playhead !== null && !calm ? Math.max(0, 1 - (playhead % 16) / 1.6) ** 2 * 2.5 : 0);
     context.fillStyle = ink;
     context.beginPath();
     context.moveTo(center, center - outer - 1.5);
