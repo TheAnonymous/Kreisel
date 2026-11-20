@@ -71,9 +71,12 @@ test.describe("am Laptop", () => {
     await expect(page.locator("#weathers .tool").nth(0)).toHaveAttribute("aria-checked", "true");
     const hat = await where(page, 2, 4);
     await page.mouse.move(hat.x, hat.y);
+    // One turn of the wheel at a time: sent back to back, a busy browser may hand over two turns as one.
+    const brushSize = (): Promise<number> => page.evaluate(() => window.kreisel.app.weather.cloudSize);
     await page.mouse.wheel(0, -100);
+    await expect.poll(brushSize).toBe(1);
     await page.mouse.wheel(0, -100);
-    expect(await page.evaluate(() => window.kreisel.app.weather.cloudSize)).toBe(2);
+    await expect.poll(brushSize).toBe(2);
     await page.mouse.click(hat.x, hat.y);
     const fog = await Promise.all([0, 1, 2, 3, 4].map((ring) => sky(0, ring)));
     expect(fog[2]![4]).toBe(5);
