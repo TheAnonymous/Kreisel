@@ -96,6 +96,10 @@ export class App implements RingHost, EaselHost {
   exporting: number | null = null;
   /** Shows the menu for what a right click landed on, at that place of the page (set by whoever draws the menu). */
   onContext: (target: ContextTarget, x: number, y: number, fromKeyboard: boolean) => void = () => undefined;
+  /** The light show: while it plays, hits throw light, sparks and waves (kept in this browser; whoever asked for less motion never sees it). */
+  lights = readFlag("kreisel.licht", true);
+  /** The stage: only the wheel, in the dark. */
+  stage = false;
   /** Something was done that a button stands for: that button answers with a little motion, also when a key did it. */
   onDeed: (deed: Deed) => void = () => undefined;
   /** A ring's pattern taken with "Muster kopieren", to put into another ring or scene. */
@@ -1573,6 +1577,22 @@ export class App implements RingHost, EaselHost {
     this.store.edit((project) => { Object.assign(stepAt(patternOf(project, track), step), { ...emptyStep(), on: true, pitch }); }, "einspielen", 4000);
   }
 
+  // ---- how it looks ----------------------------------------------------------------
+
+  toggleLights(): void {
+    this.lights = !this.lights;
+    writeFlag("kreisel.licht", this.lights);
+    this.say(this.lights ? "Lichtspiel an: Jeder Schlag wirft Licht auf den Tisch, betonte sprühen Funken." : "Lichtspiel aus.");
+  }
+
+  /** Onto the stage, or off it again. */
+  toggleStage(on = !this.stage): void {
+    if (on === this.stage) return;
+    this.stage = on;
+    if (on) this.say("Bühne: nur das Rad, im Dunkeln. Der Knopf in der Ecke oder Esc bringt alles zurück.");
+    else this.notify();
+  }
+
   // ---- messages -----------------------------------------------------------------
 
   say(text: string, action?: Toast["action"]): void {
@@ -1585,6 +1605,24 @@ export class App implements RingHost, EaselHost {
   dismiss(): void {
     this.toast = null;
     this.notify();
+  }
+}
+
+/** A switch kept in this browser. */
+function readFlag(key: string, fallback: boolean): boolean {
+  try {
+    const kept = localStorage.getItem(key);
+    return kept === null ? fallback : kept === "1";
+  } catch {
+    return fallback;
+  }
+}
+
+function writeFlag(key: string, on: boolean): void {
+  try {
+    localStorage.setItem(key, on ? "1" : "0");
+  } catch {
+    // Not kept: it holds for this visit.
   }
 }
 

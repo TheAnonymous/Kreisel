@@ -16,6 +16,7 @@ import type { BoothView } from "./booth";
 import { renderThumb, type EaselView } from "./easel";
 import { onContext } from "./menu";
 import type { RingView, Tool } from "./ring";
+import { Tour, type TourStep } from "./tour";
 
 /*
  * Everything around the Kreisel: transport and key in the bar, the list of
@@ -198,7 +199,8 @@ export class Panels {
   private readonly veilBox = el("div", "panel-box panel-veil");
   private readonly ruleInputs: HTMLInputElement[] = [];
   private turnsSignature = "";
-  private closeCoach: () => void = () => undefined;
+  private tour: Tour | null = null;
+  private shownStage = false;
   private readonly panel = { name: el("h2"), info: el("p", "info"), pad: el("div", "pad"), puck: el("span", "puck"), axisX: el("span", "axis x"), axisY: el("span", "axis y"), steps: el("output"), spread: el("input"), spreadValue: el("output") };
   private chordSignature = "";
   private recordTimer: ReturnType<typeof setInterval> | null = null;
@@ -223,7 +225,8 @@ export class Panels {
     this.buildPanel();
     this.buildPiece();
     this.buildRelay();
-    this.buildCoach();
+    this.buildTour();
+    this.buildStage();
     this.buildHelp();
     document.addEventListener("pointerdown", (event) => this.outside(event), true);
     // A button clicked with the mouse should not keep the keyboard: the space bar belongs to start and stop.
@@ -412,6 +415,9 @@ export class Panels {
       else if (action === "factory") app.newProject(false);
       else if (action === "help") this.showHelp();
       else if (action === "relay") this.showRelay();
+      else if (action === "stage") app.toggleStage();
+      else if (action === "lights") app.toggleLights();
+      else if (action === "tour") this.startTour();
     });
 
     const chain = byId<HTMLInputElement>("chain");
@@ -1102,27 +1108,63 @@ export class Panels {
     this.pieceBox.append(head, parts.info, on, doing, length, order, hint, save);
   }
 
-  private buildCoach(): void {
-    const coach = byId("coach");
+  /** The first steps, shown where they happen: on the first visit, and from the menu whenever it is asked for. */
+  private buildTour(): void {
+    const app = this.app;
+    const hits = (): number => currentScene(app.project).patterns.reduce((sum, pattern) => sum + activeSteps(pattern).length, 0);
+    let before = 0;
+    let ring = 0;
+    const steps: TourStep[] = [
+      { target: "#kreisel", side: "right", title: "Das ist dein Kreisel", text: "Jeder Ring ist ein Instrument, eine Runde ist sein Muster. Drück auf die Mitte oder die Leertaste, dann läuft er los.", done: () => app.playing },
+      { target: "#kreisel", side: "right", title: "Mal einen Schlag", text: "Ein Klick in einen Ring setzt einen Schlag, ein zweiter nimmt ihn wieder weg. Ziehen malt mehrere, nach außen ziehen macht den Ton höher.", done: () => hits() !== before },
+      { target: "#tracks", side: "right", title: "Sieben Ringe", text: "Hier wählst du einen Ring. Der Lautsprecher schaltet ihn stumm, der Würfel gibt ihm ein neues Muster.", done: () => app.selected !== ring },
+      { target: "#panel", side: "left", title: "Sein Klang", text: "Jeder Ring hat vier Klänge. Zieh den Punkt im Klangfeld, und der Klang verändert sich. „Würfeln“ bringt eine neue Idee, „Variieren“ ändert sie nur ein wenig." },
+      { target: "#fx", side: "left", title: "Effekte zum Festhalten", text: "Halt eine dieser Tasten, solange es spielt: dumpf, dünn, Stottern, Echo, Pause. Auf der anderen Seite des Rads liegen die Werkzeuge zum Malen." },
+      { target: "#scenes", side: "right", title: "Vom Loop zum Stück", text: "Acht Szenen: Eine leere wird beim Anklicken zur Kopie der aktuellen, und schon hast du einen zweiten Teil. „Teilen“ oben packt alles in einen Link." },
+      { target: "#more", side: "below", title: "Und überall: die rechte Taste", text: "Ein Rechtsklick zeigt an jeder Stelle, was dort geht. Hinter den drei Punkten findest du die Hilfe, die Bühne und diese Tour." },
+    ];
+    const tour = new Tour(byId("tour"), steps, () => {
+      try {
+        localStorage.setItem("kreisel.hinweis", "1");
+      } catch {
+        // It will come again next time.
+      }
+    });
+    this.tour = tour;
+    this.startTour = () => {
+      // A step that asks for something to be tried starts from how things are now.
+      before = hits();
+      ring = app.selected;
+      this.closeMenu();
+      if (app.stage) app.toggleStage(false);
+      tour.start();
+    };
+    byId("tour-next").addEventListener("click", () => {
+      before = hits();
+      ring = app.selected;
+    });
     let seen = false;
     try {
       seen = localStorage.getItem("kreisel.hinweis") === "1";
     } catch {
       // No storage: show it.
     }
-    coach.hidden = seen;
-    const close = (): void => {
-      if (coach.hidden) return;
-      coach.hidden = true;
-      try {
-        localStorage.setItem("kreisel.hinweis", "1");
-      } catch {
-        // It will show again next time.
-      }
-    };
-    byId("coach-ok").addEventListener("click", close);
-    byId("kreisel").addEventListener("pointerdown", close);
-    this.closeCoach = close;
+    // A moment later, when the wheel has dealt its hits.
+    if (!seen) setTimeout(() => { if (!app.easel && !app.bench && !app.booth) this.startTour(); }, 700);
+  }
+
+  private startTour: () => void = () => undefined;
+
+  /** Ends the tour if it runs, and says whether it did. */
+  endTour(): boolean {
+    const running = this.tour?.running ?? false;
+    this.tour?.end();
+    return running;
+  }
+
+  /** The stage: only the wheel, in the dark. Its button sits in a corner beside the wheel. */
+  private buildStage(): void {
+    byId("stage-toggle").addEventListener("click", () => this.app.toggleStage());
   }
 
   private buildHelp(): void {
@@ -1144,6 +1186,7 @@ export class Panels {
       ["An der Werkbank", `${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")} Schlägel weich und hart, Zupfen, Streichen, Blasen · ${key("KeyN")} würfeln · Esc fertig`],
       ["Im Malkasten", `${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} Pinsel und Radierer · ${key("KeyT")} Dicke · ${key("KeyN")} würfeln · Entf nimmt den letzten Strich · Esc fertig`],
       [key("KeyM"), "Ring stumm · mit Umschalt allein hören"],
+      [key("KeyO"), "Bühne: nur das Rad, im Dunkeln · Esc zurück"],
       [", .", "Szene zurück oder vor"],
       ["8", "den Stück-Ring wählen · dort: ← → Takt, + − Spannung, Eingabe spielt ab dem Takt"],
       ["9", `das Wetter wählen · dort: ${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")} ${key("KeyY")} Nebel, Sonne, Wolken, Regen, Funken, Hagel · ${key("KeyN")} würfeln · Entf nimmt das gewählte Wetter weg`],
@@ -1176,6 +1219,21 @@ export class Panels {
     // For the motions that go with the music: whether it plays, and how long a beat is.
     root.dataset.playing = String(app.playing);
     root.style.setProperty("--beat", `${(60 / project.bpm).toFixed(3)}s`);
+    // The stage: only the wheel, in the dark. A window that opens takes the Kreisel off it again.
+    if (app.stage && (app.easel || app.bench || app.booth)) app.toggleStage(false);
+    if (app.playing) root.dataset.played = "true";
+    root.dataset.stage = String(app.stage);
+    if (app.stage !== this.shownStage) {
+      this.shownStage = app.stage;
+      const toggle = byId("stage-toggle");
+      toggle.setAttribute("aria-pressed", String(app.stage));
+      toggle.title = app.stage ? "Zurück von der Bühne (Esc)" : `Bühne: nur das Rad, im Dunkeln (${this.keyLabel("KeyO")})`;
+      // The wheel reads the colours of the page: they have just changed.
+      this.ring.repaint();
+    }
+    const lights = document.querySelector<HTMLElement>('#menu [data-do="lights"]');
+    lights?.setAttribute("aria-checked", String(app.lights));
+    this.tour?.check();
     // What belongs to the ring in focus only moves when it changes, not when another ring comes into focus.
     const sameRing = this.shownRing === selected;
     if (!sameRing && this.shownRing !== -1) {
@@ -1385,7 +1443,7 @@ export class Panels {
     byId("tools").hidden = open || app.bench || app.weatherFocus;
     if (open && !this.easelOpen) {
       // The first hint is about the rings, and where the panel sits below the wheel, the sheet opens out of sight.
-      this.closeCoach();
+      this.endTour();
       byId("stage").scrollIntoView({ block: "nearest" });
     }
     this.easelOpen = open;
@@ -1442,7 +1500,7 @@ export class Panels {
     const open = app.booth && voice !== null;
     byId("booth").hidden = !open;
     if (open && !this.boothOpen) {
-      this.closeCoach();
+      this.endTour();
       byId("stage").scrollIntoView({ block: "nearest" });
       // With a keyboard at hand the line is ready to be typed over (a phone's keyboard would only be in the way).
       if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
@@ -1508,7 +1566,7 @@ export class Panels {
       this.veilBox.hidden = true;
       // It is painted on the wheel: where the list sits below it, bring the wheel into view.
       if (!this.weatherFocused) {
-        this.closeCoach();
+        this.endTour();
         byId("stage").scrollIntoView({ block: "nearest" });
       }
     }
@@ -1548,7 +1606,7 @@ export class Panels {
     byId("bench").hidden = !open;
     byId("mallets").hidden = !open;
     if (open && !this.benchOpen) {
-      this.closeCoach();
+      this.endTour();
       byId("stage").scrollIntoView({ block: "nearest" });
     }
     this.benchOpen = open;

@@ -3,6 +3,7 @@ import { chordAt, chordName, pitchName } from "../music";
 import { shakes } from "../rumble";
 import { drawMouth, type MouthShape } from "./booth";
 import { WEATHER_COLORS, WEATHER_NAMES, windDrift } from "../weather";
+import { Lights } from "./lights";
 import { LONG_PRESS_MS, LONG_PRESS_SLACK } from "./menu";
 import { approach, compare, DEAL, dealt, face, hop, MANY, POP, rest, SHRINK, SLIDE, SWELL, swell, unface } from "./motion";
 import { entry } from "../piece";
@@ -54,6 +55,9 @@ export interface RingHost {
   paintRumble(step: number, share: number, gesture: string): void;
   /** The mouth of a voice that sounds right now, or `null`. */
   mouth(): MouthShape | null;
+  /** The light show is on: hits throw light, sparks and waves (see lights.ts). On the stage it is stronger. */
+  readonly lights: boolean;
+  readonly stage: boolean;
   /** The weather is in focus: strokes on the wheel paint it, with a brush of one kind of weather and a width of 0..2. */
   readonly weatherFocus: boolean;
   readonly cloud: number;
@@ -192,11 +196,15 @@ export class RingView {
   private lastHead = 0;
   /** Frames are drawn until then even if nothing else asks for them. */
   private liveUntil = 0;
+  // ---- the light show (see lights.ts): how long ago each ring had struck at the last frame ----
+  private readonly lights: Lights;
+  private readonly lastSince: number[] = [];
 
-  constructor(private readonly canvas: HTMLCanvasElement, private readonly host: RingHost, private readonly tip: HTMLElement) {
+  constructor(private readonly canvas: HTMLCanvasElement, private readonly host: RingHost, private readonly tip: HTMLElement, aura: HTMLCanvasElement | null = null) {
     const context = canvas.getContext("2d");
     if (!context) throw new Error("no canvas");
     this.context = context;
+    this.lights = new Lights(aura);
     this.weights[host.selected] = FOCUS;
     canvas.addEventListener("pointerdown", (event) => this.down(event));
     canvas.addEventListener("pointermove", (event) => this.move(event));
@@ -227,6 +235,16 @@ export class RingView {
     const popping = this.born.reduce((sum, ring) => sum + ring.filter((at) => now - at < POP).length, 0);
     const sliding = this.turns.filter((turn, track) => turn !== undefined && this.sliding(track, now) !== 0).length;
     return { popping, shrinking: this.ghosts.filter((ghost) => now - ghost.at < SHRINK).length, sliding };
+  }
+
+  /** What the light show has in the air right now (for the browser tests). */
+  light(): { sparks: number; waves: number; glowing: boolean } {
+    return this.lights.count();
+  }
+
+  /** The colours of the page have changed (the stage went dark): read them again. */
+  repaint(): void {
+    this.readPalette();
   }
 
   private live(now: number, seconds: number): void {
@@ -398,7 +416,7 @@ export class RingView {
       }
     }
     const flashing = Array.from({ length: TRACK_COUNT }, (_, track) => host.sinceStruck(track)).some((since) => since < 0.4);
-    if (!this.dirty && !moving && !host.playing && !flashing && now > this.liveUntil) return;
+    if (!this.dirty && !moving && !host.playing && !flashing && now > this.liveUntil && !this.lights.alive) return;
     this.dirty = false;
     this.draw(now);
   }
@@ -423,9 +441,32 @@ export class RingView {
     const calm = this.calm.matches;
     const sinceToggle = now - this.toggledAt;
     if (playhead !== null) this.lastHead = playhead;
+    // The light show: which rings have struck since the last frame.
+    const show = host.lights && !calm;
+    const fresh: boolean[] = [];
+    for (let track = 0; track < TRACK_COUNT; track += 1) {
+      const since = host.sinceStruck(track);
+      const before = this.lastSince[track] ?? since;
+      this.lastSince[track] = since;
+      fresh[track] = show && since < before - 0.02 && since < 0.12 && host.audible(track) && !host.veiled(track);
+    }
+    if (show) this.lights.shine(now, host.stage ? 1.5 : 1);
+    else this.lights.clear();
     context.clearRect(0, 0, this.size, this.size);
     context.lineCap = "round";
     context.lineJoin = "round";
+
+    // The wheel stands on the table like every tin thing here: with a hard shadow below it.
+    const rim = geometry.radius + 1;
+    context.fillStyle = ink;
+    context.beginPath();
+    context.arc(center, center + Math.max(3, this.size * 0.008), rim, 0, TAU);
+    context.fill();
+    context.globalCompositeOperation = "destination-out";
+    context.beginPath();
+    context.arc(center, center, rim, 0, TAU);
+    context.fill();
+    context.globalCompositeOperation = "source-over";
 
     for (let track = 0; track < TRACK_COUNT; track += 1) {
       const band = geometry.rings[track];
@@ -539,7 +580,7 @@ export class RingView {
       const high = band.outer - tile / 2 - 2;
       const current = playhead === null ? -1 : Math.floor(playhead) % length;
       /** One hit: at a step of a ring of `steps` steps, at a share of its size and of its strength. */
-      const paintHit = (step: Step, index: number, steps: number, size: number, strength: number, struck: number): void => {
+      const paintHit = (step: Step, index: number, steps: number, size: number, strength: number, struck: number): number => {
         const wide = TAU / steps;
         const share = (step.pitch - PITCH_MIN) / (PITCH_MAX - PITCH_MIN);
         const resting = Math.max(low, Math.min(high, middle + (share - 1 / 3) * thickness * 0.4));
@@ -573,12 +614,19 @@ export class RingView {
             context.globalAlpha = 1;
           }
           if (struck > 0) {
+            // A struck hit flares up, and with the light show on it glows in its colour.
+            if (show) {
+              context.shadowColor = info.color;
+              context.shadowBlur = 20 * struck;
+            }
             context.globalAlpha = struck * 0.55;
             context.fillStyle = "#ffffff";
             context.fill();
             context.globalAlpha = 1;
+            context.shadowBlur = 0;
           }
         }
+        return radius;
       };
       for (const ghost of this.ghosts) {
         if (ghost.track !== track) continue;
@@ -597,7 +645,21 @@ export class RingView {
         if (age < 0) continue;
         const poke = now - (nudged?.[index] ?? -10);
         const size = (age < POP ? hop(age / POP) : 1) * (poke < SWELL ? 1 + 0.2 * swell(poke / SWELL) : 1);
-        paintHit(step, index, length, size, 1, index === current ? flash : 0);
+        const radius = paintHit(step, index, length, size, 1, index === current ? flash : 0);
+        if (index === current && fresh[track]) {
+          // It throws light on the table, an accent throws sparks, and the kick sends a wave through the rings.
+          const angle = TOP + (index + 0.5 / Math.max(1, step.ratchet)) * cell;
+          const power = step.vel === 2 ? 1 : step.vel === 1 ? 0.62 : 0.34;
+          this.lights.strike(now, center + Math.cos(angle) * radius, center + Math.sin(angle) * radius, this.size, info.color, power, step.vel === 2 ? 12 : step.vel === 1 ? 3 : 0);
+          if (track === 0) this.lights.wave(now, power);
+          fresh[track] = false;
+        }
+      }
+      if (fresh[track]) {
+        // Struck by hand, with no hit lying there: the light comes from where the runner is.
+        const angle = TOP + (((playhead ?? 0) % length) / length) * TAU;
+        this.lights.strike(now, center + Math.cos(angle) * middle, center + Math.sin(angle) * middle, this.size, info.color, 0.62, 3);
+        if (track === 0) this.lights.wave(now, 0.62);
       }
       // While the weather is what is being painted, it lies over the hits.
       if (host.weatherFocus) this.drawWeather(scene, track, pattern.len, center, band, playhead);
@@ -624,6 +686,16 @@ export class RingView {
         const end = band.inner + 1 + (thickness - 2) * reach;
         context.strokeStyle = ink;
         context.lineWidth = 2.5;
+        if (show && playhead !== null) {
+          // With the light show on the runner draws a wake behind it: a wedge that thins out.
+          const slice = cell * 0.07;
+          context.fillStyle = ink;
+          for (let wake = 0; wake < 10; wake += 1) {
+            this.sector(band.inner + 1, end, angle - (wake + 1) * slice, angle - wake * slice + 0.002);
+            context.globalAlpha = 0.17 * (1 - wake / 10) ** 1.5;
+            context.fill();
+          }
+        }
         context.globalAlpha = playhead === null ? 1 - sinceToggle / RUNNER_OUT : 1;
         context.beginPath();
         context.moveTo(center + Math.cos(angle) * (band.inner + 1), center + Math.sin(angle) * (band.inner + 1));
@@ -691,6 +763,13 @@ export class RingView {
     context.arc(center, center, size, 0, TAU);
     context.fillStyle = ink;
     context.fill();
+    // It is a knob: light falls on it from the upper left.
+    const dome = context.createRadialGradient(center - size * 0.36, center - size * 0.42, size * 0.05, center, center, size);
+    dome.addColorStop(0, "rgba(255, 255, 255, 0.3)");
+    dome.addColorStop(0.55, "rgba(255, 255, 255, 0)");
+    dome.addColorStop(1, "rgba(0, 0, 0, 0.24)");
+    context.fillStyle = dome;
+    context.fill();
     if (this.lift > 0.01) {
       context.lineWidth = 3 * this.lift;
       context.strokeStyle = TRACK_INFO[TRACK_KINDS[host.selected] ?? "kick"].color;
@@ -744,6 +823,25 @@ export class RingView {
     context.fill();
 
     this.drawPiece(geometry, playhead !== null);
+
+    // The wheel is one thing: a line around it, and light from the upper left on all that lies on it.
+    context.strokeStyle = ink;
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(center, center, rim, 0, TAU);
+    context.stroke();
+    const sheen = context.createLinearGradient(center - rim * 0.7, center - rim * 0.7, center + rim * 0.7, center + rim * 0.7);
+    sheen.addColorStop(0, "rgba(255, 255, 255, 0.2)");
+    sheen.addColorStop(0.45, "rgba(255, 255, 255, 0)");
+    sheen.addColorStop(0.6, "rgba(0, 0, 0, 0)");
+    sheen.addColorStop(1, "rgba(0, 0, 0, 0.13)");
+    context.globalCompositeOperation = "source-atop";
+    context.fillStyle = sheen;
+    context.beginPath();
+    context.arc(center, center, rim, 0, TAU);
+    context.fill();
+    context.globalCompositeOperation = "source-over";
+    if (show) this.lights.draw(context, now, center, hub, geometry.radius, ink);
 
     // The weather brush: as wide as it paints, in the colour of its weather.
     if (host.weatherFocus && this.brushAt) {

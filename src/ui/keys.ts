@@ -64,6 +64,10 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
       return;
     }
     if (event.key === "Escape") {
+      // Escape puts away what is open, one thing at a time from the top: the tour, a window, and last the stage.
+      if (panels.endTour()) return;
+      const open = app.easel || app.bench || app.booth || app.openSlot !== null;
+      if (!open && app.stage) app.toggleStage(false);
       panels.closeMenu();
       app.closeChord();
       app.hideCursor();
@@ -123,6 +127,11 @@ export function bindKeys(app: App, panels: Panels, atCursor: () => void): void {
     if (event.key === "?") {
       event.preventDefault();
       panels.showHelp();
+      return;
+    }
+    // The stage: only the wheel, in the dark. (O, like the wheel.)
+    if (code === "KeyO" && !event.repeat && !event.shiftKey) {
+      app.toggleStage();
       return;
     }
 

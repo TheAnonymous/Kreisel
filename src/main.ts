@@ -21,7 +21,8 @@ if (!(sheet instanceof HTMLCanvasElement)) throw new Error("page without a paint
 const stand = document.getElementById("koerper");
 if (!(stand instanceof HTMLCanvasElement)) throw new Error("page without a workbench");
 
-const ring = new RingView(canvas, app, tip);
+const aura = document.getElementById("licht");
+const ring = new RingView(canvas, app, tip, aura instanceof HTMLCanvasElement ? aura : null);
 const easel = new EaselView(sheet, app);
 const bench = new BenchView(stand, app);
 const lips = document.getElementById("mund");
@@ -83,6 +84,8 @@ declare global {
       quake(step: number, share: number): { x: number; y: number };
       /** How much on the wheel is in motion right now: hits popping in, hits shrinking away, rings sliding. */
       motion(): { popping: number; shrinking: number; sliding: number };
+      /** What the light show has in the air right now. */
+      light(): { sparks: number; waves: number; glowing: boolean };
     };
   }
 }
@@ -99,4 +102,5 @@ window.kreisel = {
   grip: (what) => bench.grip(what),
   quake: (step, share) => ring.rumblePosition(step, share),
   motion: () => ring.motion(),
+  light: () => ring.light(),
 };

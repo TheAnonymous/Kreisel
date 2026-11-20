@@ -288,6 +288,30 @@ Two rules keep it out of the way. Boxes that a pointer is aimed at (the wheel, t
 box, the windows around them) never move; only what lies in them does. And whoever asked the system for
 less motion (`prefers-reduced-motion`) gets none of it.
 
+## Light, stage and first steps
+
+Easier to get into, and more to look at.
+
+- **The light show** (`src/ui/lights.ts`, drawn from `src/ui/ring.ts`). While the Kreisel plays, every hit
+  throws a soft glow in its ring's colour onto the table, an accented hit throws sparks, the kick sends a
+  wave out through the rings, and the runner draws a wake. The glow is painted on a small canvas of its
+  own under the wheel (128 pixels, stretched, which blurs it for free) and repainted from the list of
+  living glows every frame. It changes nothing that is heard, it can be switched off ("Lichtspiel" behind
+  the three dots, kept in the browser), and with `prefers-reduced-motion` it is never shown.
+- **The wheel is a thing**: a hard shadow under it and a line around it like every tin part of the page,
+  light from the upper left on all that lies on it, and a hub that is a domed knob. Until the Kreisel has
+  played once, a ring around the hub beckons to the start (six times, then it lets be).
+- **The stage** (the button in the corner beside the wheel, the key O, or the menu): only the wheel,
+  larger, on a dark table whatever the colour scheme, with the tools and the held effects still at hand
+  and the glow stronger. Escape or the button leads back; a window that opens takes the Kreisel off it.
+- **The tour** (`src/ui/tour.ts`) replaces the single hint of the first visit: a light falls on one part
+  of the page after the other and a card says in two sentences what it is for. Nothing is locked while
+  it runs, and a step that asks for something to be tried (start, set a hit, pick a ring) goes on by
+  itself once it was done. It comes once and again from the menu.
+- **Easier to read**: the smallest writing is a little larger, the keyboard's focus frame is drawn in ink
+  (a ring's colour can be too pale on paper), and `prefers-contrast: more` gets stronger lines and
+  writing and no glow.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the
