@@ -9,3 +9,6 @@ export const TOOL_CODES = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT"] as const;
 export const WEATHER_CODES = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY"] as const;
 export const PLAY_CODES = ["KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK"] as const;
 export const FX_CODES = ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB"] as const;
+
+/** Which key of a row this is, counted from the left; −1 if it is not in the row. */
+export const place = (row: readonly string[], code: string): number => row.indexOf(code);

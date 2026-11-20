@@ -357,7 +357,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/easel-window.ts`, `bench-window.ts`, `booth-window.ts`, `piece-panel.ts`, `weather-panel.ts`, `relay-dialog.ts`, `chord-menu.ts`, `toast.ts`, `help.ts`, `tour-guide.ts`, `tour.ts` | the parts of the page that have a file of their own |
 | `src/ui/menu.ts`, `menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
-| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox |
+| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`), and `helpers.ts` for what they share |
 
 ## License
 

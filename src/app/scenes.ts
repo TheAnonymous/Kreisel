@@ -1,4 +1,4 @@
-import { clone, currentScene, SCENE_COUNT, SCENE_NAMES } from "../model";
+import { clone, currentScene, SCENE_COUNT, SCENE_NAMES, wrap } from "../model";
 import type { App } from "./app";
 
 /*
@@ -29,6 +29,17 @@ export class SceneDesk {
     } else if (this.app.project.scene !== index) {
       // While a piece plays, the piece decides which scene sounds; this only puts a scene on the table (to change it, or to lay it on the piece).
       this.app.store.touch((project) => { project.scene = index; });
+    }
+  }
+
+  /** Goes on to the next scene that is filled, forward (1) or back (−1); empty ones are passed over. */
+  pickNext(direction: -1 | 1): void {
+    for (let offset = 1; offset < SCENE_COUNT; offset += 1) {
+      const index = wrap(this.app.project.scene + direction * offset, SCENE_COUNT);
+      if (this.app.project.scenes[index]) {
+        this.pick(index);
+        return;
+      }
     }
   }
 
