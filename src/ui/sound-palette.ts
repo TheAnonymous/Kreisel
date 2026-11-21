@@ -2,7 +2,7 @@ import type { App } from "../app/app";
 import { takesAcid } from "../acid";
 import { ACID_SOUND, BODY_SOUND, clamp, trackInfo, trackOf, VOICE_SOUND, type Track } from "../model";
 import { BODY_NAMES } from "../body";
-import { FAMILY_COUNT, FAMILY_SIZE, familyNames, familySounds, placeOf, SOUND_COUNT, soundAt, soundName } from "../sounds/index";
+import { FAMILY_COUNT, FAMILY_SIZE, familyNames, familySounds, placeOf, SOUND_COUNT, soundAt, soundName, technoSounds } from "../sounds/index";
 import { button, byId, el } from "./dom";
 import { onContext } from "./menu";
 
@@ -21,12 +21,21 @@ export function soundLabel(track: number, settings: Track): string {
  * that leaf through); a click on the name opens the palette beside the panel,
  * where every sound is one click away and is heard at once. The palette stays
  * open while sounds are tried, also when another ring is picked.
+ *
+ * In a techno Kreisel the palette begins with the ring's techno group: ten of
+ * the fifty, shown a second time where one looks first (src/sounds/techno.ts).
+ * The dice of such a Kreisel throw from that group.
  */
 export class SoundPalette {
   private readonly card = byId("palette");
   private readonly title = el("strong");
+  private readonly head = el("header", "palette-head");
+  private readonly dice = button("button small", "Würfeln", "");
   private readonly headings: HTMLElement[] = [];
   private readonly chips: HTMLButtonElement[] = [];
+  /** The techno group: in the palette only while the Kreisel's style is techno. */
+  private readonly techno = el("div", "palette-techno");
+  private readonly technoChips: HTMLButtonElement[] = [];
   private readonly before = button("button icon small", "‹", "Voriger Klang (U)");
   private readonly after = button("button icon small", "›", "Nächster Klang (I)");
   private readonly pick = button("sound-pick", "", `Alle ${SOUND_COUNT} Klänge dieses Rings zeigen (P) · Rechtsklick würfelt einen`);
@@ -62,9 +71,7 @@ export class SoundPalette {
 
   /** The palette itself: a heading and ten sounds for each family. */
   build(): void {
-    const app = this.app;
-    const head = el("header", "palette-head");
-    const dice = button("button small", "Würfeln", "Irgendeinen Klang aus der Palette nehmen");
+    const { app, head, dice } = this;
     dice.id = "palette-dice";
     dice.addEventListener("click", () => app.rings.diceSound(app.selected));
     const done = button("button small done", "Fertig", "Die Palette schließen (Esc)");
@@ -72,6 +79,21 @@ export class SoundPalette {
     done.addEventListener("click", () => app.rings.closePalette());
     head.append(this.title, dice, done);
     this.card.append(head);
+    const group = el("h3", "palette-name", "Techno · zehn von den fünfzig");
+    group.id = "palette-family-techno";
+    const picks = el("div", "palette-row");
+    picks.setAttribute("role", "group");
+    picks.setAttribute("aria-labelledby", group.id);
+    for (let place = 0; place < FAMILY_SIZE; place += 1) {
+      const chip = button("chip", "");
+      chip.addEventListener("click", () => {
+        const one = technoSounds(app.selected)[place];
+        if (one) app.rings.setSound(app.selected, one.sound);
+      });
+      picks.append(chip);
+      this.technoChips.push(chip);
+    }
+    this.techno.append(group, picks);
     for (let family = 0; family < FAMILY_COUNT; family += 1) {
       const heading = el("h3", "palette-name");
       heading.id = `palette-family-${family}`;
@@ -109,16 +131,23 @@ export class SoundPalette {
     this.pick.setAttribute("aria-expanded", String(open));
     this.card.hidden = !open;
     if (!open) return;
+    const techno = app.project.style === "techno";
+    const group = technoSounds(track);
+    if (techno && !this.techno.isConnected) this.head.after(this.techno);
+    else if (!techno) this.techno.remove();
+    this.dice.title = techno ? "Einen der zehn Techno-Klänge dieses Rings nehmen" : "Irgendeinen Klang aus der Palette nehmen";
     if (this.shown !== track) {
       this.shown = track;
       const names = familyNames(track);
       this.headings.forEach((heading, family) => { heading.textContent = names[family] ?? ""; });
       this.chips.forEach((chip, index) => { chip.textContent = familySounds(track, Math.floor(index / FAMILY_SIZE))[index % FAMILY_SIZE]?.name ?? ""; });
+      this.technoChips.forEach((chip, place) => { chip.textContent = group[place]?.name ?? ""; });
     }
     const info = trackInfo(track);
     this.title.textContent = `${info.name}: ${SOUND_COUNT} Klänge`;
     this.card.style.setProperty("--c", info.color);
     this.chips.forEach((chip, index) => chip.setAttribute("aria-pressed", String(soundAt(Math.floor(index / FAMILY_SIZE), index % FAMILY_SIZE) === settings.sound)));
+    this.technoChips.forEach((chip, place) => chip.setAttribute("aria-pressed", String(group[place]?.sound === settings.sound)));
     this.machineRow.hidden = !takesAcid(track);
     this.machine.setAttribute("aria-pressed", String(settings.sound === ACID_SOUND));
     this.place();

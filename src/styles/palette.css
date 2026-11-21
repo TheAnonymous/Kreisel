@@ -52,6 +52,16 @@
   gap: 4px;
 }
 
+/* The techno group is ten of the fifty, shown a second time at the top: a dotted line sets it apart from the palette itself. */
+.palette-techno {
+  display: contents;
+}
+
+.palette-techno .palette-row {
+  padding-bottom: 8px;
+  border-bottom: 2px dotted var(--hair);
+}
+
 .palette .chip[aria-pressed="true"] {
   border-color: var(--ink);
   background: var(--c);

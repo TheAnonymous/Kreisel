@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { deserialize, serialize } from "../src/codec";
 import { BODY_SOUND, clone, factoryProject, OWN_SOUND, TRACK_COUNT, VOICE_SOUND } from "../src/model";
-import { alongPalette, drumOf, FAMILY_COUNT, FAMILY_SIZE, familyNames, familySounds, LAST_SOUND, PALETTE_ORDER, placeOf, SOUND_COUNT, soundAt, soundName, toneOf, trimOf } from "../src/sounds/index";
+import { alongPalette, drumOf, FAMILY_COUNT, FAMILY_SIZE, familyNames, familySounds, LAST_SOUND, PALETTE_ORDER, placeOf, SOUND_COUNT, soundAt, soundCalled, soundName, technoSounds, toneOf, trimOf } from "../src/sounds/index";
+import { TECHNO } from "../src/sounds/techno";
 import { TRIMS } from "../src/sounds/trims";
 
 const OWN = [OWN_SOUND, BODY_SOUND, VOICE_SOUND];
@@ -123,6 +124,48 @@ describe("the palettes", () => {
         }
       }
     }
+  });
+});
+
+describe("the techno group", () => {
+  it("is ten of a ring's fifty sounds, each one once", () => {
+    expect(TECHNO).toHaveLength(TRACK_COUNT);
+    for (const track of rings) {
+      const group = technoSounds(track);
+      expect(group).toHaveLength(FAMILY_SIZE);
+      expect(new Set(group.map((one) => one.sound)).size).toBe(FAMILY_SIZE);
+      for (const one of group) {
+        // A pick is a place on the palette: it has that sound's number and its name, and none of its own.
+        expect(PALETTE_ORDER).toContain(one.sound);
+        expect(one.name).toBe(soundName(track, one.sound));
+      }
+    }
+    expect(technoSounds(TRACK_COUNT)).toEqual([]);
+  });
+
+  it("holds what the genre asks of each ring", () => {
+    const names = (track: number): string[] => technoSounds(track).map((one) => one.name);
+    // The hard kick the techno Kreisel starts with leads its group; a clap in layers, a noise snare driven hard.
+    expect(names(0)[0]).toBe("Hart");
+    expect(names(1)).toEqual(expect.arrayContaining(["Klatsch", "Menge", "Schrot"]));
+    // A drum machine's metal hat, an open one, ride and crash.
+    expect(names(2)).toEqual(expect.arrayContaining(["Maschine", "Offen", "Ride", "Crash"]));
+    expect(names(3)).toEqual(expect.arrayContaining(["Taiko", "Amboss", "Zapp"]));
+    expect(names(4)).toEqual(expect.arrayContaining(["Acid", "Fuzz", "Sub"]));
+    expect(names(5)).toEqual(expect.arrayContaining(["Stab", "Rave"]));
+    expect(names(6)).toEqual(expect.arrayContaining(["Schrei", "Sirene"]));
+    // Every sound of the group that is driven by itself says so in its recipe: there are some on every drum ring.
+    for (const track of [0, 1, 2, 3]) expect(technoSounds(track).some((one) => (drumOf(track, one.sound)?.drive ?? 0) > 0)).toBe(true);
+  });
+
+  it("finds a sound by the name its ring's palette lists it under", () => {
+    expect(soundCalled(0, "Rund")).toBe(0);
+    expect(soundCalled(1, "Menge")).toBe(soundAt(1, 3));
+    expect(soundCalled(2, "Maschine")).toBe(soundAt(1, 1));
+    for (const track of rings) for (const sound of PALETTE_ORDER) expect(soundCalled(track, soundName(track, sound) ?? "")).toBe(sound);
+    // The snare's ring has a "Maschine" too, and it is another sound: a name is a ring's own.
+    expect(soundCalled(1, "Maschine")).not.toBe(soundCalled(2, "Maschine"));
+    expect(() => soundCalled(2, "Hoover")).toThrow("no sound called Hoover");
   });
 });
 

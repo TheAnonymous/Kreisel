@@ -5,6 +5,8 @@ import { nextHit, slidesInto } from "../src/acid";
 import { ACID_ROOT, activeSteps, dice, seeded } from "../src/patterns";
 import { barCount, dicePiece, planBar, resizePiece, soundPiece, technoSections } from "../src/piece";
 import { shapeOf } from "../src/rumble";
+import { hatChokes, isCymbal, isOpenHat, OPEN_HAT } from "../src/hat";
+import { soundCalled, soundName, technoSounds } from "../src/sounds/index";
 
 /** Seeds far apart: neighbouring ones start the generator off alike. */
 const SEEDS = Array.from({ length: 60 }, (_, index) => index * 7919 + 13);
@@ -38,6 +40,25 @@ describe("the techno Kreisel", () => {
     for (const beat of [0, 4, 8, 12]) expect(stepAt(hat, beat).on).toBe(false);
     expect(patternOf(project, 3).len).toBe(12);
     expect(activeSteps(patternOf(project, 6))).toEqual([]);
+  });
+
+  it("claps with many hands and has a drum machine's hi-hat, both from the techno group of their rings", () => {
+    expect([1, 2].map((track) => soundName(track, project.tracks[track]?.sound ?? -1))).toEqual(["Menge", "Maschine"]);
+    for (const track of [0, 1, 2, 3]) expect(technoSounds(track).map((one) => one.sound)).toContain(project.tracks[track]?.sound);
+    // The Werks-Kreisel plays what it always played.
+    expect(factoryProject().tracks.map((track) => track.sound)).toEqual([0, 1, 0, 1, 3, 2, 0]);
+  });
+
+  it("has a hi-hat that is one voice: every open hit is followed by a closed one that cuts it off", () => {
+    expect([hatChokes("techno"), hatChokes("frei")]).toEqual([true, false]);
+    expect([isOpenHat(3), isOpenHat(1), isOpenHat(0), isOpenHat(-2)]).toEqual([true, true, false, false]);
+    const hat = patternOf(project, 2);
+    for (const offbeat of [2, 6, 10, 14]) {
+      const after = stepAt(hat, offbeat + 1);
+      // Open far enough to ring into the closed hit that follows.
+      expect([stepAt(hat, offbeat).pitch, after.on, isOpenHat(after.pitch)]).toEqual([OPEN_HAT, true, false]);
+    }
+    expect(OPEN_HAT).toBeGreaterThan(3);
   });
 
   it("lets the ground shake between the kicks, in the Nachbeben's off-beat shape", () => {
@@ -103,11 +124,31 @@ describe("techno dice", () => {
   it("open the hi-hat between the kicks and clap on four", () => {
     for (const seed of SEEDS) {
       const hat = dice(2, 16, seeded(seed), "techno");
-      for (const offbeat of [2, 6, 10, 14]) expect([stepAt(hat, offbeat).on, stepAt(hat, offbeat).vel, stepAt(hat, offbeat).pitch]).toEqual([true, 2, 3]);
+      for (const offbeat of [2, 6, 10, 14]) expect([stepAt(hat, offbeat).on, stepAt(hat, offbeat).vel, stepAt(hat, offbeat).pitch]).toEqual([true, 2, OPEN_HAT]);
       const clap = dice(1, 16, seeded(seed), "techno");
       expect(stepAt(clap, 12).on).toBe(true);
       expect(activeSteps(clap).every((index) => [4, 12, 15].includes(index))).toBe(true);
     }
+  });
+
+  it("let a cymbal on the hi-hat's ring keep time instead: between the kicks, on the eighths or on the beats, and never open", () => {
+    const ride = soundCalled(2, "Ride");
+    expect([isCymbal(ride), isCymbal(soundCalled(2, "Crash")), isCymbal(soundCalled(2, "Maschine")), isCymbal(0), isCymbal(4)]).toEqual([true, true, false, false, false]);
+    const figures = new Set<string>();
+    for (const seed of SEEDS) {
+      const pattern = dice(2, 16, seeded(seed), "techno", ride);
+      const hits = activeSteps(pattern);
+      figures.add(hits.join(" "));
+      for (const index of hits) expect([isOpenHat(stepAt(pattern, index).pitch), stepAt(pattern, index).ratchet, stepAt(pattern, index).chance]).toEqual([false, 1, 0]);
+      // The same hi-hat sound that is no cymbal gets the open hat between the kicks, as before.
+      expect(dice(2, 16, seeded(seed), "techno", soundCalled(2, "Maschine"))).toEqual(dice(2, 16, seeded(seed), "techno"));
+      // Other styles and other rings do not ask what the ring plays.
+      expect(dice(2, 16, seeded(seed), "frei", ride)).toEqual(dice(2, 16, seeded(seed), "frei"));
+      expect(dice(1, 16, seeded(seed), "techno", ride)).toEqual(dice(1, 16, seeded(seed), "techno"));
+    }
+    expect([...figures].sort()).toEqual(["0 2 4 6 8 10 12 14", "0 4 8 12", "2 6 10 14"]);
+    // A ring too short to have a place between the kicks still gets a hit.
+    for (const seed of SEEDS) expect(activeSteps(dice(2, 2, seeded(seed), "techno", ride)).length).toBeGreaterThan(0);
   });
 
   it("throw acid lines of few notes that rest, slide and accent", () => {

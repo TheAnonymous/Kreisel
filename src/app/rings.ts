@@ -1,7 +1,7 @@
 import { hasRumble, shakes } from "../rumble";
 import { clamp, clone, currentScene, emptyRumble, emptyStep, startProject, MAX_NOTE_LENGTH, MAX_STEPS, MIN_STEPS, patternOf, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, stepAt, TRACK_COUNT, trackInfo, trackOf, type Pattern, type Step, type Track, wrap } from "../model";
 import { activeSteps, clear, dice, resize, rotate, spread, transpose, vary } from "../patterns";
-import { alongPalette, PALETTE_ORDER } from "../sounds/index";
+import { alongPalette, PALETTE_ORDER, technoSounds } from "../sounds/index";
 import type { App, Tool } from "./app";
 
 /** New hits start here: the melody on the fifth, everything else on its root. */
@@ -172,7 +172,7 @@ export class RingDesk {
     if (this.app.relay.refuse(track)) return;
     this.app.store.edit((project) => {
       const scene = currentScene(project);
-      scene.patterns[track] = dice(track, patternOf(project, track).len, this.app.random, project.style);
+      scene.patterns[track] = dice(track, patternOf(project, track).len, this.app.random, project.style, trackOf(project, track).sound);
     });
     this.app.onDeed({ what: "dice", track });
   }
@@ -202,7 +202,7 @@ export class RingDesk {
     }
     this.app.store.edit((project) => {
       const scene = currentScene(project);
-      scene.patterns = scene.patterns.map((pattern, track) => dice(track, pattern.len, this.app.random, project.style));
+      scene.patterns = scene.patterns.map((pattern, track) => dice(track, pattern.len, this.app.random, project.style, trackOf(project, track).sound));
     });
     this.app.say("Alle Ringe neu gewürfelt.", this.app.takeBack);
     this.app.onDeed({ what: "dice-all" });
@@ -237,10 +237,11 @@ export class RingDesk {
     this.setSound(track, alongPalette(trackOf(this.app.project, track).sound, by));
   }
 
-  /** Takes some other sound from the ring's palette. */
+  /** Takes some other sound from the ring's palette: in a techno Kreisel one of the ring's techno group. */
   diceSound(track: number): void {
     const now = trackOf(this.app.project, track).sound;
-    const others = PALETTE_ORDER.filter((sound) => sound !== now);
+    const from = this.app.project.style === "techno" ? technoSounds(track).map((one) => one.sound) : PALETTE_ORDER;
+    const others = from.filter((sound) => sound !== now);
     this.setSound(track, others[Math.floor(this.app.random() * others.length)] ?? 0);
   }
 

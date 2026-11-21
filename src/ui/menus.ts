@@ -103,7 +103,7 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
         { label: "‹", title: "Voriger Klang aus der Palette", run: () => app.rings.stepSound(track, -1) },
         { label: soundLabel(track, settings), title: `Alle ${SOUND_COUNT} Klänge dieses Rings zeigen`, close: true, run: () => { app.select(track); if (!app.rings.paletteOpen) app.rings.togglePalette(); } },
         { label: "›", title: "Nächster Klang aus der Palette", run: () => app.rings.stepSound(track, 1) },
-        { label: "Würfeln", title: "Irgendeinen Klang aus der Palette nehmen", run: () => app.rings.diceSound(track) },
+        { label: "Würfeln", title: app.project.style === "techno" ? "Einen der zehn Techno-Klänge dieses Rings nehmen" : "Irgendeinen Klang aus der Palette nehmen", run: () => app.rings.diceSound(track) },
       ],
     },
     {

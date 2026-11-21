@@ -41,6 +41,7 @@ export class HelpDialog {
       ["Am Namen „Kreisel“", "neu anfangen: leer, mit dem Techno-Kreisel oder dem Werks-Kreisel · Stil der Würfel: Bei „Techno“ werfen sie Kick auf jedem Schlag, offene Hi-Hat dazwischen und Acid-Linien, das Stück bekommt Abschnitte von 16 und 32 Takten"],
       ["Härte", "„Zerre“ im Feld eines Rings treibt ihn in die Verzerrung (Funken aus dem Wetter kommen obendrauf) · „Druck“ am Lautsprecher in der Leiste presst alles zusammen: lauter, dichter, die Tiefen in der Mitte"],
       ["Acid-Maschine", "für Bass und Melodie, unten in der Klang-Palette · das Klangfeld ist ihr Filter, darunter Biss, Dauer, Welle und die Filterfahrt · ein Ton, der in den nächsten hineinreicht, gleitet in ihn (Rechtsklick auf den Ton: „In den nächsten ziehen“)"],
+      ["Techno-Klänge", "im Techno-Kreisel beginnt die Palette jedes Rings mit seiner Techno-Gruppe (zehn der fünfzig), und „Würfeln“ nimmt einen von ihnen · die Hi-Hat ist dort eine Stimme wie an einer Drum-Machine: Ein geschlossener Schlag schneidet den offenen davor ab · ein Becken auf dem Hi-Hat-Ring bekommt beim Würfeln einen Takt statt offener Schläge"],
       ["In der Leiste", "Lautsprecher: Lautstärke und Druck · „Teilen“: Link kopieren oder reihum · der Pfeil an „Aufnehmen“: als Datei speichern · am Rad: Bühne und Lichtspiel"],
       ["Strg+Z", "Rückgängig · mit Umschalt wiederholen"],
       ["?", "diese Hilfe"],

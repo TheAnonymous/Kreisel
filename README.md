@@ -359,7 +359,8 @@ old game consoles. That makes 350.
 - **Where they are**: in the ring's panel the sound's name stands between two arrows that leaf through
   the palette (keys U and I). A click on the name (key P) opens the palette beside the panel: every sound
   is one click away and is heard at once, and the palette stays open while sounds are tried, also when
-  another ring is picked. "Würfeln", or the right button on the name, takes any of the fifty. The ring's
+  another ring is picked. "Würfeln", or the right button on the name, takes any of the fifty (in a techno
+  Kreisel one of the ring's techno group, see "Techno"). The ring's
   right-click menu leafs as well.
 - **The four each ring always had** lead the first four families and keep their numbers, so a Kreisel
   from an old link sounds as it did. The others are numbered from 7 on (4 to 6 are a ring's own painted,
@@ -390,8 +391,9 @@ first step is where a Kreisel begins.
 - **A Kreisel has a style**, free or techno, which it takes from its start
   and which the menu under the Kreisel's name can switch ("Stil"). The style decides what the
   dice throw, what a control goes back to on a right click, and what an empty
-  Kreisel is like. It travels in the link; a link from before there were
-  styles is free.
+  Kreisel is like (and, since the fourth step, which sounds a palette shows
+  first and whether the hi-hat is one voice). It travels in the link; a link
+  from before there were styles is free.
 - **Techno dice** go by what the genre's own tutorials say. The kick is on
   every beat and only the end of its ring varies. The open hi-hat sits between
   the kicks, with sixteenths, eighths or nothing around it. The clap is on two
@@ -467,11 +469,50 @@ of the little silver bass machine the music is named after.
   itself, once in as many bars as the ring has steps. It is ordinary weather
   and can be repainted as such.
 
+The fourth step is the genre's sounds: where they are among the fifty of each
+ring, and a hi-hat that behaves as a drum machine's does.
+
+- **The techno group.** In a techno Kreisel every ring's palette begins with
+  a group of ten, "Techno": the sounds of its fifty that this music reaches
+  for first (hard and driven kicks; claps in layers and a noise snare driven
+  hard; a drum machine's metal hats, an open hat, ride and crash; low toms,
+  metal and a zap; squelching and distorted basses over a sub; stabs of
+  detuned saws; leads that scream). They are places on the palette, not
+  sounds of their own (`src/sounds/techno.ts`): a pick has the number of the
+  sound it points at, so the palette still has fifty sounds, nothing new
+  travels in a link, and the list can change without any Kreisel sounding
+  different. A Kreisel that is not techno shows the palette as before.
+- **The sound dice** of a techno Kreisel ("Würfeln" in the palette, the right
+  button on the sound's name, the ring's menu) take one of the ring's ten.
+  The arrows still leaf through all fifty.
+- **The hi-hat is one voice** in a techno Kreisel (`src/hat.ts`): a closed
+  hit cuts off the open ones that still ring, whatever sound the ring has.
+  Open and closed are what they were, a hit moved outwards is an open one,
+  and nothing new is stored. Everywhere else every hit rings out as it always
+  did, so no older Kreisel sounds different. Open hits do not cut each other.
+  What the cut takes away is the open hit's ringing after the closed one, so
+  it is heard on hits that ring long: on an opened crash with a quiet closed
+  hit a step later it measures about 3 dB, on the open hat "Offen" about 1 dB,
+  on a short hat that is only a little open nothing.
+- **A cymbal keeps time.** When the hi-hat's ring plays one of its cymbals
+  (the palette's fifth family: ride, crash and their kin), the techno dice
+  give it hits between the kicks, on every eighth, or on the beats, and none
+  of them open: a cymbal rings by itself.
+- **The techno Kreisel** claps with many hands now ("Menge") and has the
+  drum machine's hi-hat ("Maschine"), both from their rings' groups. Its
+  hi-hats between the kicks stand six steps out instead of three (`OPEN_HAT`,
+  also what the techno dice throw): at three they were 20 dB down after a
+  fifteenth of a second, which is a closed hat; now they ring through the
+  sixteenth after them, where the closed hit cuts them off. The Kreisel as a
+  whole measures as loud as before, within 0.2 dB. Its kick, its low drum, its
+  stab and its acid machine are what they were.
+
 The rules are in `src/model.ts` (the two starts), `src/patterns.ts` (the dice),
-`src/piece.ts` (the form), `src/press.ts` (hardness) and `src/acid.ts` (the
-machine; `src/audio/acid.ts` makes it sound). Still to come: breaks that take
-the kick out, and a techno Kreisel that uses the ride, the open hi-hat and the
-claps of the new palettes (its drums start on the classics for now).
+`src/piece.ts` (the form), `src/press.ts` (hardness), `src/acid.ts` (the
+machine; `src/audio/acid.ts` makes it sound), `src/hat.ts` (the hi-hat) and
+`src/sounds/techno.ts` (the group). Still to come: breaks that take the kick
+out. Two sounds the genre asks for are in no palette yet, a hoover and a hit
+of noise for the chords and the melody; they would need numbers of their own.
 
 ## Scenes and the row
 
@@ -539,9 +580,9 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/patterns.ts` | turning, spreading, dice in both styles and small variations (pure, seeded) |
 | `src/codec.ts`, `src/store.ts` | the project as a link and in the browser's storage; undo |
 | `src/bild.ts`, `src/imitate.ts`, `src/collection.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes; the shelf of kept pictures |
-| `src/body.ts`, `src/voice.ts`, `src/kick.ts`, `src/rumble.ts`, `src/weather.ts`, `src/press.ts`, `src/acid.ts` | the rules of the Klangkörper, the voice, the kick's place in the key, the Nachbeben, the weather, of Zerre and Druck, and of the acid machine |
+| `src/body.ts`, `src/voice.ts`, `src/kick.ts`, `src/rumble.ts`, `src/weather.ts`, `src/press.ts`, `src/acid.ts`, `src/hat.ts` | the rules of the Klangkörper, the voice, the kick's place in the key, the Nachbeben, the weather, of Zerre and Druck, of the acid machine, and of the hi-hat that is one voice |
 | `src/piece.ts`, `src/order.ts`, `src/relay.ts` | the piece: what a bar's tension asks for; the row of scenes: laying, moving and walking its rounds; Reihum: what a turn touched, people's colours |
-| `src/sounds/` | the palettes: 350 ready-made sounds as recipes (`shapes.ts` says what a recipe is, a file for each ring holds its fifty, `index.ts` knows their numbers and names, `trims.ts` how loud each is) |
+| `src/sounds/` | the palettes: 350 ready-made sounds as recipes (`shapes.ts` says what a recipe is, a file for each ring holds its fifty, `index.ts` knows their numbers and names, `trims.ts` how loud each is, `techno.ts` which ten of each ring are its techno group) |
 | `src/audio/` | the ready-made sounds made audible, painted sounds, bodies and voices, the kick's drive and the Nachbeben, listening, the mixer, the player (live and offline), effects, recording; `hear.ts` renders one hit by itself and measures it, `whole.ts` the whole Kreisel |
 | `src/app/app.ts` | the app's core: the table, what is in focus, starting and stopping, steps back, messages |
 | `src/app/rings.ts`, `voice.ts`, `weather.ts`, `rumble.ts`, `relay.ts`, `piece.ts`, `paint.ts`, `body.ts`, `chords.ts`, `scenes.ts`, `files.ts` | one desk for each subject |
@@ -556,7 +597,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/menu.ts`, `menus.ts`, `bar-menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the same menu under the bar's buttons; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
 | `scripts/level-sounds.mjs` | `npm run level`: measures every ready-made sound and writes `src/sounds/trims.ts` |
-| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`, `kick`, `bar`, `scenes`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
+| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`, `kick`, `bar`, `scenes`, `techno-sounds`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
 
 ## License
 

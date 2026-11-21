@@ -20,6 +20,7 @@ import {
   type ChannelBus,
 } from "klangwerk";
 import { charged, noteSeconds } from "../acid";
+import { CHOKE_SECONDS, HAT_TRACK, hatChokes, isOpenHat, OPEN_HATS } from "../hat";
 import { ACID_SOUND, BAR, BODY_SOUND, currentScene, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Project, type Scene, type Step, type Track, wrap } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
@@ -192,8 +193,26 @@ class Voices {
   private readonly rolled: boolean[] = Array.from({ length: TRACK_COUNT }, () => false);
   /** What earlier accents have left on each ring's machine, and when that was counted. */
   private readonly charge: { amount: number; at: number }[] = Array.from({ length: TRACK_COUNT }, () => ({ amount: 0, at: 0 }));
+  /** The open hi-hats that may still ring, each behind a gate of its own, for a closed one to cut off (see src/hat.ts). */
+  private readonly openHats: GainNode[] = [];
 
   constructor(private readonly graph: Graph) {}
+
+  /**
+   * Where a hit of the hi-hat goes. Where the hat is one voice, an open hit passes a gate of its own on its way
+   * to the ring, and a closed one shuts the gates of the open ones before it.
+   */
+  private hatOut(inlet: AudioNode, open: boolean, at: number): AudioNode {
+    if (!open) {
+      for (const gate of this.openHats.splice(0)) gate.gain.setTargetAtTime(0, at, CHOKE_SECONDS);
+      return inlet;
+    }
+    const gate = this.graph.kit.gain(1);
+    gate.connect(inlet);
+    this.openHats.push(gate);
+    if (this.openHats.length > OPEN_HATS) this.openHats.shift();
+    return gate;
+  }
 
   /**
    * Plays `step` of ring `track` at `time`; `stepTime` is how long one step lasts, `level` scales how loud it is.
@@ -220,18 +239,20 @@ class Voices {
       const before = this.last[track];
       const glideFrom = glides(track, settings.sound) && before && before.until > at - 0.012 && before.hz !== frequency ? before.hz : null;
       const hit = { gain: (VELOCITY[step.vel] ?? 0.78) * (repeat === 0 ? 1 : 0.7) * level, accent: step.vel === 2, pitch: step.pitch, midis, duration, glideFrom, root: project.root };
+      // In a techno Kreisel the hi-hat is one voice, whatever sound the ring has.
+      const out = track === HAT_TRACK && hatChokes(project.style) ? this.hatOut(inlet, isOpenHat(step.pitch), at) : inlet;
       // The ring's own sound is its picture or its body; without one (or with an empty picture) it is silent.
       if (settings.sound === ACID_SOUND) {
         if (settings.acid) this.acid[track] = this.playAcid(track, settings, settings.acid, at, hit, quakes, count > 1);
       } else if (settings.sound === VOICE_SOUND) {
         // A voice sings the syllable that this hit is in the ring's line (a roll repeats it).
-        if (settings.voice) playVoice(this.graph.kit, inlet, track, settings, at, hit, settings.voice, number);
+        if (settings.voice) playVoice(this.graph.kit, out, track, settings, at, hit, settings.voice, number);
       } else if (settings.sound === BODY_SOUND) {
-        if (settings.body) playBody(this.graph.kit, inlet, track, settings, at, hit, settings.body);
+        if (settings.body) playBody(this.graph.kit, out, track, settings, at, hit, settings.body);
       } else if (settings.sound !== OWN_SOUND) {
-        playHit(this.graph.kit, inlet, track, settings, at, hit);
+        playHit(this.graph.kit, out, track, settings, at, hit);
       } else if (settings.bild) {
-        playBild(this.graph.kit, inlet, track, settings, at, hit, settings.bild);
+        playBild(this.graph.kit, out, track, settings, at, hit, settings.bild);
       }
       this.last[track] = { hz: frequency, until: at + duration };
       if (track === 0 && project.pump > 0) {

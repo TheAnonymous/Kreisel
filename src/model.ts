@@ -1,3 +1,6 @@
+import { OPEN_HAT } from "./hat";
+import { soundCalled } from "./sounds/index";
+
 /*
  * What a Kreisel is made of. Seven rings (tracks), each with a pattern of up
  * to 32 steps per scene; a key, a chord progression and the mix. Everything
@@ -210,8 +213,10 @@ export interface Relay {
 
 /**
  * The manner a Kreisel is built in: what its dice throw, what a new piece is
- * shaped like, and which values its controls go back to. "frei" is the
- * Kreisel as it always was; "techno" is hard and acid techno.
+ * shaped like, which values its controls go back to, which sounds its
+ * palettes show first (src/sounds/techno.ts), and whether its hi-hat is one
+ * voice (src/hat.ts). "frei" is the Kreisel as it always was; "techno" is
+ * hard and acid techno.
  */
 export const STYLE_IDS = ["frei", "techno"] as const;
 export type StyleId = (typeof STYLE_IDS)[number];
@@ -402,8 +407,10 @@ export function technoPiece(scene = 0): Piece {
 /**
  * The techno Kreisel, which a first visit starts with: 150 beats a minute and
  * no swing, G Phrygian over one chord, the kick on every beat with the ground
- * shaking between, an open hi-hat on the off-beats, a clap on two and four, a
- * low drum on a ring of twelve, and an acid machine whose line slides three times.
+ * shaking between, a drum machine's hi-hat that is open on the off-beats (and
+ * cut off by the closed hit after it, see src/hat.ts), many hands clapping on
+ * two and four, a low drum on a ring of twelve, and an acid machine whose line
+ * slides three times.
  */
 export function technoProject(): Project {
   const scene: Scene = {
@@ -415,8 +422,8 @@ export function technoProject(): Project {
     patterns: [
       pattern(16, [0, 4, 8, 12]),
       pattern(16, [[4, 0, 1, 2], [12, 0, 1, 2]]),
-      // Sixteenths that leave the kick alone; the off-beats are open and loud.
-      pattern(16, [[1, 0, 1, 0], [2, 3, 1, 2], [3, 0, 1, 0], [5, 0, 1, 0], [6, 3, 1, 2], [7, 0, 1, 0], [9, 0, 1, 0], [10, 3, 1, 2], [11, 0, 1, 0], [13, 0, 1, 0], [14, 3, 1, 2], [15, 0, 1, 0, 0, 2]]),
+      // Sixteenths that leave the kick alone; the off-beats are open and loud, and the closed hit after each cuts it off.
+      pattern(16, [[1, 0, 1, 0], [2, OPEN_HAT, 1, 2], [3, 0, 1, 0], [5, 0, 1, 0], [6, OPEN_HAT, 1, 2], [7, 0, 1, 0], [9, 0, 1, 0], [10, OPEN_HAT, 1, 2], [11, 0, 1, 0], [13, 0, 1, 0], [14, OPEN_HAT, 1, 2], [15, 0, 1, 0, 0, 2]]),
       pattern(12, [[3, -3], [7, 0, 1, 0], [10, -3, 1, 1, 1]]),
       // An octave above the ground the Nachbeben shakes on: the root (7), the small step above it (8) and the octave (14).
       // A note held into the next one (two steps long here) slides into it: the octave down to the root, the root up
@@ -443,8 +450,10 @@ export function technoProject(): Project {
     tracks: [
       // The hard kick, tuned down to the root (49 Hz). What makes a kick hard is its own; the rings after it are driven a little.
       { sound: 1, x: 0.3, y: 0.55, level: 0.9, hall: 0, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null, acid: null },
-      { sound: 1, x: 0.5, y: 0.35, level: 0.7, hall: 0.12, echo: 0, drive: 0.25, mute: false, bild: null, body: null, voice: null, acid: null },
-      { sound: 1, x: 0.5, y: 0.5, level: 0.62, hall: 0.03, echo: 0, drive: 0.15, mute: false, bild: null, body: null, voice: null, acid: null },
+      // Clap and hi-hat come from the techno group of their palettes (src/sounds/techno.ts): claps in layers, and the
+      // six square waves of a drum machine's cymbal.
+      { sound: soundCalled(1, "Menge"), x: 0.5, y: 0.35, level: 0.7, hall: 0.12, echo: 0, drive: 0.25, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: soundCalled(2, "Maschine"), x: 0.5, y: 0.5, level: 0.62, hall: 0.03, echo: 0, drive: 0.15, mute: false, bild: null, body: null, voice: null, acid: null },
       { sound: 0, x: 0.3, y: 0.45, level: 0.55, hall: 0.1, echo: 0.15, drive: 0.3, mute: false, bild: null, body: null, voice: null, acid: null },
       // The acid machine: its filter less than half open and ringing, a saw that bites.
       { sound: ACID_SOUND, x: 0.42, y: 0.68, level: 0.72, hall: 0, echo: 0.12, drive: 0.4, mute: false, bild: null, body: null, voice: null, acid: { bite: 0.6, decay: 0.35, square: false } },

@@ -6,6 +6,7 @@ import { LEAD } from "./lead";
 import { PERC } from "./perc";
 import type { Drum, Palette, Listed, Tone } from "./shapes";
 import { SNARE } from "./snare";
+import { TECHNO } from "./techno";
 import { TRIMS } from "./trims";
 
 /*
@@ -88,6 +89,27 @@ export function familyNames(track: number): string[] {
 /** The ten sounds of one family of a ring: what each is called and its number. */
 export function familySounds(track: number, family: number): { name: string; sound: number }[] {
   return (paletteOf(track)?.[family]?.sounds ?? []).map((one, place) => ({ name: one.name, sound: soundAt(family, place) }));
+}
+
+/** The number of the sound a ring's palette lists under this name. The palettes are written by hand: a name that is not there is a slip, and is said at once. */
+export function soundCalled(track: number, name: string): number {
+  for (let family = 0; family < FAMILY_COUNT; family += 1) {
+    const found = familySounds(track, family).find((one) => one.name === name);
+    if (found) return found.sound;
+  }
+  throw new Error(`ring ${track} has no sound called ${name}`);
+}
+
+/**
+ * A ring's techno group (see techno.ts): ten of its fifty sounds, what each
+ * is called and its number. They are the sounds themselves, shown a second
+ * time where a techno Kreisel looks first.
+ */
+export function technoSounds(track: number): { name: string; sound: number }[] {
+  return (TECHNO[track] ?? []).map(([family, place]) => {
+    const sound = soundAt(family, place);
+    return { name: soundName(track, sound) ?? "", sound };
+  });
 }
 
 function recipe<Recipe extends object>(palette: Palette<Recipe> | undefined, sound: number): Recipe | null {

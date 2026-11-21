@@ -335,11 +335,13 @@ export class App {
     this.say(empty ? "Ein leerer Kreisel." : style === "techno" ? "Der Techno-Kreisel ist da." : "Der Werks-Kreisel ist wieder da.", this.takeBack);
   }
 
-  /** Whether the dice throw techno, and what the controls go back to. */
+  /** Whether the dice throw techno, what the controls go back to, which sounds the palettes show first, and whether the hi-hat is one voice. */
   toggleStyle(): void {
     const style: StyleId = this.project.style === "techno" ? "frei" : "techno";
     this.setGlobal({ style });
-    this.say(style === "techno" ? "Die Würfel werfen jetzt Techno: Kick auf jedem Schlag, offene Hi-Hat dazwischen, Acid-Linien." : "Die Würfel werfen wieder frei.");
+    this.say(style === "techno"
+      ? "Die Würfel werfen jetzt Techno: Kick auf jedem Schlag, offene Hi-Hat dazwischen, Acid-Linien. Die Paletten beginnen mit der Techno-Gruppe, und eine geschlossene Hi-Hat schneidet die offene ab."
+      : "Die Würfel werfen wieder frei. Jede Hi-Hat klingt wieder aus.");
   }
 
   // ---- how it looks ----------------------------------------------------------------

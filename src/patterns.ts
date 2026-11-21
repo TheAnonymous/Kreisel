@@ -1,3 +1,4 @@
+import { isCymbal, OPEN_HAT } from "./hat";
 import { clamp, emptyPattern, emptyStep, MAX_NOTE_LENGTH, MAX_STEPS, PITCH_MAX, PITCH_MIN, stepAt, TRACK_KINDS, type Pattern, type Step, type StyleId, type TrackKind, wrap } from "./model";
 
 /*
@@ -246,17 +247,36 @@ function technoClap(len: number, random: Random): Pattern {
   return pattern;
 }
 
-/** The open hi-hat between the kicks is always there; around it run sixteenths, eighths or nothing. */
-function technoHat(len: number, random: Random): Pattern {
+/**
+ * A cymbal keeps time: between the kicks, on every eighth with the ones
+ * between the kicks louder, or on the beats. None of its hits is an open one:
+ * a cymbal rings by itself.
+ */
+function technoRide(len: number, random: Random): Pattern {
+  const pattern = emptyPattern(len);
+  const figure = pick(random, ["between", "eighths", "eighths", "beats"] as const);
+  for (let index = 0; index < len; index += 1) {
+    if (figure === "between" && offbeat(index)) put(pattern, index);
+    else if (figure === "eighths" && index % 2 === 0) put(pattern, index, { vel: offbeat(index) ? 1 : 0 });
+    else if (figure === "beats" && index % 4 === 0) put(pattern, index);
+  }
+  // Very short rings have no place between the kicks.
+  if (activeSteps(pattern).length === 0) put(pattern, 0);
+  return pattern;
+}
+
+/** The open hi-hat between the kicks is always there; around it run sixteenths, eighths or nothing. A ring that plays a cymbal keeps time instead. */
+function technoHat(len: number, random: Random, sound: number): Pattern {
+  if (isCymbal(sound)) return technoRide(len, random);
   const pattern = emptyPattern(len);
   const around = pick(random, ["sixteenths", "sixteenths", "nothing", "eighths"] as const);
   for (let index = 0; index < len; index += 1) {
-    if (offbeat(index)) put(pattern, index, { vel: 2, pitch: 3 });
+    if (offbeat(index)) put(pattern, index, { vel: 2, pitch: OPEN_HAT });
     else if (around === "sixteenths" && index % 2 === 1) put(pattern, index, { vel: 0, chance: chance(random, 0.15) ? 1 : 0 });
     else if (around === "eighths" && index % 4 === 0) put(pattern, index, { vel: 0 });
   }
   // Very short rings have no off-beat: they still get a hi-hat.
-  if (activeSteps(pattern).length === 0) put(pattern, len - 1, { vel: 1, pitch: 3 });
+  if (activeSteps(pattern).length === 0) put(pattern, len - 1, { vel: 1, pitch: OPEN_HAT });
   if (chance(random, 0.35)) stepAt(pattern, activeSteps(pattern).at(-1) ?? 0).ratchet = 2;
   return pattern;
 }
@@ -378,16 +398,19 @@ function technoHook(len: number, random: Random): Pattern {
   return pattern;
 }
 
-type Dice = Record<TrackKind, (len: number, random: Random) => Pattern>;
+type Dice = Record<TrackKind, (len: number, random: Random, sound: number) => Pattern>;
 
 const DICE: Record<StyleId, Dice> = {
   frei: { kick: diceKick, snare: diceSnare, hat: diceHat, perc: dicePerc, bass: diceBass, chord: diceChord, lead: diceLead },
   techno: { kick: technoKick, snare: technoClap, hat: technoHat, perc: technoPerc, bass: technoAcid, chord: technoStab, lead: technoHook },
 };
 
-/** A new idea for a ring of `len` steps, in the manner of its instrument and of the Kreisel's style. */
-export function dice(track: number, len: number, random: Random, style: StyleId = "frei"): Pattern {
-  const pattern = DICE[style][TRACK_KINDS[track] ?? "kick"](len, random);
+/**
+ * A new idea for a ring of `len` steps, in the manner of its instrument and of the Kreisel's style.
+ * `sound` is the sound the ring plays, where that makes a difference: in techno a cymbal on the hi-hat's ring.
+ */
+export function dice(track: number, len: number, random: Random, style: StyleId = "frei", sound = 0): Pattern {
+  const pattern = DICE[style][TRACK_KINDS[track] ?? "kick"](len, random, sound);
   // Very short rings can miss every place a style would use: they still get their first step.
   if (activeSteps(pattern).length === 0) put(pattern, 0, { pitch: track === 6 ? 4 : 0 });
   return pattern;
