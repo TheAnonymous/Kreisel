@@ -44,6 +44,19 @@ test.describe("am Laptop", () => {
       await expect(opener).toHaveAttribute("aria-expanded", "false");
     }
 
+    // A menu goes along with its button when the page moves under it (pressing a button can itself move the page a
+    // little); it does not vanish. The menu of the right button, which hangs on nothing, is put away by that.
+    await page.locator("#share").click();
+    await page.evaluate(() => document.getElementById("app")!.dispatchEvent(new Event("scroll")));
+    await expect(menu).toBeVisible();
+    await expect(menu).toContainText("Link kopieren");
+    await page.locator("#share").click();
+    await expect(menu).toBeHidden();
+    await page.locator("#kreisel").click({ button: "right", position: { x: 285, y: 285 } });
+    await expect(menu).toBeVisible();
+    await page.evaluate(() => document.getElementById("app")!.dispatchEvent(new Event("scroll")));
+    await expect(menu).toBeHidden();
+
     // One menu at a time: another button takes it over. Escape puts it away.
     await page.locator("#share").click();
     await page.locator("#help-open").click();

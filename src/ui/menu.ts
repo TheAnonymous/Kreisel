@@ -158,9 +158,13 @@ export class ContextMenu {
     }, true);
     window.addEventListener("blur", () => this.close(false));
     window.addEventListener("resize", () => this.close(false));
-    // The page moving under the menu puts it away; a long menu scrolling in itself does not.
+    // The page moving under the menu puts it away; a long menu scrolling in itself does not. A menu that hangs
+    // under a button goes along with its button instead: pressing a button can itself move the page a little
+    // (the browser brings what takes the focus into view), and the menu must not vanish in the same moment.
     window.addEventListener("scroll", (event) => {
-      if (!(event.target instanceof Node && node.contains(event.target))) this.close(false);
+      if (!this.isOpen || (event.target instanceof Node && node.contains(event.target))) return;
+      if (this.anchor) this.hang(this.anchor);
+      else this.close(false);
     }, true);
   }
 
@@ -198,13 +202,21 @@ export class ContextMenu {
       this.close(focus);
       return;
     }
-    const box = anchor.getBoundingClientRect();
-    // It stays below its button, however much it holds: a long one scrolls.
-    this.show(box.left - 2, box.bottom + 6, build, focus, `calc(100dvh - ${Math.round(box.bottom) + 16}px)`);
+    this.show(0, 0, build, focus, "");
     if (!this.isOpen) return;
     this.anchor = anchor;
     this.node.dataset.under = anchor.id;
     anchor.setAttribute("aria-expanded", "true");
+    this.hang(anchor);
+  }
+
+  /** Puts the open menu under this button, where the button is now. */
+  private hang(anchor: HTMLElement): void {
+    const box = anchor.getBoundingClientRect();
+    // It stays below its button, however much it holds: a long one scrolls.
+    this.node.style.maxHeight = `calc(100dvh - ${Math.round(box.bottom) + 16}px)`;
+    this.at = { x: box.left - 2, y: box.bottom + 6 };
+    this.place();
   }
 
   /** Redraws an open menu from its builder if the Kreisel changed what it says. */
@@ -362,14 +374,19 @@ export class ContextMenu {
       }
     }
     node.replaceChildren(...rows);
-    // Next to the pointer, but always whole on the page.
+    this.place();
+    return true;
+  }
+
+  /** Next to the point it was opened at, but always whole on the page. */
+  private place(): void {
+    const node = this.node;
     const width = node.offsetWidth;
     const height = node.offsetHeight;
     const left = Math.max(6, Math.min(this.at.x + 2, window.innerWidth - width - 6));
     const top = Math.max(6, Math.min(this.at.y + 2, window.innerHeight - height - 6));
     node.style.left = `${left}px`;
     node.style.top = `${top}px`;
-    return true;
   }
 
   private key(event: KeyboardEvent): void {
