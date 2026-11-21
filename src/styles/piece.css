@@ -86,3 +86,25 @@
   box-shadow: none;
   font-size: 0.8rem;
 }
+
+/* What the piece does by itself: the build-up before a drop and the fills, as chips that are on or off. */
+.moves {
+  display: grid;
+  gap: 2px;
+}
+
+.moves .line {
+  gap: 5px;
+  min-height: 26px;
+}
+
+.moves .line .label {
+  width: auto;
+  margin-right: 3px;
+}
+
+/* Their words are short and are shown whole: a chip here does not give way. */
+.moves .chip {
+  flex: none;
+  padding: 3px 7px;
+}

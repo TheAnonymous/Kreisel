@@ -187,6 +187,28 @@ export interface Piece {
   scenes: number[];
   /** The rings in the order they come in as the tension rises. */
   order: number[];
+  /**
+   * "Ohne Kick": the bars in which the kick and its Nachbeben stay out, whatever the tension: a break.
+   * One entry a bar. A piece without such bars does not have the list at all, and is what a piece always was.
+   */
+  noKick?: boolean[];
+  /** What the piece does by itself in the bars before a landing. Absent while all of it is off. */
+  runUp?: RunUp;
+  /** "Abwechslung": small changes by themselves at the end of every eight bars. Absent while off. */
+  vary?: boolean;
+}
+
+/**
+ * The run-ups a piece can take before a landing, each on or off. They come on
+ * top of the rising noise and the crash a landing always has.
+ */
+export interface RunUp {
+  /** A roll on the snare's ring through the last two bars, doubling twice: quarters, eighths, sixteenths. */
+  roll: boolean;
+  /** The kick and its Nachbeben stay out for the last bar. */
+  kick: boolean;
+  /** The hi-hat stays out for the last bar. */
+  hat: boolean;
 }
 
 export const MAX_TURNS = 12;
@@ -393,15 +415,16 @@ export const TECHNO_ORDER = [0, 2, 1, 3, 4, 5, 6] as const;
 
 /**
  * The piece a techno Kreisel starts with, in the sections such a track has:
- * sixteen bars that build from the kick, thirty-two at full height, sixteen
- * that fall back, thirty-two at the top, sixteen that take it apart again.
+ * sixteen bars that build from the kick, thirty-two at full height, a break
+ * of sixteen without the kick (the acid line and the drums around it play on
+ * and lift), thirty-two at the top, sixteen that take it apart again.
  * It waits switched off.
  */
 export function technoPiece(scene = 0): Piece {
   const climb = (from: number, to: number, bars: number): number[] => Array.from({ length: bars }, (_, bar) => Math.round(from + ((to - from) * bar) / (bars - 1)));
   const hold = (level: number, bars: number): number[] => Array.from({ length: bars }, () => level);
-  const shape = [...climb(3, 17, 16), ...hold(27, 16), ...hold(31, 16), ...hold(9, 8), ...climb(9, 20, 8), ...hold(31, 32), ...climb(24, 3, 16)];
-  return { on: false, tension: shape, scenes: shape.map(() => scene), order: [...TECHNO_ORDER] };
+  const shape = [...climb(3, 17, 16), ...hold(27, 16), ...hold(31, 16), ...hold(18, 8), ...climb(18, 22, 8), ...hold(31, 32), ...climb(24, 3, 16)];
+  return { on: false, tension: shape, scenes: shape.map(() => scene), order: [...TECHNO_ORDER], noKick: shape.map((_, bar) => bar >= 48 && bar < 64) };
 }
 
 /**

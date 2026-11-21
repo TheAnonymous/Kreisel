@@ -6,7 +6,7 @@ import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
 import { hasWeather, WEATHER_NAMES, windName } from "../weather";
 import { MAX_ROUNDS } from "../order";
-import { barCount } from "../piece";
+import { barCount, kickOut, phraseOf } from "../piece";
 import { SOUND_COUNT } from "../sounds/index";
 import type { MenuRow, MenuSpec } from "./menu";
 import { soundLabel } from "./sound-palette";
@@ -178,6 +178,8 @@ function pieceMenu(app: App, bar: number | null): MenuSpec {
   if (at !== null) {
     const tension = piece.tension[at] ?? 0;
     const from = Math.floor(at / 4) * 4;
+    const phrase = phraseOf(piece, at);
+    const out = kickOut(piece, at);
     rows.push(
       { kind: "action", label: "Ab hier spielen", run: () => app.piece.playFrom(at) },
       {
@@ -192,6 +194,14 @@ function pieceMenu(app: App, bar: number | null): MenuSpec {
         kind: "choice",
         label: `Szene, Takt ${from + 1} bis ${Math.min(count, from + 4)}`,
         options: project.scenes.flatMap((scene, index) => (scene ? [{ label: SCENE_NAMES[index] ?? "", title: `Szene ${SCENE_NAMES[index]} auf diese vier Takte legen`, active: piece.scenes[at] === index, run: () => app.piece.sceneForBars(at, index) }] : [])),
+      },
+      {
+        kind: "choice",
+        label: `Takt ${phrase.from + 1} bis ${phrase.to}`,
+        options: [
+          { label: "mit Kick", title: "Die Kick spielt in diesen Takten, sobald die Spannung sie erreicht", active: !out, run: () => app.piece.kickForPhrase(at, true) },
+          { label: "Break", title: "Break: Kick und Nachbeben setzen in diesen Takten aus, alles andere spielt nach der Spannung", active: out, run: () => app.piece.kickForPhrase(at, false) },
+        ],
       },
       { kind: "heading", label: "Ganzes Stück" },
     );
@@ -209,6 +219,11 @@ function pieceMenu(app: App, bar: number | null): MenuSpec {
         { label: "+", title: "Vier Takte länger", disabled: count >= MAX_BARS, run: () => app.piece.resize(count + 4) },
       ],
     },
+    { kind: "heading", label: "Build-up vor dem Drop" },
+    { kind: "action", label: "Snare-Roll", checked: piece.runUp?.roll ?? false, keep: true, run: () => app.piece.toggleRunUp("roll") },
+    { kind: "action", label: "Letzter Takt ohne Kick", checked: piece.runUp?.kick ?? false, keep: true, run: () => app.piece.toggleRunUp("kick") },
+    { kind: "action", label: "Letzter Takt ohne Hi-Hat", checked: piece.runUp?.hat ?? false, keep: true, run: () => app.piece.toggleRunUp("hat") },
+    { kind: "action", label: "Fills alle acht Takte", checked: piece.vary ?? false, keep: true, run: () => app.piece.toggleVary() },
   );
   return { title: at === null ? "Stück" : `Stück · Takt ${at + 1}`, rows };
 }

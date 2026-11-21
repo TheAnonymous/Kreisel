@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { decodeLink, encodeLink, pack, packPiece, unpack, unpackPiece } from "../src/codec";
-import { factoryProject, FIRST_ORDER, firstPiece, MAX_BARS, MIN_BARS, TENSION_MAX, TRACK_COUNT, type Piece } from "../src/model";
+import { BAR, factoryProject, FIRST_ORDER, firstPiece, MAX_BARS, MIN_BARS, TECHNO_ORDER, technoPiece, technoProject, TENSION_MAX, TRACK_COUNT, type Piece } from "../src/model";
 import { seeded } from "../src/patterns";
-import { barCount, cutoffFor, describePiece, dicePiece, dropsQuiet, entry, gateLevel, moveInOrder, planBar, resizePiece, rotatePiece, smoothPiece, soundPiece, STEEP } from "../src/piece";
+import { barCount, cutoffFor, describePiece, dicePiece, dropsQuiet, entry, gateLevel, kickOut, moveInOrder, PHRASE, phraseOf, planBar, resizePiece, rollHits, rotatePiece, setKick, setRunUp, setVary, smoothPiece, soundPiece, STEEP, tidyPiece, varyHits } from "../src/piece";
 
 const piece = (tension: number[], order: number[] = [...FIRST_ORDER]): Piece => ({ on: true, tension, scenes: tension.map(() => 0), order });
 const playing = (plan: { gates: number[] }): number[] => plan.gates.map((gate, ring) => (gate > 0 ? ring : -1)).filter((ring) => ring >= 0);
@@ -144,7 +144,186 @@ describe("shaping the piece", () => {
   });
 });
 
+describe("a techno piece", () => {
+  /** A piece in the techno order (kick, hi-hat, clap, drum, bass, chords, melody) at one height, with the given bars "ohne Kick". */
+  const level = (bars: number, tension: number, out: readonly number[] = []): Piece => {
+    const made: Piece = { on: true, tension: Array.from({ length: bars }, () => tension), scenes: Array.from({ length: bars }, () => 0), order: [...TECHNO_ORDER] };
+    if (out.length > 0) made.noKick = made.tension.map((_, bar) => out.includes(bar));
+    return made;
+  };
+
+  it("leaves the kick out of a bar that is marked so, and lets everything else play by the tension", () => {
+    const line = level(16, 22, [8, 9, 10, 11]);
+    // At this height everyone plays but the melody; in the marked bars the kick is not among them.
+    expect(playing(planBar(line, 7))).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(playing(planBar(line, 8))).toEqual([1, 2, 3, 4, 5]);
+    expect(planBar(line, 8).gates.slice(1)).toEqual(planBar(line, 7).gates.slice(1));
+    expect(planBar(line, 8).cutoff).toBe(planBar(line, 7).cutoff);
+    expect([7, 8, 11, 12, 24].map((bar) => kickOut(line, bar))).toEqual([false, true, true, false, true]);
+    // A piece without the list has no such bar.
+    expect(kickOut(level(16, 22), 8)).toBe(false);
+  });
+
+  it("takes the kick's return as a landing and its leaving as a fall, without a step in the line", () => {
+    const line = level(16, 22, [8, 9, 10, 11]);
+    expect(planBar(line, 7)).toMatchObject({ rise: false, fall: true });
+    expect(planBar(line, 9)).toMatchObject({ rise: false, fall: false });
+    expect(planBar(line, 11)).toMatchObject({ rise: true, fall: false });
+    expect(planBar(line, 12)).toMatchObject({ rise: false, fall: false });
+    // Where the tension does not let the kick play anyway, nothing comes back and nothing leaves.
+    const low = level(16, 0, [8, 9, 10, 11]);
+    expect([7, 11].map((bar) => [planBar(low, bar).rise, planBar(low, bar).fall])).toEqual([[false, false], [false, false]]);
+    // The piece is a ring: a break at its end lands on the first bar.
+    expect(planBar(level(8, 22, [6, 7]), 7).rise).toBe(true);
+  });
+
+  it("can take more of a run-up before a landing: a roll through two bars, and the last bar without kick or hi-hat", () => {
+    const line = level(16, 22, [8, 9, 10, 11]);
+    expect([9, 10, 11, 12].map((bar) => planBar(line, bar).roll)).toEqual([0, 0, 0, 0]);
+    setRunUp(line, "roll", true);
+    expect(line.runUp).toEqual({ roll: true, kick: false, hat: false });
+    expect([9, 10, 11, 12].map((bar) => planBar(line, bar).roll)).toEqual([0, 1, 2, 0]);
+    // Quarters and then eighths, then eighths and then sixteenths, louder all the way.
+    expect(rollHits(1).map((hit) => hit.step)).toEqual([0, 4, 8, 10, 12, 14]);
+    expect(rollHits(2).map((hit) => hit.step)).toEqual([0, 2, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15]);
+    const levels = [...rollHits(1), ...rollHits(2)].map((hit) => hit.level);
+    expect(levels.every((loud, index) => index === 0 || loud > (levels[index - 1] ?? 0))).toBe(true);
+    expect([levels[0], levels.at(-1)]).toEqual([0.5, 1.2]);
+    expect([rollHits(0), rollHits(3)]).toEqual([[], []]);
+
+    // A steep rise is a landing too. Kick and hi-hat stay out of its last bar only.
+    const steep = piece([10, 10, 10, 31, 31, 31, 31, 31], [...TECHNO_ORDER]);
+    expect(playing(planBar(steep, 2))).toEqual([0, 1, 2]);
+    setRunUp(steep, "kick", true);
+    expect(playing(planBar(steep, 2))).toEqual([1, 2]);
+    expect(playing(planBar(steep, 1))).toEqual([0, 1, 2]);
+    setRunUp(steep, "hat", true);
+    expect(playing(planBar(steep, 2))).toEqual([1]);
+    expect(playing(planBar(steep, 3))).toHaveLength(TRACK_COUNT);
+    setRunUp(steep, "kick", false);
+    setRunUp(steep, "hat", false);
+    expect(steep.runUp).toBeUndefined();
+  });
+
+  it("ends every eighth bar with a kick more and every sixteenth with the drum as well, where no run-up is going on", () => {
+    const line = level(32, 31);
+    expect(Array.from({ length: 32 }, (_, bar) => planBar(line, bar).vary).some((kind) => kind > 0)).toBe(false);
+    setVary(line, true);
+    expect(Array.from({ length: 32 }, (_, bar) => planBar(line, bar).vary)).toEqual(Array.from({ length: 32 }, (_, bar) => (bar % 16 === 15 ? 2 : bar % 8 === 7 ? 1 : 0)));
+    expect(varyHits(1)).toEqual([{ ring: 0, step: 14, vel: 0, pitch: 0 }]);
+    expect(varyHits(2).map((hit) => [hit.ring, hit.step])).toEqual([[0, 14], [3, 13], [3, 15]]);
+    expect(varyHits(2).every((hit) => hit.step < BAR)).toBe(true);
+    expect(varyHits(0)).toEqual([]);
+    // The bar that runs up to a landing has enough going on.
+    setKick(line, 0, 8, false);
+    expect(planBar(line, 7)).toMatchObject({ rise: true, vary: 0 });
+    expect(planBar(line, 15).vary).toBe(2);
+    setVary(line, false);
+    expect(line.vary).toBeUndefined();
+  });
+
+  it("marks and unmarks phrases of eight bars, and stays a plain piece when nothing is marked", () => {
+    const line = level(20, 22);
+    expect(PHRASE).toBe(8);
+    expect([phraseOf(line, 0), phraseOf(line, 13), phraseOf(line, 19)]).toEqual([{ from: 0, to: 8 }, { from: 8, to: 16 }, { from: 16, to: 20 }]);
+    setKick(line, 8, 16, false);
+    expect(line.noKick).toEqual(Array.from({ length: 20 }, (_, bar) => bar >= 8 && bar < 16));
+    setKick(line, 12, 16, true);
+    expect(line.noKick?.filter(Boolean)).toHaveLength(4);
+    setKick(line, 0, 99, true);
+    expect(line).toEqual(level(20, 22));
+    expect(Object.keys(line)).toEqual(["on", "tension", "scenes", "order"]);
+    // Tidying takes away what says nothing, and brings the list to the piece's length.
+    const untidy: Piece = { ...level(8, 22), noKick: [false, true], runUp: { roll: false, kick: false, hat: false }, vary: false };
+    tidyPiece(untidy);
+    expect(untidy.noKick).toEqual([false, true, false, false, false, false, false, false]);
+    expect([untidy.runUp, untidy.vary]).toEqual([undefined, undefined]);
+  });
+
+  it("keeps its marks when it is stretched or turned, and says how many bars are without the kick", () => {
+    const line = level(16, 22, [8, 9, 10, 11]);
+    resizePiece(line, 32);
+    expect(line.noKick).toEqual(Array.from({ length: 32 }, (_, bar) => bar >= 16 && bar < 24));
+    rotatePiece(line, 4);
+    expect(line.noKick).toEqual(Array.from({ length: 32 }, (_, bar) => bar >= 20 && bar < 28));
+    expect(describePiece(line, 150)).toBe("32 Takte, 0:51 Minuten, im Mittel 71 % Spannung, 8 Takte Break");
+    expect(describePiece(level(32, 22), 150)).toBe("32 Takte, 0:51 Minuten, im Mittel 71 % Spannung");
+    resizePiece(line, 4);
+    expect(barCount(line)).toBe(4);
+  });
+
+  it("dices breaks without the kick in techno, with the bass playing on, and takes the marks away with a free line", () => {
+    for (const seed of [13, 7932, 15851, 23770, 31689]) {
+      const line = level(112, 0);
+      setRunUp(line, "roll", true);
+      setVary(line, true);
+      dicePiece(line, seeded(seed), "techno");
+      const out = line.noKick?.flatMap((mark, bar) => (mark ? [bar] : [])) ?? [];
+      // The form of 112 bars has one break of sixteen bars, after the first two full sections.
+      expect(out).toEqual(Array.from({ length: 16 }, (_, index) => 48 + index));
+      for (const bar of out) {
+        const who = playing(planBar(line, bar));
+        expect(who).not.toContain(0);
+        expect(who).toEqual(expect.arrayContaining([1, 2, 3, 4]));
+      }
+      expect(planBar(line, 47).fall).toBe(true);
+      expect(planBar(line, 63)).toMatchObject({ rise: true, roll: 2 });
+      expect(planBar(line, 64).gates[0]).toBeGreaterThan(0);
+      // Dice are for the line: what the piece does by itself stays as it was set.
+      expect([line.runUp?.roll, line.vary]).toEqual([true, true]);
+      dicePiece(line, seeded(seed));
+      expect(line.noKick).toBeUndefined();
+      expect([line.runUp?.roll, line.vary]).toEqual([true, true]);
+    }
+  });
+
+  it("is what the techno Kreisel's own piece has: a break of sixteen bars in which the acid line plays on", () => {
+    const start = technoPiece();
+    expect(start.noKick?.flatMap((mark, bar) => (mark ? [bar] : []))).toEqual(Array.from({ length: 16 }, (_, index) => 48 + index));
+    expect(playing(planBar(start, 48))).toEqual([1, 2, 3, 4]);
+    expect(playing(planBar(start, 63))).toEqual([1, 2, 3, 4, 5]);
+    expect(planBar(start, 47).fall).toBe(true);
+    expect(planBar(start, 63).rise).toBe(true);
+    expect([start.runUp, start.vary, start.on]).toEqual([undefined, undefined, false]);
+    // The Werks-Kreisel's piece has none of it.
+    expect(Object.keys(firstPiece())).toEqual(["on", "tension", "scenes", "order"]);
+  });
+});
+
 describe("a piece in a link", () => {
+  it("packs a piece without breaks, run-ups and Abwechslung as it always did, and carries them where it has them", async () => {
+    expect(packPiece(firstPiece())).toHaveLength(3);
+    const marked = technoPiece();
+    expect(packPiece(marked)).toHaveLength(4);
+    expect(unpackPiece(packPiece(marked), 0)).toEqual(marked);
+    setRunUp(marked, "roll", true);
+    setRunUp(marked, "hat", true);
+    setVary(marked, true);
+    const packed = packPiece(marked);
+    expect(packed).toHaveLength(5);
+    expect(packed[4]).toBe(1 + 4 + 8);
+    expect(unpackPiece(JSON.parse(JSON.stringify(packed)), 0)).toEqual(marked);
+    // Run-ups without any bar "ohne Kick": the place of the marks is kept, empty.
+    const plain = firstPiece();
+    setRunUp(plain, "kick", true);
+    expect(packPiece(plain).slice(3)).toEqual(["", 2]);
+    expect(unpackPiece(packPiece(plain), 0)).toEqual(plain);
+    // In a whole Kreisel, through a link.
+    const project = technoProject();
+    setVary(project.piece, true);
+    const back = await decodeLink(await encodeLink(project));
+    expect(back.piece).toEqual(project.piece);
+    expect(back.piece.noKick?.filter(Boolean)).toHaveLength(16);
+    // What a link claims beyond that is not taken: marks that cannot be read, numbers that are none.
+    const three = packPiece(firstPiece());
+    expect(unpackPiece([...three, "%%%", 99.5], 0)).toEqual(firstPiece());
+    expect(unpackPiece([...three, 7, "x"], 0)).toEqual(firstPiece());
+    expect(unpackPiece([...three, "", 0], 0)).toEqual(firstPiece());
+    expect(unpackPiece([...three, "", 1 + 16], 0).runUp).toEqual({ roll: true, kick: false, hat: false });
+    expect(soundPiece(true, [5, 5, 5, 5], [], [], 0, { noKick: [1, "yes", true, null], runUp: { roll: 1 }, vary: "on" })).toEqual({ on: true, tension: [5, 5, 5, 5], scenes: [0, 0, 0, 0], order: [...FIRST_ORDER], noKick: [false, false, true, false] });
+  });
+
+
   it("round-trips, alone and in a project", async () => {
     const one = firstPiece();
     one.on = true;

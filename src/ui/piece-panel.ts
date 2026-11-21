@@ -1,5 +1,5 @@
 import type { App } from "../app/app";
-import { MAX_BARS, MIN_BARS, trackInfo } from "../model";
+import { MAX_BARS, MIN_BARS, trackInfo, type RunUp } from "../model";
 import { barCount, describePiece } from "../piece";
 import { byId, el, button } from "./dom";
 import type { Panels } from "./panels";
@@ -9,6 +9,13 @@ import type { Panels } from "./panels";
  */
 export class PiecePanel {
   private readonly pieceParts = { info: el("p", "info"), on: el("input"), bars: el("output"), order: el("ol", "entries") };
+  /** What the piece does by itself: the three parts of a build-up before a drop, and the fills. */
+  private readonly runUps: [part: keyof RunUp, chip: HTMLButtonElement][] = [
+    ["roll", button("chip", "Roll", "Snare-Roll: In den letzten zwei Takten vor dem Drop spielt der Ring der Snare Viertel, dann Achtel, dann Sechzehntel, immer lauter")],
+    ["kick", button("chip", "ohne Kick", "Im letzten Takt vor dem Drop setzen die Kick und ihr Nachbeben aus")],
+    ["hat", button("chip", "ohne Hi-Hat", "Im letzten Takt vor dem Drop setzt die Hi-Hat aus")],
+  ];
+  private readonly vary = button("chip", "alle 8 Takte", "Fills: Jeder achte Takt endet mit einer Kick mehr, jeder sechzehnte dazu mit zwei Schlägen der Trommel");
   private orderSignature = "";
   private pieceFocused = false;
 
@@ -54,15 +61,32 @@ export class PiecePanel {
     line.append(el("span", "label", "Takte"), less, parts.bars, more, quick);
     length.append(line);
 
+    // What the piece does by itself. The drop is a bar that is much higher than the one before, or the one in which the kick comes back.
+    const moves = el("div", "group moves");
+    moves.id = "piece-moves";
+    const before = el("div", "line");
+    before.append(el("span", "label", "Build-up"));
+    for (const [part, chip] of this.runUps) {
+      chip.id = `piece-${part}`;
+      chip.addEventListener("click", () => app.piece.toggleRunUp(part));
+      before.append(chip);
+    }
+    this.vary.id = "piece-vary";
+    this.vary.addEventListener("click", () => app.piece.toggleVary());
+    this.vary.setAttribute("aria-label", "Fills alle acht Takte");
+    const also = el("div", "line");
+    also.append(el("span", "label", "Fills"), this.vary);
+    moves.append(before, also);
+
     const order = el("div", "group");
     order.append(el("h3", "", "Wer zuerst einsetzt"), parts.order);
 
-    const hint = el("p", "easel-hint", "Mal die Spannung in den äußeren Ring: außen ist viel los, innen wenig. Die farbigen Linien zeigen, ab wo ein Ring mitspielt. Vor einem steilen Anstieg nimmt der Kreisel Anlauf. Am inneren Rand liegen die Szenen: links eine wählen, dann dort malen. Ein Rechtsklick auf einen Takt spielt ab dort, legt eine Szene hin oder ändert die Spannung.");
+    const hint = el("p", "easel-hint", "Mal die Spannung in den äußeren Ring: außen ist viel los, innen wenig. Die farbigen Linien zeigen, ab wo ein Ring mitspielt. Vor einem steilen Anstieg nimmt der Kreisel Anlauf. Am inneren Rand liegen die Szenen: links eine wählen, dann dort malen. Ein Rechtsklick auf einen Takt spielt ab dort, legt eine Szene hin, ändert die Spannung oder macht einen Break.");
 
     const save = button("button small", "Als Opus speichern", "Das Stück einmal rundherum als Opus-Datei");
     save.addEventListener("click", () => void app.files.exportSound());
 
-    this.panels.pieceBox.append(head, parts.info, on, doing, length, order, hint, save);
+    this.panels.pieceBox.append(head, parts.info, on, doing, length, moves, order, hint, save);
   }
 
   /** The piece in the list of rings and in its panel. */
@@ -89,6 +113,8 @@ export class PiecePanel {
     parts.info.textContent = describePiece(piece, app.project.bpm);
     parts.on.checked = piece.on;
     parts.bars.textContent = String(count);
+    for (const [part, chip] of this.runUps) chip.setAttribute("aria-pressed", String(piece.runUp?.[part] ?? false));
+    this.vary.setAttribute("aria-pressed", String(piece.vary ?? false));
     for (const node of this.panels.pieceBox.querySelectorAll<HTMLButtonElement>(".line .button")) {
       if (node.textContent === "−") node.disabled = count <= MIN_BARS;
       if (node.textContent === "+") node.disabled = count >= MAX_BARS;

@@ -291,6 +291,11 @@ class Keyboard {
       piece.toggle();
       return true;
     }
+    if (code === "KeyK") {
+      // "Ohne Kick" for the phrase at the pointer, and back.
+      if (piece.key !== null) piece.kickForPhrase(piece.key);
+      return true;
+    }
     return false;
   }
 

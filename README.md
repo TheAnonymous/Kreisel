@@ -121,7 +121,9 @@ The right button sends a playing piece to a bar, the wheel turns it, dice
 give it the form of a track (climb, perhaps a break, a peak, a fade), and
 "Glätten" rounds the line off. The rules are plain arithmetic on the line
 (`src/piece.ts`), the same live and in the saved file, which holds the piece once
-round. A piece is one byte a bar in the link.
+round. A piece is one byte a bar in the link. What makes a piece a techno track
+(breaks without the kick, a build-up to choose from, fills every eight bars) is
+told under "Techno", the fifth step.
 
 ## Part four: Reihum
 
@@ -405,9 +407,9 @@ first step is where a Kreisel begins.
   simply as two such notes. Two to four notes are accented, the ones slid into
   first.
 - **A techno form** for the piece: its dice cut it into an intro that builds
-  from the kick alone, full sections that arrive with a run-up, breaks that
-  fall and climb again, and an outro; sections are 16 and 32 bars long (8 and
-  16 in a piece under 64 bars). In a techno piece the kick comes in first. A
+  from the kick alone, full sections that arrive with a run-up, breaks (since
+  the fifth step without the kick), and an outro; sections are 16 and 32 bars
+  long (8 and 16 in a piece under 64 bars). In a techno piece the kick comes in first. A
   piece can be 256 bars now, a little under seven minutes at 150.
 
 The second step is hardness: in this music nearly every sound is distorted,
@@ -507,12 +509,51 @@ ring, and a hi-hat that behaves as a drum machine's does.
   whole measures as loud as before, within 0.2 dB. Its kick, its low drum, its
   stab and its acid machine are what they were.
 
+The fifth step is arranging: what makes the piece on the outermost ring a
+techno track.
+
+- **A break is a break.** A bar of the piece can be made a "Break": the
+  kick and its Nachbeben stay out there, and everything else plays by the
+  tension. The tension alone cannot give that, because in techno the kick is
+  the first ring to come in. The right button on a bar does it for the eight
+  bars around it ("mit Kick | Break"), key K does it at the keyboard's
+  pointer. On the ring the kick's share of such a bar stays pale. The bar in
+  which the kick comes back is a landing like a steep rise (run-up of noise,
+  crash), and the bar in which it leaves is a fall (the last beat goes into
+  the echo), without any step in the line.
+- **A build-up to choose from** ("Build-up" in the piece's panel and in its
+  menu), each part on or off for the whole piece and all off to begin with
+  (the genre's own guides disagree about them): "Roll", a snare roll on the
+  snare's ring through the last two bars before a landing, quarters, then
+  eighths, then sixteenths, growing louder, in place of what that ring would
+  play itself; "ohne Kick", the last bar without kick and Nachbeben; "ohne
+  Hi-Hat", the last bar without the hi-hat. They come on top of the noise and
+  the crash a landing always has.
+- **Fills**, also off to begin with: every eighth bar ends with a quiet kick
+  more, every sixteenth with two strokes of the tuned drum as well, on rings
+  that play in that bar and never on top of a hit of their own. A bar that
+  runs up to a landing is left alone.
+- **The words** on the page are the ones producers use, in German too: Break,
+  Build-up, Drop, Snare-Roll, Fills.
+- **The grid of phrases.** The piece's ring is ticked in eights: a line every
+  eight bars, a stronger one every sixteen, a faint one every four (not in a
+  piece of more than 128 bars).
+- **The techno dice** make their breaks without the kick: the drums around it
+  and the bass play on, and through the break's second half the tension climbs
+  until the chords are there. The techno Kreisel's own piece has such a break
+  of sixteen bars. Free dice take the marks away with the old line; what the
+  piece does by itself stays as it was set.
+- **In the link** a piece that has none of this is packed as it always was.
+  One that has adds its marked bars as one bit a bar and what it does by itself
+  as one small number; in memory the same holds (`tidyPiece`), so an older
+  piece is exactly what it was.
+
 The rules are in `src/model.ts` (the two starts), `src/patterns.ts` (the dice),
-`src/piece.ts` (the form), `src/press.ts` (hardness), `src/acid.ts` (the
-machine; `src/audio/acid.ts` makes it sound), `src/hat.ts` (the hi-hat) and
-`src/sounds/techno.ts` (the group). Still to come: breaks that take the kick
-out. Two sounds the genre asks for are in no palette yet, a hoover and a hit
-of noise for the chords and the melody; they would need numbers of their own.
+`src/piece.ts` (the form, breaks, build-ups and fills), `src/press.ts`
+(hardness), `src/acid.ts` (the machine; `src/audio/acid.ts` makes it sound),
+`src/hat.ts` (the hi-hat) and `src/sounds/techno.ts` (the group). Two sounds
+the genre asks for are in no palette yet, a hoover and a hit of noise for the
+chords and the melody; they would need numbers of their own.
 
 ## Scenes and the row
 
@@ -597,7 +638,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/menu.ts`, `menus.ts`, `bar-menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the same menu under the bar's buttons; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
 | `scripts/level-sounds.mjs` | `npm run level`: measures every ready-made sound and writes `src/sounds/trims.ts` |
-| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`, `kick`, `bar`, `scenes`, `techno-sounds`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
+| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`, `kick`, `bar`, `scenes`, `techno-sounds`, `arrange`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
 
 ## License
 

@@ -21,11 +21,11 @@ import {
 } from "klangwerk";
 import { charged, noteSeconds } from "../acid";
 import { CHOKE_SECONDS, HAT_TRACK, hatChokes, isOpenHat, OPEN_HATS } from "../hat";
-import { ACID_SOUND, BAR, BODY_SOUND, currentScene, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Project, type Scene, type Step, type Track, wrap } from "../model";
+import { ACID_SOUND, BAR, BODY_SOUND, currentScene, emptyStep, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Project, type Scene, type Step, type Track, wrap } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
 import { hasRumble } from "../rumble";
-import { barCount, dropsQuiet, gateLevel, planBar, type BarPlan } from "../piece";
+import { barCount, dropsQuiet, gateLevel, planBar, ROLL_RING, rollHits, varyHits, type BarPlan } from "../piece";
 import { playBild } from "./bild";
 import { playBody } from "./body";
 import { buildDrive, buildGroup, shadeDrive, shadeGroup, type KickDrive, type KickGroup } from "./kick";
@@ -450,6 +450,10 @@ export class Player {
     const kicks = scene.patterns[0];
     const shaking = kicks && this.audible(0) && !this.pause && (!this.plan || (this.plan.gates[0] ?? 0) > 0);
     const quakes = Boolean(shaking && kicks && hasRumble(scene, kicks.len));
+    // The step within the piece's bar, for what the piece plays by itself there.
+    const inBar = this.pieceSteps % BAR;
+    // A roll before a landing takes the snare's ring over: what the ring would play itself waits for the landing.
+    const rolling = this.plan !== null && this.plan.roll > 0;
     for (let track = 0; track < TRACK_COUNT; track += 1) {
       const pattern = scene.patterns[track];
       if (!pattern) continue;
@@ -457,6 +461,7 @@ export class Player {
       const over = weatherOver(scene, track, position % pattern.len, this.local);
       const chain = this.graph.chains[track];
       if (chain) stepChain(chain, over, time, duration);
+      if (rolling && track === ROLL_RING) continue;
       const step = stepAt(pattern, position % pattern.len);
       if (!step.on) continue;
       if (this.skip.delete(`${track}:${this.local}`)) continue;
@@ -470,6 +475,7 @@ export class Player {
       this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, shadesSound(track) ? brightness(over) : 0, hitNumber(pattern, position % pattern.len, this.local), quakes);
       if (track === 0) hitRumble(this.graph.rumble, time, duration);
     }
+    if (this.plan && !this.pause) fired |= this.pieceHits(project, scene, this.plan, inBar, position, chord, time, duration, quakes);
     // The Nachbeben: as much as the line in the kick's ring lets out at this step, at the pitch of the bar's chord.
     stepRumble(this.graph.rumble, shaking ? (scene.rumble[position % kicks.len] ?? 0) : 0, midiToHz(bassMidi(project, chord, 0)), time, duration);
     // Where a scene shakes, the kick and the Nachbeben leave as one, the more the dirtier; a kick without one is left alone.
@@ -484,6 +490,30 @@ export class Player {
     this.report({ position, local: this.local, scene: this.scene, chord, fired, time, duration, bar, round });
     this.local += 1;
     if (this.plan) this.pieceSteps += 1;
+  }
+
+  /**
+   * What the piece plays by itself at this step of its bar: the roll before a landing, on the snare's ring whether
+   * or not the tension has reached it, and the small change at a phrase's end, on rings that play in this bar and
+   * never on top of a hit of their own. Returns one bit per ring that struck.
+   */
+  private pieceHits(project: Project, scene: Scene, plan: BarPlan, inBar: number, position: number, chord: number, time: number, duration: number, quakes: boolean): number {
+    let fired = 0;
+    const roll = plan.roll > 0 && this.audible(ROLL_RING) ? rollHits(plan.roll).find((hit) => hit.step === inBar) : undefined;
+    if (roll) {
+      fired |= 1 << ROLL_RING;
+      this.voices.strike(project, ROLL_RING, { ...emptyStep(), on: true }, chord, time, duration, roll.level, 0, 0, quakes);
+    }
+    for (const hit of varyHits(plan.vary)) {
+      if (hit.step !== inBar || !this.audible(hit.ring)) continue;
+      const gate = plan.gates[hit.ring] ?? 0;
+      const own = scene.patterns[hit.ring];
+      if (gate <= 0 || (hit.vel === 0 && dropsQuiet(gate)) || (own && stepAt(own, position % own.len).on)) continue;
+      fired |= 1 << hit.ring;
+      this.voices.strike(project, hit.ring, { ...emptyStep(), on: true, vel: hit.vel, pitch: hit.pitch }, chord, time, duration, gateLevel(gate), 0, 0, quakes);
+      if (hit.ring === 0) hitRumble(this.graph.rumble, time, duration);
+    }
+    return fired;
   }
 
   /** Plays one step by hand, over `chord`; a voice sings syllable `number` of its line. */

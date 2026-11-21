@@ -94,14 +94,31 @@ export function unpackBild(value: unknown): Bild | null {
   return { strokes, hold: bytes[0] === 1 ? clamp(bytes[1] ?? 0, 0, TIME_MAX) : null };
 }
 
-/** A piece as [on, one byte a bar (tension | scene << 5) in base64, the order of the rings as digits]. */
-export function packPiece(piece: Piece): [number, string, string] {
+/** What a piece does by itself, as bits of one number. */
+const MOVES = { roll: 1, kick: 2, hat: 4, vary: 8 } as const;
+
+/**
+ * A piece as [on, one byte a bar (tension | scene << 5) in base64, the order of the rings as digits].
+ * Only a piece that has them adds two more: its bars "ohne Kick" as one bit a bar in base64 (empty for none), and
+ * what it does by itself as a number (see MOVES). A piece without any of that is packed as it always was.
+ */
+export function packPiece(piece: Piece): [number, string, string, string?, number?] {
   const bytes = piece.tension.map((tension, bar) => (tension & 31) | (((piece.scenes[bar] ?? 0) & 7) << 5));
-  return [piece.on ? 1 : 0, toBase64Url(Uint8Array.from(bytes)), piece.order.join("")];
+  const packed: [number, string, string, string?, number?] = [piece.on ? 1 : 0, toBase64Url(Uint8Array.from(bytes)), piece.order.join("")];
+  const moves = (piece.runUp?.roll ? MOVES.roll : 0) | (piece.runUp?.kick ? MOVES.kick : 0) | (piece.runUp?.hat ? MOVES.hat : 0) | (piece.vary ? MOVES.vary : 0);
+  let marks = "";
+  if (piece.noKick?.some(Boolean)) {
+    const bits = new Uint8Array(Math.ceil(piece.tension.length / 8));
+    piece.noKick.forEach((out, bar) => { if (out) bits[bar >> 3] = (bits[bar >> 3] ?? 0) | (1 << (bar & 7)); });
+    marks = toBase64Url(bits);
+  }
+  if (marks !== "" || moves > 0) packed.push(marks);
+  if (moves > 0) packed.push(moves);
+  return packed;
 }
 
 export function unpackPiece(value: unknown, fallbackScene: number): Piece {
-  const [on, bars, order] = Array.isArray(value) ? value : [];
+  const [on, bars, order, marks, moves] = Array.isArray(value) ? value : [];
   if (typeof bars !== "string" || bars.length === 0 || bars.length > 400) return firstPiece(fallbackScene);
   let bytes: Uint8Array;
   try {
@@ -109,7 +126,18 @@ export function unpackPiece(value: unknown, fallbackScene: number): Piece {
   } catch {
     return firstPiece(fallbackScene);
   }
-  return soundPiece(on === 1, Array.from(bytes, (byte) => byte & 31), Array.from(bytes, (byte) => byte >> 5), typeof order === "string" ? Array.from(order, Number) : [], fallbackScene);
+  let noKick: boolean[] = [];
+  if (typeof marks === "string" && marks.length > 0 && marks.length <= 60) {
+    try {
+      const bits = fromBase64Url(marks);
+      noKick = Array.from(bytes, (_, bar) => ((bits[bar >> 3] ?? 0) & (1 << (bar & 7))) !== 0);
+    } catch {
+      // Marks that cannot be read are no marks.
+    }
+  }
+  const does = typeof moves === "number" && Number.isInteger(moves) ? moves : 0;
+  const extras = { noKick, runUp: { roll: (does & MOVES.roll) !== 0, kick: (does & MOVES.kick) !== 0, hat: (does & MOVES.hat) !== 0 }, vary: (does & MOVES.vary) !== 0 };
+  return soundPiece(on === 1, Array.from(bytes, (byte) => byte & 31), Array.from(bytes, (byte) => byte >> 5), typeof order === "string" ? Array.from(order, Number) : [], fallbackScene, extras);
 }
 
 interface PackedScene {
@@ -148,7 +176,7 @@ interface Packed {
   f?: string;
   /** Only in links from before the row: how often every filled scene played in turn. */
   n?: number;
-  z?: [number, string, string];
+  z?: [number, string, string, string?, number?];
   /** Reihum: the rule, whether it is revealed, and the turns as [name, the project then]. */
   y?: { r: number; o: number; t: [string, unknown][] };
 }

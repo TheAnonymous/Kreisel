@@ -1,5 +1,5 @@
-import { clamp, TENSION_MAX, wrap } from "../model";
-import { barCount, dicePiece, moveInOrder, resizePiece, rotatePiece, smoothPiece } from "../piece";
+import { clamp, TENSION_MAX, type RunUp, wrap } from "../model";
+import { barCount, dicePiece, kickOut, moveInOrder, phraseOf, resizePiece, rotatePiece, setKick, setRunUp, setVary, smoothPiece } from "../piece";
 import type { App } from "./app";
 
 /*
@@ -58,6 +58,31 @@ export class PieceDesk {
     this.app.store.edit((project) => {
       for (let index = from; index < to && index < project.piece.scenes.length; index += 1) project.piece.scenes[index] = scene;
     });
+  }
+
+  /**
+   * A break: lets the kick stay out of the phrase around `bar` (eight bars), or play there again.
+   * Without `plays` it turns around what the bar itself has.
+   */
+  kickForPhrase(bar: number, plays?: boolean): void {
+    const piece = this.app.project.piece;
+    if (bar < 0 || bar >= barCount(piece)) return;
+    const { from, to } = phraseOf(piece, bar);
+    const next = plays ?? kickOut(piece, bar);
+    this.app.store.edit((project) => setKick(project.piece, from, to, next));
+    this.app.say(next ? `Takt ${from + 1} bis ${to} wieder mit Kick.` : `Break in Takt ${from + 1} bis ${to}: Kick und Nachbeben setzen aus, alles andere spielt nach der Spannung.`);
+  }
+
+  /** Switches one of the run-ups before a landing on or off. */
+  toggleRunUp(part: keyof RunUp): void {
+    const on = !(this.app.project.piece.runUp?.[part] ?? false);
+    this.app.store.edit((project) => setRunUp(project.piece, part, on));
+  }
+
+  /** Fills: small changes by themselves at the end of every eight bars. */
+  toggleVary(): void {
+    const on = !(this.app.project.piece.vary ?? false);
+    this.app.store.edit((project) => setVary(project.piece, on));
   }
 
   /** Plays the piece from `bar`: switches it on and starts the Kreisel if need be. */

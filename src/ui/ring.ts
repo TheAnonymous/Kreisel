@@ -5,7 +5,7 @@ import { drawMouth } from "./booth";
 import { WEATHER_COLORS, windDrift } from "../weather";
 import { Lights } from "./lights";
 import { approach, compare, DEAL, dealt, face, hop, MANY, POP, rest, SHRINK, SLIDE, SWELL, swell, unface } from "./motion";
-import { entry } from "../piece";
+import { entry, PHRASE, planBar } from "../piece";
 import { turnColor } from "../relay";
 import type { App } from "../app/app";
 import { type Spot, TAU, BRUSH, lerp } from "./ring-shape";
@@ -1003,12 +1003,15 @@ export class RingView {
     const { ink } = this.palette;
     const pad = count > 72 ? 0 : Math.min(cell * 0.12, 0.7 / middle);
     const places = piece.order.length;
+    // A piece can keep a ring out of a bar although the tension reaches it: "ohne Kick", or a run-up without kick or hi-hat.
+    const keepsOut = piece.noKick !== undefined || piece.runUp !== undefined;
     context.globalAlpha = piece.on ? 1 : 0.3;
     piece.tension.forEach((tension, bar) => {
       if (tension <= 0) return;
       const height = tension / TENSION_MAX;
       const from = TOP + bar * cell + pad;
       const to = TOP + (bar + 1) * cell - pad;
+      const gates = keepsOut ? planBar(piece, bar).gates : null;
       // Below the first ring's line nothing plays yet: a pale foot.
       this.sector(base, base + span * Math.min(height, entry(0)), from, to);
       context.fillStyle = ink;
@@ -1020,7 +1023,16 @@ export class RingView {
         if (height <= low) break;
         const high = place === places - 1 ? 1 : entry(place + 1);
         this.sector(base + span * low, base + span * Math.min(height, high), from, to);
-        context.fillStyle = trackInfo(piece.order[place] ?? 0).color;
+        const ring = piece.order[place] ?? 0;
+        if (gates && (gates[ring] ?? 0) <= 0) {
+          // The ring's share of the bar stays pale: it does not play here.
+          context.fillStyle = ink;
+          context.globalAlpha = (piece.on ? 1 : 0.3) * 0.1;
+          context.fill();
+          context.globalAlpha = piece.on ? 1 : 0.3;
+          continue;
+        }
+        context.fillStyle = trackInfo(ring).color;
         context.fill();
       }
     });
@@ -1069,15 +1081,16 @@ export class RingView {
     }
   }
 
-  /** Every fourth bar a line, every sixteenth a stronger one; and in focus a line around the ring. */
+  /** The grid of phrases: a line every eight bars, a stronger one every sixteen, a faint one every four (in a long piece not those); and in focus a line around the ring. */
   private drawPieceLines(shape: PieceShape): void {
     const context = this.context;
     const { center, inner, outer, count, cell, focus } = shape;
     const { bg, ink } = this.palette;
     context.strokeStyle = bg;
-    for (let bar = 0; bar < count; bar += 4) {
+    const every = count > 128 ? PHRASE : PHRASE / 2;
+    for (let bar = 0; bar < count; bar += every) {
       const angle = TOP + bar * cell;
-      context.lineWidth = bar % 16 === 0 ? 2 : 1;
+      context.lineWidth = bar % (PHRASE * 2) === 0 ? 2.5 : bar % PHRASE === 0 ? 1.5 : 0.75;
       context.beginPath();
       context.moveTo(center + Math.cos(angle) * inner, center + Math.sin(angle) * inner);
       context.lineTo(center + Math.cos(angle) * outer, center + Math.sin(angle) * outer);
