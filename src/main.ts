@@ -8,6 +8,7 @@ import { bindKeys } from "./ui/keys";
 import { BenchView } from "./ui/bench";
 import { BoothView } from "./ui/booth";
 import { EaselView } from "./ui/easel";
+import { barMenu } from "./ui/bar-menus";
 import { ContextMenu } from "./ui/menu";
 import { buildMenu } from "./ui/menus";
 import { Panels } from "./ui/panels";
@@ -37,11 +38,15 @@ const panels = new Panels(app, ring, easel, bench, mouth);
 const context = document.getElementById("context");
 if (!context) throw new Error("page without a menu");
 const menu = new ContextMenu(context);
-const doors = { relay: () => panels.showRelay(), help: () => panels.showHelp() };
+const doors = { relay: () => panels.showRelay(), help: () => panels.showHelp(), tour: () => panels.startTour(), get stageKey() { return panels.keyLabel("KeyO"); } };
 app.onContext = (target, x, y, byKeyboard) => {
-  panels.closeMenu();
   app.chords.close();
   menu.open(x, y, () => buildMenu(app, target, doors), byKeyboard);
+};
+// The same menu hangs under the bar's buttons: the Kreisel's name, the speaker, "Teilen", "Aufnehmen", the help.
+panels.onBarMenu = (opener, which, byKeyboard) => {
+  app.chords.close();
+  menu.openUnder(opener, () => barMenu(app, which, doors), byKeyboard);
 };
 app.subscribe(() => menu.refresh());
 

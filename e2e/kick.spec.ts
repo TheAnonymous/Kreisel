@@ -44,9 +44,9 @@ test.describe("am Laptop", () => {
      * note's third overtone is in it, which a clean kick has next to none of and a clipped one a lot.
      */
     const listen = async (): Promise<{ body: number; hz: number; third: number }> => {
-      await page.locator("#more").click();
+      await page.locator("#record-more").click();
       const rendered = page.waitForEvent("download");
-      await page.locator("#menu").getByText("Als Opus speichern").click();
+      await page.locator("#context").getByText("Als Opus speichern").click();
       const bytes = readFileSync(await (await rendered).path());
       await page.evaluate(() => window.kreisel.app.dismiss());
       return page.evaluate(async (data) => {

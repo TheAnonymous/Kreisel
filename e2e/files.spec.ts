@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { heard, onPhone, open, state, status } from "./helpers";
+import { copyLink, heard, onPhone, open, state, status } from "./helpers";
 
 /*
  * What leaves the page and comes back: the link, the browser's memory, saved
@@ -17,7 +17,7 @@ test.describe("am Laptop", () => {
     await page.locator("#bpm").fill("133");
     await page.locator("#bpm").blur();
     const shared = await state(page);
-    await page.locator("#share").click();
+    await copyLink(page);
     await expect(page.locator("#toast")).toContainText("Link kopiert");
     const link = await page.evaluate(() => navigator.clipboard.readText());
     expect(link).toMatch(/\/Kreisel\/#k=1\.[0-9A-Za-z_-]+$/);
@@ -54,9 +54,9 @@ test.describe("am Laptop", () => {
   test("speichert als Opus: die Szene und eine Aufnahme", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => window.kreisel.app.setGlobal({ bpm: 180 }));
-    await page.locator("#more").click();
+    await page.locator("#record-more").click();
     const rendered = page.waitForEvent("download");
-    await page.locator("#menu").getByText("Als Opus speichern").click();
+    await page.locator("#context").getByText("Als Opus speichern").click();
     const saved = await rendered;
     // The name stays an Opus file's, also in Firefox (which renames files whose type it thinks it knows better).
     expect(saved.suggestedFilename()).toBe("kreisel.opus");
@@ -99,9 +99,9 @@ test.describe("am Laptop", () => {
     });
     const problems = await open(page);
     await page.evaluate(() => window.kreisel.app.setGlobal({ bpm: 180 }));
-    await page.locator("#more").click();
+    await page.locator("#record-more").click();
     const rendered = page.waitForEvent("download");
-    await page.locator("#menu").getByText("Als Opus speichern").click();
+    await page.locator("#context").getByText("Als Opus speichern").click();
     const wav = await rendered;
     expect(wav.suggestedFilename()).toBe("kreisel.wav");
     await expect(page.locator("#toast")).toContainText("als WAV (dieser Browser schreibt kein Opus) gespeichert");

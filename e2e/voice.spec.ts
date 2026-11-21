@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { heard, onLaptop, onPhone, open, pickSound, soundOf, state, status, voiceOf, where } from "./helpers";
+import { copyLink, heard, onLaptop, onPhone, open, pickSound, soundOf, state, status, voiceOf, where } from "./helpers";
 
 /*
  * Stimme: a ring that sings a typed line, a syllable a hit.
@@ -128,9 +128,9 @@ test.describe("am Laptop", () => {
         });
         app.dismiss();
       }, [text, shape.mouth ?? 0.5, shape.x ?? 0.5, shape.y ?? 0.5] as const);
-      await page.locator("#more").click();
+      await page.locator("#record-more").click();
       const rendered = page.waitForEvent("download");
-      await page.locator("#menu").getByText("Als Opus speichern").click();
+      await page.locator("#context").getByText("Als Opus speichern").click();
       const bytes = readFileSync(await (await rendered).path());
       return page.evaluate(async ([data, first, second]) => {
         const context = new AudioContext();
@@ -195,7 +195,7 @@ test.describe("am Laptop", () => {
       app.dismiss();
     });
     const shared = await state(page);
-    await page.locator("#share").click();
+    await copyLink(page);
     await expect(page.locator("#toast")).toContainText("Link kopiert");
     const link = await page.evaluate(() => navigator.clipboard.readText());
     const other = await context.newPage();
@@ -208,9 +208,9 @@ test.describe("am Laptop", () => {
     await expect(other.locator(".track").filter({ hasText: "Kick" }).locator(".sound")).toHaveText("Stimme");
 
     // The saved file holds the voice.
-    await other.locator("#more").click();
+    await other.locator("#record-more").click();
     const rendered = other.waitForEvent("download");
-    await other.locator("#menu").getByText("Als Opus speichern").click();
+    await other.locator("#context").getByText("Als Opus speichern").click();
     const file = await heard(other, await rendered);
     expect(file.peak).toBeGreaterThan(0.1);
     expect(problems).toEqual([]);

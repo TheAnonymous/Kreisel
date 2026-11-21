@@ -40,8 +40,12 @@
     gap: 8px 10px;
   }
 
-  .brand h1 {
+  .brand .name {
     font-size: 1.2rem;
+  }
+
+  .brand button {
+    padding-right: 6px;
   }
 
   .actions {
@@ -61,8 +65,17 @@
     min-width: 0;
   }
 
-  #relay {
+  /* A phone's bar has no room for the speaker, the arrow and the help: the three dots hold what they open. */
+  #sound,
+  #record-more,
+  #help-open,
+  .brand .caret,
+  #share .caret {
     display: none;
+  }
+
+  .split .button.rec {
+    border-radius: 999px;
   }
 
   #share,
@@ -171,13 +184,14 @@
 }
 
 @media (max-width: 479px) {
-  .brand h1 {
+  .brand .name {
     display: none;
   }
 }
 
 @media (min-width: 720px) {
-  #share svg {
+  #share svg,
+  #more {
     display: none;
   }
 }

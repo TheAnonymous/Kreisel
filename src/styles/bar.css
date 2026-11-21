@@ -7,12 +7,30 @@
   gap: 10px 16px;
 }
 
+/* The Kreisel's name is a button: under it hangs what concerns the Kreisel as a whole. */
 .brand {
+  margin: 0;
+  font-size: inherit;
+}
+
+.brand button {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 2px 12px 2px 4px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: none;
   color: inherit;
-  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.brand button:hover,
+.brand button[aria-expanded="true"] {
+  border-color: var(--ink);
+  background: var(--paper);
+  box-shadow: 0 3px 0 var(--ink);
 }
 
 .brand .mark {
@@ -21,10 +39,16 @@
   stroke-width: 3.2;
 }
 
-.brand h1 {
+.brand .name {
   font-size: 1.4rem;
   font-weight: 800;
   letter-spacing: -0.015em;
+}
+
+/* The small arrow on a button that opens a menu. */
+.caret {
+  font-size: 0.72em;
+  opacity: 0.7;
 }
 
 .knobs {
@@ -42,42 +66,32 @@
 }
 
 .more {
-  position: relative;
+  display: flex;
 }
 
-.menu {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 10;
-  display: grid;
-  gap: 2px;
-  min-width: 232px;
-  padding: 10px;
-  border: 2px solid var(--ink);
-  border-radius: 16px;
-  background: var(--paper);
-  box-shadow: 0 4px 0 var(--ink);
+#help-open .sign {
+  font-weight: 800;
+  font-size: 1.05rem;
 }
 
-.menu .field {
-  padding: 2px 8px 8px;
+/* A button that opens a menu shows that it is open. */
+.bar .button[aria-expanded="true"] {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--ink);
 }
 
-.menu .field input {
-  width: 100%;
+/* "Aufnehmen" and its arrow are one pill: the button records at once, the arrow shows what else there is. */
+.split {
+  display: flex;
 }
 
-.menu button {
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 9px;
-  background: none;
-  font-weight: 700;
-  font-size: 0.9rem;
-  text-align: left;
+.split .button.rec {
+  padding-right: 11px;
+  border-radius: 999px 0 0 999px;
 }
 
-.menu button:hover {
-  background: var(--hair);
+.split .rec-more {
+  margin-left: -2px;
+  padding: 0 11px 0 9px;
+  border-radius: 0 999px 999px 0;
 }

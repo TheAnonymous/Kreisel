@@ -100,6 +100,44 @@
   color: var(--soft);
 }
 
+/* A line under a row's name that says what it does. */
+.menu-row.with-note {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: 1px;
+}
+
+.menu-row small {
+  grid-column: 1 / -1;
+  max-width: 260px;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--soft);
+}
+
+.menu-slider {
+  display: grid;
+  gap: 4px;
+  padding: 4px 8px 7px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.menu-slider input {
+  width: 100%;
+  min-width: 190px;
+}
+
+/* A menu that begins with a group's name needs no line above it. */
+.context header + h3 {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: 0;
+}
+
 .menu-choice {
   display: flex;
   flex-wrap: wrap;

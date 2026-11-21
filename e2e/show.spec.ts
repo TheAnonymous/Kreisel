@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { onLaptop, onPhone, open, status, where } from "./helpers";
+import { fromBar, onLaptop, onPhone, open, status, where } from "./helpers";
 
 /*
  * How the page moves and shows itself: the small motions, the tour of a first
@@ -50,11 +50,11 @@ test.describe("am Laptop", () => {
     expect(await playing("#redo")).toContain("wind-on");
 
     // Menus unfold, the head of the ring's panel arrives, a held effect shows on its key what it does.
-    await page.locator("#more").click();
-    expect(await playing("#menu")).toContain("unfold");
+    await page.locator("#help-open").click();
+    expect(await playing("#context")).toContain("unfold");
     await page.keyboard.press("Escape");
     await page.mouse.click(4, 400);
-    await expect(page.locator("#menu")).toBeHidden();
+    await expect(page.locator("#context")).toBeHidden();
     await page.keyboard.press("5");
     expect(await playing(".panel-head")).toEqual(expect.arrayContaining(["pop", "slide-in"]));
     await page.keyboard.down("KeyC");
@@ -77,7 +77,7 @@ test.describe("am Laptop", () => {
     expect(await moving()).toEqual(still);
     await page.locator(".panel-ring .doing .button", { hasText: "Würfeln" }).click();
     expect(await moving()).toEqual(still);
-    await page.locator("#more").click();
+    await page.locator("#help-open").click();
     expect(await page.evaluate(() => document.getAnimations().filter((motion) => Number(motion.effect?.getComputedTiming().activeDuration ?? 0) > 1).length)).toBe(0);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
@@ -128,19 +128,17 @@ test.describe("am Laptop", () => {
     await expect(tour).toBeHidden();
     await page.keyboard.press("Space");
 
-    // It comes once. From the menu it comes again, and Escape puts it away.
+    // It comes once. From the question mark in the bar it comes again, and Escape puts it away.
     await page.reload();
     await expect(status(page)).toContainText("Schläge");
     await page.waitForTimeout(1200);
     await expect(tour).toBeHidden();
-    await page.locator("#more").click();
-    await page.locator("#menu").getByText("Tour: die ersten Schritte").click();
+    await fromBar(page, "help-open", /Tour/);
     await expect(tour).toBeVisible();
     await expect(count).toHaveText("1 von 7");
     await page.keyboard.press("Escape");
     await expect(tour).toBeHidden();
-    await page.locator("#more").click();
-    await page.locator("#menu").getByText("Tour: die ersten Schritte").click();
+    await fromBar(page, "help-open", /Tour/);
     await page.locator("#tour-skip").click();
     await expect(tour).toBeHidden();
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
@@ -172,11 +170,9 @@ test.describe("am Laptop", () => {
     await expect.poll(glow).toBeGreaterThan(0);
     await expect(page.locator(".invite")).toBeHidden();
 
-    // Switched off in the menu it is dark at once and stays so, also after a reload; switched on, it is back.
-    const more = page.locator("#more");
-    const lights = page.locator("#menu").getByRole("switch", { name: "Lichtspiel" });
-    await more.click();
-    await expect(lights).toHaveAttribute("aria-checked", "true");
+    // Switched off with the lamp beside the wheel it is dark at once and stays so, also after a reload; switched on, it is back.
+    const lights = page.locator("#lights-toggle");
+    await expect(lights).toHaveAttribute("aria-pressed", "true");
     await lights.click();
     await expect(page.locator("#toast")).toContainText("Lichtspiel aus");
     await expect.poll(light).toEqual(dark);
@@ -184,8 +180,7 @@ test.describe("am Laptop", () => {
     expect(await light()).toEqual(dark);
     expect(await glow()).toBe(0);
     expect(await page.evaluate(() => localStorage.getItem("kreisel.licht"))).toBe("0");
-    await more.click();
-    await expect(lights).toHaveAttribute("aria-checked", "false");
+    await expect(lights).toHaveAttribute("aria-pressed", "false");
     await lights.click();
     await expect.poll(async () => (await light()).glowing).toBe(true);
 

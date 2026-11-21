@@ -2,8 +2,13 @@
  * The menu under the right mouse button (or a long press): what can be done
  * with the thing under the pointer, right where the pointer is. A menu is a
  * title and rows; a row is one action, or a label with a few choices side by
- * side (so "laut" is one click away, not a submenu away). Rows that change
- * a value keep the menu open, and it redraws itself as the Kreisel changes.
+ * side (so "laut" is one click away, not a submenu away), or a slider. Rows
+ * that change a value keep the menu open, and it redraws itself as the
+ * Kreisel changes.
+ *
+ * The same menu hangs under the buttons of the bar that open one (the
+ * Kreisel's name, the speaker, "Teilen"): there it opens under its button,
+ * and a second press on the button puts it away again.
  */
 
 export interface MenuAction {
@@ -17,6 +22,22 @@ export interface MenuAction {
   checked?: boolean;
   /** Leave the menu open after the click (for switches and steps up and down). */
   keep?: boolean;
+  /** A line under the label that says what the row does, where its name does not. */
+  note?: string;
+}
+
+/** A control for a share between nothing and all; the menu stays open while it is moved. */
+export interface MenuSlider {
+  kind: "slider";
+  label: string;
+  /** The `id` of its input, for a label elsewhere or a test. */
+  id?: string;
+  /** 0..1. */
+  value: number;
+  set(value: number): void;
+  /** What the right button on it does: back to where a fresh Kreisel has it. */
+  reset?(): void;
+  title?: string;
 }
 
 export interface MenuChoice {
@@ -31,7 +52,7 @@ export interface MenuHeading {
   label: string;
 }
 
-export type MenuRow = MenuAction | MenuChoice | MenuHeading;
+export type MenuRow = MenuAction | MenuChoice | MenuHeading | MenuSlider;
 
 export interface MenuSpec {
   title: string;
@@ -108,13 +129,18 @@ export class ContextMenu {
   private signature = "";
   private returnTo: HTMLElement | null = null;
   private at = { x: 0, y: 0 };
+  /** The button the menu hangs under, if a button opened it. */
+  private anchor: HTMLElement | null = null;
 
   constructor(private readonly node: HTMLElement) {
     node.addEventListener("keydown", (event) => this.key(event));
     node.addEventListener("contextmenu", (event) => event.preventDefault());
     // Anything pressed outside puts the menu away (in the capture phase, before the page reacts to it).
     document.addEventListener("pointerdown", (event) => {
-      if (this.isOpen && !(event.target instanceof Node && node.contains(event.target))) this.close(false);
+      if (!this.isOpen || !(event.target instanceof Node) || node.contains(event.target)) return;
+      // A press on the menu's own button is that button's business: it puts the menu away itself.
+      if (this.anchor?.contains(event.target)) return;
+      this.close(false);
     }, true);
     // Opened with the mouse, the keyboard is still elsewhere: Escape puts the menu away, the arrows step into it.
     // Every other key stays with the Kreisel, so the space bar still starts and stops.
@@ -132,7 +158,10 @@ export class ContextMenu {
     }, true);
     window.addEventListener("blur", () => this.close(false));
     window.addEventListener("resize", () => this.close(false));
-    window.addEventListener("scroll", () => this.close(false), true);
+    // The page moving under the menu puts it away; a long menu scrolling in itself does not.
+    window.addEventListener("scroll", (event) => {
+      if (!(event.target instanceof Node && node.contains(event.target))) this.close(false);
+    }, true);
   }
 
   get isOpen(): boolean {
@@ -141,6 +170,13 @@ export class ContextMenu {
 
   /** Opens the menu at a point of the page. `build` is asked again whenever the Kreisel changes while the menu is open. */
   open(x: number, y: number, build: () => MenuSpec | null, focus = false): void {
+    this.show(x, y, build, focus, "");
+  }
+
+  /** `room` is how tall the menu may get (a CSS length; nothing for as tall as the page). */
+  private show(x: number, y: number, build: () => MenuSpec | null, focus: boolean, room: string): void {
+    this.close(false);
+    this.node.style.maxHeight = room;
     // Only a menu the keyboard asked for hands the keyboard back: after a right click, whatever happened to
     // hold the focus (a button pressed earlier) must not get it again, or it would swallow the space bar.
     this.returnTo = focus && document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -153,14 +189,32 @@ export class ContextMenu {
     if (focus) this.buttons()[0]?.focus();
   }
 
+  /**
+   * Opens the menu under a button of the page, its left edge at the button's (or as far left as it has to go to
+   * stay whole on the page). A second call for the same button puts the menu away: the button is a switch for it.
+   */
+  openUnder(anchor: HTMLElement, build: () => MenuSpec | null, focus = false): void {
+    if (this.isOpen && this.anchor === anchor) {
+      this.close(focus);
+      return;
+    }
+    const box = anchor.getBoundingClientRect();
+    // It stays below its button, however much it holds: a long one scrolls.
+    this.show(box.left - 2, box.bottom + 6, build, focus, `calc(100dvh - ${Math.round(box.bottom) + 16}px)`);
+    if (!this.isOpen) return;
+    this.anchor = anchor;
+    this.node.dataset.under = anchor.id;
+    anchor.setAttribute("aria-expanded", "true");
+  }
+
   /** Redraws an open menu from its builder if the Kreisel changed what it says. */
   refresh(): void {
     if (!this.isOpen) return;
-    const before = this.node.querySelectorAll("button");
+    const before = this.node.querySelectorAll<HTMLButtonElement | HTMLInputElement>("button, input");
     const focused = [...before].indexOf(document.activeElement as HTMLButtonElement);
     if (!this.render() || focused < 0) return;
     // The keyboard stays on the row it was on (or the nearest one that can still be pressed).
-    const after = [...this.node.querySelectorAll("button")];
+    const after = [...this.node.querySelectorAll<HTMLButtonElement | HTMLInputElement>("button, input")];
     const next = after[focused]?.disabled === false ? after[focused] : (after.slice(focused).find((button) => !button.disabled) ?? after.slice(0, focused).reverse().find((button) => !button.disabled));
     next?.focus();
   }
@@ -170,12 +224,16 @@ export class ContextMenu {
     this.node.hidden = true;
     this.build = null;
     this.node.replaceChildren();
+    this.anchor?.setAttribute("aria-expanded", "false");
+    this.anchor = null;
+    delete this.node.dataset.under;
     if (giveFocusBack) this.returnTo?.focus();
     this.returnTo = null;
   }
 
-  private buttons(): HTMLButtonElement[] {
-    return [...this.node.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
+  /** What the arrows step through: the rows that can be pressed, and the sliders. */
+  private buttons(): HTMLElement[] {
+    return [...this.node.querySelectorAll<HTMLElement>("button:not(:disabled), input")];
   }
 
   /** Draws the menu; `false` when nothing had to change (or there is nothing to show any more). */
@@ -185,9 +243,19 @@ export class ContextMenu {
       this.close(false);
       return false;
     }
-    // Functions drop out of the text, so it says exactly what the menu shows.
-    const signature = JSON.stringify(spec);
-    if (signature === this.signature) return false;
+    // Functions drop out of the text, so it says exactly what the menu shows. Where a slider stands is left out:
+    // a slider that is being moved must not be taken from under the pointer. It is set where it is instead, which
+    // changes nothing while it is moved (it says what it was just told) and shows a step back or a reset at once.
+    const signature = JSON.stringify(spec, (key, value: unknown) => (key === "value" ? undefined : value));
+    if (signature === this.signature) {
+      const sliders = spec.rows.filter((row): row is MenuSlider => row.kind === "slider");
+      this.node.querySelectorAll<HTMLInputElement>("input[type=range]").forEach((input, index) => {
+        const slider = sliders[index];
+        const stands = slider ? String(Math.round(slider.value * 100)) : input.value;
+        if (input.value !== stands) input.value = stands;
+      });
+      return false;
+    }
     this.signature = signature;
     const node = this.node;
     node.style.setProperty("--c", spec.color ?? "var(--ink)");
@@ -219,6 +287,12 @@ export class ContextMenu {
           hint.textContent = row.hint;
           button.append(hint);
         }
+        if (row.note) {
+          const note = document.createElement("small");
+          note.textContent = row.note;
+          button.append(note);
+          button.classList.add("with-note");
+        }
         button.addEventListener("click", (event) => {
           // Pressed with the mouse or a finger, a row does not take the keyboard: the space bar still starts and stops.
           if (event.detail > 0) button.blur();
@@ -227,6 +301,36 @@ export class ContextMenu {
           row.run();
         });
         rows.push(button);
+      } else if (row.kind === "slider") {
+        const line = document.createElement("label");
+        line.className = "menu-slider";
+        const label = document.createElement("span");
+        label.textContent = row.label;
+        const input = document.createElement("input");
+        input.type = "range";
+        input.min = "0";
+        input.max = "100";
+        input.step = "1";
+        input.value = String(Math.round(row.value * 100));
+        if (row.id) input.id = row.id;
+        input.title = [row.title, row.reset ? "Rechtsklick setzt zurück" : ""].filter(Boolean).join(" · ");
+        input.addEventListener("input", () => row.set(Number(input.value) / 100));
+        // Moved with the mouse or a finger, it does not keep the keyboard: the space bar still starts and stops.
+        let byPointer = false;
+        input.addEventListener("pointerdown", () => { byPointer = true; });
+        input.addEventListener("change", () => {
+          if (byPointer) input.blur();
+          byPointer = false;
+        });
+        input.addEventListener("contextmenu", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          row.reset?.();
+          // The right button leaves the keyboard with the Kreisel, so that one step back is one key away.
+          input.blur();
+        });
+        line.append(label, input);
+        rows.push(line);
       } else {
         const line = document.createElement("div");
         line.className = "menu-choice";
@@ -276,13 +380,16 @@ export class ContextMenu {
       this.close();
       return;
     }
+    // On a slider, left and right (and Home and End) move the slider; up and down still step from row to row.
+    const onSlider = event.target instanceof HTMLInputElement;
+    if (onSlider && event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
     const moves: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
     const by = moves[event.key];
     if (by === undefined && event.key !== "Home" && event.key !== "End") return;
     event.preventDefault();
     const buttons = this.buttons();
     if (buttons.length === 0) return;
-    const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const index = buttons.indexOf(document.activeElement as HTMLElement);
     const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (by ?? 0) + buttons.length) % buttons.length;
     buttons[next]?.focus();
   }

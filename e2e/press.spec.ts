@@ -69,8 +69,8 @@ test.describe("am Laptop", () => {
     const whole = () => page.evaluate(() => window.kreisel.whole());
     const louder = (after: { loud: number }, before: { loud: number }): number => 20 * Math.log10(after.loud / before.loud);
 
-    // The control is behind the three dots, under the volume.
-    await page.locator("#more").click();
+    // The control is behind the speaker in the bar, under the volume.
+    await page.locator("#sound").click();
     await expect(slider).toBeVisible();
     await expect(slider).toHaveValue("0");
     const rest = await whole();
@@ -108,7 +108,7 @@ test.describe("am Laptop", () => {
 
     // The techno Kreisel starts driven and pressed, without clipping.
     await page.evaluate(() => window.kreisel.app.newProject(false, "techno"));
-    await page.locator("#more").click();
+    await page.locator("#sound").click();
     await expect(slider).toHaveValue("35");
     await page.keyboard.press("Escape");
     expect(await page.evaluate(() => window.kreisel.app.project.tracks.map((track) => track.drive > 0))).toEqual([false, true, true, true, true, true, true]);

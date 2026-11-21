@@ -31,6 +31,17 @@ and no knobs. So Kreisel has no knobs either:
   click on an effect latches it, on a control puts it back to its factory
   value. A finger that rests on a ring gets the same menu, and so does the
   menu key at the keyboard's cursor.
+- **Everything has its place in the bar.** There is no drawer for what is
+  left over. The Kreisel's name opens what concerns the Kreisel as a whole
+  (start anew: empty, techno, the Werks-Kreisel; the style of the dice; back
+  to the workshop). The speaker holds the two controls for everything
+  together, volume and Druck. "Teilen" gives the Kreisel away, as a link or
+  Reihum, and says so while a round is going. The arrow at "Aufnehmen" saves
+  a file. The question mark is the help and the tour. Stage and light show
+  are two buttons at the wheel. All of them are the menu of the right button
+  hung under a button (`src/ui/bar-menus.ts`). A phone's bar has no room for
+  that: there three dots open one sheet with the same groups under their
+  names.
 - **Always in key.** Rings store scale steps. The bass follows the chord of
   the bar (the fields around the hub), the chords are voiced close together,
   and changing key or scale re-tunes everything.
@@ -320,18 +331,18 @@ Easier to get into, and more to look at.
   throws a soft glow in its ring's colour onto the table, an accented hit throws sparks, the kick sends a
   wave out through the rings, and the runner draws a wake. The glow is painted on a small canvas of its
   own under the wheel (128 pixels, stretched, which blurs it for free) and repainted from the list of
-  living glows every frame. It changes nothing that is heard, it can be switched off ("Lichtspiel" behind
-  the three dots, kept in the browser), and with `prefers-reduced-motion` it is never shown.
+  living glows every frame. It changes nothing that is heard, it can be switched off (the lamp in the
+  corner beside the wheel, kept in the browser), and with `prefers-reduced-motion` it is never shown.
 - **The wheel is a thing**: a hard shadow under it and a line around it like every tin part of the page,
   light from the upper left on all that lies on it, and a hub that is a domed knob. Until the Kreisel has
   played once, a ring around the hub beckons to the start (six times, then it lets be).
-- **The stage** (the button in the corner beside the wheel, the key O, or the menu): only the wheel,
+- **The stage** (the button in the corner beside the wheel, or the key O): only the wheel,
   larger, on a dark table whatever the colour scheme, with the tools and the held effects still at hand
   and the glow stronger. Escape or the button leads back; a window that opens takes the Kreisel off it.
 - **The tour** (`src/ui/tour.ts`) replaces the single hint of the first visit: a light falls on one part
   of the page after the other and a card says in two sentences what it is for. Nothing is locked while
   it runs, and a step that asks for something to be tried (start, set a hit, pick a ring) goes on by
-  itself once it was done. It comes once and again from the menu.
+  itself once it was done. It comes once and again from the question mark in the bar.
 - **Easier to read**: the smallest writing is a little larger, the keyboard's focus frame is drawn in ink
   (a ring's colour can be too pale on paper), and `prefers-contrast: more` gets stronger lines and
   writing and no glow.
@@ -371,10 +382,10 @@ first step is where a Kreisel begins.
   no swing, G Phrygian over one chord, the kick on every beat with the
   Nachbeben shaking between, an open hi-hat on the off-beats, a clap on two
   and four, a low drum on a ring of twelve, and an acid line that slides three
-  times. The Werks-Kreisel of before is still in the menu behind the three
-  dots, beside it.
+  times. The Werks-Kreisel of before is still there, beside it in the menu
+  under the Kreisel's name.
 - **A Kreisel has a style**, free or techno, which it takes from its start
-  and which the menu can switch ("Techno würfeln"). The style decides what the
+  and which the menu under the Kreisel's name can switch ("Stil"). The style decides what the
   dice throw, what a control goes back to on a right click, and what an empty
   Kreisel is like. It travels in the link; a link from before there were
   styles is free.
@@ -405,8 +416,8 @@ and so is the sum.
   loud it is (within about 3 dB, a little differently in each browser): its
   peaks come down to its body. The kick's ring has no Zerre: what makes a
   kick hard is its own control, "Härte" (see the Nachbeben).
-- **Druck** presses the sum of everything, behind the three dots under the
-  volume. Mix, hall and echo meet in a press on their way to the master
+- **Druck** presses the sum of everything, behind the speaker in the bar,
+  under the volume. Mix, hall and echo meet in a press on their way to the master
   (`src/audio/press.ts`): two soft clippers in a row, pushed harder the
   further the control goes, and everything below 150 Hz brought to the
   middle. On the techno Kreisel it makes about 3 dB at a third and 6 dB at
@@ -505,7 +516,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/panels.ts` | everything around the wheel: the bar, the list of rings, scenes, tools, the panel of the ring in focus |
 | `src/ui/easel-window.ts`, `bench-window.ts`, `booth-window.ts`, `piece-panel.ts`, `weather-panel.ts`, `relay-dialog.ts`, `chord-menu.ts`, `toast.ts`, `help.ts`, `tour-guide.ts`, `tour.ts` | the parts of the page that have a file of their own |
 | `src/ui/sound-palette.ts` | the row with the ring's sound in its panel, and the palette of all fifty |
-| `src/ui/menu.ts`, `menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the keyboard; small helpers for building the page |
+| `src/ui/menu.ts`, `menus.ts`, `bar-menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the same menu under the bar's buttons; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
 | `scripts/level-sounds.mjs` | `npm run level`: measures every ready-made sound and writes `src/sounds/trims.ts` |
 | `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |

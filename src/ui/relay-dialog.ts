@@ -13,11 +13,10 @@ export class RelayDialog {
 
   constructor(private readonly panels: Panels, private readonly app: App) {}
 
-  /** Reihum: the button in the bar, the window with the turns, and the bar shown while looking back. */
+  /** Reihum: the window with the turns, and the bar shown while looking back. (It is opened from "Teilen".) */
   build(): void {
     const app = this.app;
     const dialog = byId<HTMLDialogElement>("reihum");
-    byId("relay").addEventListener("click", () => this.show());
     const name = byId<HTMLInputElement>("relay-name");
     name.addEventListener("input", () => app.relay.setName(name.value));
     const rules = byId("relay-rules");
@@ -66,15 +65,19 @@ export class RelayDialog {
     this.sync();
   }
 
-  /** The turns in the bar's button, the window, the look-back bar, and the cloth over veiled rings. */
+  /** The round on the bar's "Teilen", the window, the look-back bar, and the cloth over veiled rings. */
   sync(): void {
     const app = this.app;
     const relay = app.relay.round;
     const turns = relay?.turns ?? [];
     const veils = relay !== null && relay.rule === 2 && !relay.open && turns.length > 0;
-    const relayButton = byId("relay");
-    relayButton.textContent = turns.length > 0 ? `Reihum · ${turns.length + 1}` : "Reihum";
-    relayButton.setAttribute("aria-label", turns.length > 0 ? `Reihum: Zug ${turns.length + 1} ist deiner` : "Reihum");
+    // While a round is going, "Teilen" says so: whose turn it is must not hide in a menu.
+    const share = byId("share");
+    const label = turns.length > 0 ? `Reihum · ${turns.length + 1}` : "Teilen";
+    const name = share.querySelector(".label");
+    if (name && name.textContent !== label) name.textContent = label;
+    share.setAttribute("aria-label", turns.length > 0 ? `Teilen. Reihum: Zug ${turns.length + 1} ist deiner` : "Teilen");
+    share.dataset.round = String(turns.length > 0);
 
     const bar = byId("lookback");
     const looked = app.relay.lookBack;

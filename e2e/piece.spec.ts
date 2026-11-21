@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { barAt, focusPiece, heard, onPhone, open, pieceOf, state, status } from "./helpers";
+import { barAt, copyLink, focusPiece, heard, onPhone, open, pieceOf, state, status } from "./helpers";
 
 /*
  * The piece's ring: the tension of the whole piece, painted around the wheel.
@@ -134,7 +134,7 @@ test.describe("am Laptop", () => {
     expect(piece.peak).toBeGreaterThan(0.2);
 
     const shared = await state(page);
-    await page.locator("#share").click();
+    await copyLink(page);
     await expect(page.locator("#toast")).toContainText("Link kopiert");
     const link = await page.evaluate(() => navigator.clipboard.readText());
     const other = await context.newPage();

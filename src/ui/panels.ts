@@ -12,6 +12,7 @@ import { describePiece } from "../piece";
 import type { BenchView } from "./bench";
 import type { BoothView } from "./booth";
 import type { EaselView } from "./easel";
+import type { BarMenu } from "./bar-menus";
 import { onContext } from "./menu";
 import type { RingView } from "./ring";
 import { flash, playMotion, type Motion } from "./answers";
@@ -61,6 +62,8 @@ export class Panels {
   /** What stands on each key on this keyboard (QWERTZ until the browser says otherwise). */
   private labels = new Map<string, string>([["KeyZ", "Y"], ["KeyY", "Z"]]);
   private readonly sliders: Slider[] = [];
+  /** Opens the menu that hangs under one of the bar's buttons (set by whoever holds the menu). */
+  onBarMenu: (opener: HTMLElement, which: BarMenu, byKeyboard: boolean) => void = () => undefined;
   readonly trackRows: HTMLLIElement[] = [];
   private readonly sceneButtons: HTMLButtonElement[] = [];
   private readonly toolButtons = new Map<Tool, HTMLButtonElement>();
@@ -287,8 +290,6 @@ export class Panels {
     }, { passive: false });
     this.slider(byId("swing"), () => app.project.swing, (swing) => app.setGlobal({ swing }, "swing"), () => app.resetGlobal("swing"));
     this.slider(byId("pump"), () => app.project.pump, (pump) => app.setGlobal({ pump }, "pump"), () => app.resetGlobal("pump"));
-    this.slider(byId("volume"), () => app.project.volume, (volume) => app.setGlobal({ volume }, "volume"), () => app.resetGlobal("volume"));
-    this.slider(byId("pressure"), () => app.project.pressure, (pressure) => app.setGlobal({ pressure }, "pressure"), () => app.resetGlobal("pressure"));
 
     const root = byId<HTMLSelectElement>("root");
     NOTE_NAMES.forEach((name, index) => root.append(new Option(name, String(index))));
@@ -299,32 +300,16 @@ export class Panels {
 
     byId("undo").addEventListener("click", () => app.undo());
     byId("redo").addEventListener("click", () => app.redo());
-    byId("share").addEventListener("click", () => void app.files.share());
     byId("record").addEventListener("click", () => void app.files.toggleRecording());
     byId("dice-all").addEventListener("click", () => app.rings.diceAll());
 
-    const more = byId<HTMLButtonElement>("more");
-    const menu = byId("menu");
-    more.addEventListener("click", () => {
-      menu.hidden = !menu.hidden;
-      more.setAttribute("aria-expanded", String(!menu.hidden));
-    });
-    menu.addEventListener("click", (event) => {
-      const action = event.target instanceof HTMLElement ? event.target.dataset.do : undefined;
-      if (!action) return;
-      this.closeMenu();
-      if (action === "save") void app.files.exportSound();
-      else if (action === "clear-scene") app.scenes.clear(app.project.scene);
-      else if (action === "empty") app.newProject(true);
-      else if (action === "techno") app.newProject(false, "techno");
-      else if (action === "factory") app.newProject(false, "frei");
-      else if (action === "style") app.toggleStyle();
-      else if (action === "help") this.help.show();
-      else if (action === "relay") this.relayDialog.show();
-      else if (action === "stage") app.toggleStage();
-      else if (action === "lights") app.toggleLights();
-      else if (action === "tour") this.tourGuide.start();
-    });
+    // Each of these buttons opens the menu for what it is about; on a phone the three dots hold all of them.
+    const menus: readonly (readonly [string, BarMenu])[] = [["kreisel-menu", "kreisel"], ["sound", "klang"], ["share", "teilen"], ["record-more", "aufnahme"], ["help-open", "hilfe"], ["more", "alles"]];
+    for (const [id, which] of menus) {
+      const opener = byId(id);
+      // A click without a pointer came from the keyboard: then the keyboard goes into the menu.
+      opener.addEventListener("click", (event) => this.onBarMenu(opener, which, event.detail === 0));
+    }
 
     const chain = byId<HTMLInputElement>("chain");
     chain.addEventListener("change", () => app.setGlobal({ chain: chain.checked }));
@@ -332,13 +317,12 @@ export class Panels {
     repeats.addEventListener("change", () => app.setGlobal({ repeats: Number(repeats.value) }));
   }
 
-  closeMenu(): void {
-    byId("menu").hidden = true;
-    byId("more").setAttribute("aria-expanded", "false");
-  }
-
   showHelp(): void {
     this.help.show();
+  }
+
+  startTour(): void {
+    this.tourGuide.start();
   }
 
   showRelay(): void {
@@ -694,11 +678,11 @@ export class Panels {
   /** The stage: only the wheel, in the dark. Its button sits in a corner beside the wheel. */
   private buildStage(): void {
     byId("stage-toggle").addEventListener("click", () => this.app.toggleStage());
+    byId("lights-toggle").addEventListener("click", () => this.app.toggleLights());
   }
 
   private outside(event: PointerEvent): void {
     const target = event.target instanceof Element ? event.target : null;
-    if (!target?.closest(".more")) this.closeMenu();
     if (!target?.closest("#chord-menu") && target?.id !== "kreisel") this.app.chords.close();
     this.palette.outside(target);
   }
@@ -758,9 +742,9 @@ export class Panels {
       // The wheel reads the colours of the page: they have just changed.
       this.ring.repaint();
     }
-    const lights = document.querySelector<HTMLElement>('#menu [data-do="lights"]');
-    lights?.setAttribute("aria-checked", String(app.lights));
-    document.querySelector<HTMLElement>('#menu [data-do="style"]')?.setAttribute("aria-checked", String(project.style === "techno"));
+    const lights = byId("lights-toggle");
+    lights.setAttribute("aria-pressed", String(app.lights));
+    lights.title = app.lights ? "Lichtspiel: an" : "Lichtspiel: aus";
     this.tourGuide.check();
     // What belongs to the ring in focus only moves when it changes, not when another ring comes into focus.
     const sameRing = this.shownRing === selected;

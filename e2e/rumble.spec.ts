@@ -125,9 +125,9 @@ test.describe("am Laptop", () => {
     });
     /** Saves the scene and listens to the file: how loud it is between the kicks, and how much each bar sits on the root of its own chord rather than the next bar's. */
     const listen = async (): Promise<{ between: number; own: number[] }> => {
-      await page.locator("#more").click();
+      await page.locator("#record-more").click();
       const rendered = page.waitForEvent("download");
-      await page.locator("#menu").getByText("Als Opus speichern").click();
+      await page.locator("#context").getByText("Als Opus speichern").click();
       const bytes = readFileSync(await (await rendered).path());
       return page.evaluate(async (data) => {
         const context = new AudioContext();

@@ -52,21 +52,25 @@ test.describe("am Laptop", () => {
 
   test("lädt beide Kreisel aus dem Menü und würfelt im Stil des Kreisels", async ({ page }) => {
     const problems = await open(page);
-    const more = page.locator("#more");
-    const menu = page.locator("#menu");
-    const style = menu.getByRole("switch", { name: "Techno würfeln" });
+    // What concerns the Kreisel as a whole hangs under its name.
+    const name = page.locator("#kreisel-menu");
+    const menu = page.locator("#context");
+    const techno = menu.getByRole("menuitemradio", { name: /Techno/ });
+    const free = menu.getByRole("menuitemradio", { name: /frei/ });
     const project = () => page.evaluate(() => window.kreisel.app.project);
     const hits = (track: number) => page.evaluate((ring) => window.kreisel.app.project.scenes[0]!.patterns[ring]!.steps.slice(0, 16).map((step) => step.on), track);
 
     // The Werks-Kreisel is free; its dice are the old ones.
-    await more.click();
-    await expect(style).toHaveAttribute("aria-checked", "false");
-    await menu.getByText("Techno-Kreisel laden").click();
+    await name.click();
+    await expect(techno).toHaveAttribute("aria-checked", "false");
+    await expect(free).toHaveAttribute("aria-checked", "true");
+    await menu.getByRole("menuitem", { name: "Techno-Kreisel" }).click();
     await expect(page.locator("#toast")).toContainText("Der Techno-Kreisel ist da.");
     await expect(page.locator("#bpm")).toHaveValue("150");
-    await more.click();
-    await expect(style).toHaveAttribute("aria-checked", "true");
+    await name.click();
+    await expect(techno).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
 
     // Whatever the dice throw now, the kick is on every beat and the hi-hat is open between the kicks.
     for (let throws = 0; throws < 6; throws += 1) {
@@ -86,21 +90,23 @@ test.describe("am Laptop", () => {
       window.kreisel.app.resetGlobal("swing");
     });
     expect((await project()).swing).toBe(0);
-    await more.click();
-    await menu.getByText("Leerer Kreisel").click();
+    await name.click();
+    await menu.getByRole("menuitem", { name: "Leerer Kreisel" }).click();
     expect(await page.evaluate(() => [window.kreisel.app.project.style, window.kreisel.app.project.bpm, window.kreisel.app.project.scenes[0]!.chords])).toEqual(["techno", 150, [0]]);
 
-    // The switch turns the dice back, without touching what is on the table.
-    await more.click();
-    await style.click();
+    // "Frei" turns the dice back, without touching what is on the table; the menu stays and shows it.
+    await name.click();
+    await free.click();
     await expect(page.locator("#toast")).toContainText("Die Würfel werfen wieder frei.");
+    await expect(free).toHaveAttribute("aria-checked", "true");
     expect(await page.evaluate(() => [window.kreisel.app.project.style, window.kreisel.app.project.bpm])).toEqual(["frei", 150]);
+    await page.keyboard.press("Escape");
     await page.keyboard.press("Control+z");
     expect((await project()).style).toBe("techno");
 
     // And the Werks-Kreisel is still there, as it was.
-    await more.click();
-    await menu.getByText("Werks-Kreisel laden").click();
+    await name.click();
+    await menu.getByRole("menuitem", { name: /Werks-Kreisel/ }).click();
     await expect(page.locator("#toast")).toContainText("Der Werks-Kreisel ist wieder da.");
     await expect(page.locator("#bpm")).toHaveValue("112");
     expect(await page.evaluate(() => [window.kreisel.app.project.style, window.kreisel.app.project.scenes[0]!.chords])).toEqual(["frei", [0, 5, 2, 6]]);

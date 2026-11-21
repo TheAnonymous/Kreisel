@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { focus, onPhone, open, state, status, where } from "./helpers";
+import { focus, onPhone, open, openRelay, state, status, where } from "./helpers";
 
 /*
  * Reihum: the Kreisel goes from hand to hand as a link, a turn each.
@@ -15,7 +15,7 @@ test.describe("am Laptop", () => {
     const turns = (who: Page) => who.evaluate(() => window.kreisel.app.relay.round?.turns.map((turn) => turn.name) ?? null);
 
     // The first turn: a name is needed, and the first person picks the rule.
-    await page.locator("#relay").click();
+    await openRelay(page);
     await expect(page.locator("#reihum")).toBeVisible();
     await page.locator("#relay-send").click();
     await expect(page.locator("#relay-message")).toContainText("Trag erst deinen Namen ein");
@@ -25,7 +25,7 @@ test.describe("am Laptop", () => {
     await page.locator("#relay-send").click();
     await expect(page.locator("#toast")).toContainText("Zug 1 ist abgeschlossen");
     await expect(page.locator("#reihum")).toBeHidden();
-    await expect(page.locator("#relay")).toHaveText("Reihum · 2");
+    await expect(page.locator("#share .label")).toHaveText("Reihum · 2");
     const first = await page.evaluate(() => navigator.clipboard.readText());
 
     // Someone else, with a browser of their own, takes the second turn. The rule says: one ring.
@@ -44,7 +44,7 @@ test.describe("am Laptop", () => {
       })
       .not.toBe("x...x...x...x...");
     for (const key of ["5", "n"]) await guest.keyboard.press(key);
-    await guest.locator("#relay").click();
+    await openRelay(guest);
     await expect(guest.locator("#relay-rules")).toBeHidden();
     await expect(guest.locator("#relay-rule")).toContainText("Spielregel dieser Runde: Ein Ring.");
     await expect(guest.locator("#relay-now")).toHaveText("Dein Zug (Nr. 2): Kick, Bass angefasst.");
@@ -53,7 +53,7 @@ test.describe("am Laptop", () => {
     await expect(guest.locator("#relay-message")).toContainText("ein Ring pro Zug. Du hast 2 angefasst (Kick, Bass)");
     await guest.keyboard.press("Escape");
     await guest.keyboard.press("Control+z");
-    await guest.locator("#relay").click();
+    await openRelay(guest);
     await expect(guest.locator("#relay-now")).toHaveText("Dein Zug (Nr. 2): Kick angefasst.");
     await guest.locator("#relay-send").click();
     await expect(guest.locator("#toast")).toContainText("Zug 2 ist abgeschlossen");
@@ -67,7 +67,7 @@ test.describe("am Laptop", () => {
     await expect(page.locator("#toast")).toContainText("Reihum: Mika hat Zug 2 gemacht. Du bist dran.");
     expect(await turns(page)).toEqual(["Jodie", "Mika"]);
     expect(await kick(page)).toBe(answered);
-    await page.locator("#relay").click();
+    await openRelay(page);
     await expect(page.locator(".turn")).toHaveCount(2);
     await page.locator(".turn").first().getByText("Anhören").click();
     await expect(page.locator("#lookback")).toContainText("Rückblick: Zug 1 von Jodie");
@@ -85,7 +85,7 @@ test.describe("am Laptop", () => {
     expect(await kick(page)).toBe(answered);
 
     // Going on from the first turn drops the second; undo brings it back.
-    await page.locator("#relay").click();
+    await openRelay(page);
     await page.locator(".turn").first().getByText("Von hier weiter").click();
     await expect(page.locator("#toast")).toContainText("Du baust von Zug 1 weiter");
     expect(await turns(page)).toEqual(["Jodie"]);
@@ -95,10 +95,10 @@ test.describe("am Laptop", () => {
     expect(await kick(page)).toBe(answered);
 
     // A round can be ended; the Kreisel stays.
-    await page.locator("#relay").click();
+    await openRelay(page);
     await page.locator("#relay-end").click();
     expect(await turns(page)).toBeNull();
-    await expect(page.locator("#relay")).toHaveText("Reihum");
+    await expect(page.locator("#share .label")).toHaveText("Teilen");
     expect(await kick(page)).toBe(answered);
     await elsewhere.close();
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
@@ -110,7 +110,7 @@ test.describe("am Laptop", () => {
     await open(page);
     const veiled = (who: Page): Promise<number[]> => who.evaluate(() => [0, 1, 2, 3, 4, 5, 6].filter((ring) => window.kreisel.app.relay.veiled(ring)));
     const finish = async (who: Page, name: string, rule?: number): Promise<void> => {
-      await who.locator("#relay").click();
+      await openRelay(who);
       await who.locator("#relay-name").fill(name);
       if (rule !== undefined) await who.locator("#relay-rules input").nth(rule).check();
       await who.locator("#relay-send").click();
@@ -161,7 +161,7 @@ test.describe("am Laptop", () => {
     await page.mouse.click(spot.x, spot.y);
     expect(await state(page)).toBe(before);
     // No listening back before the reveal.
-    await page.locator("#relay").click();
+    await openRelay(page);
     await expect(page.locator(".turn").first().getByText("Anhören")).toBeDisabled();
     await page.keyboard.press("Escape");
 
@@ -171,12 +171,12 @@ test.describe("am Laptop", () => {
     await finish(page, "Jodie");
     await expect(page.locator("#toast")).toContainText("Zug 3 ist abgeschlossen");
     expect(await veiled(page)).toEqual([0, 4]);
-    await page.locator("#relay").click();
+    await openRelay(page);
     await page.locator("#relay-reveal").click();
     await expect(page.locator("#toast")).toContainText("Aufgedeckt");
     expect(await veiled(page)).toEqual([]);
     await expect(page.locator(".track.veiled")).toHaveCount(0);
-    await page.locator("#relay").click();
+    await openRelay(page);
     await expect(page.locator(".turn").first().getByText("Anhören")).toBeEnabled();
     await elsewhere.close();
   });

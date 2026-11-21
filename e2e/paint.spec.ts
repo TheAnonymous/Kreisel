@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { bildOf, onPhone, open, paint, pickSound, sheet, soundOf, state, status } from "./helpers";
+import { bildOf, copyLink, onPhone, open, paint, pickSound, sheet, soundOf, state, status } from "./helpers";
 
 /*
  * Klangmalerei: a ring's own sound, painted in the paint box or made to the
@@ -123,7 +123,7 @@ test.describe("am Laptop", () => {
 
     await page.keyboard.press("Escape");
     const shared = await state(page);
-    await page.locator("#share").click();
+    await copyLink(page);
     await expect(page.locator("#toast")).toContainText("Link kopiert");
     const link = await page.evaluate(() => navigator.clipboard.readText());
     expect(link.length).toBeLessThan(1600);

@@ -149,7 +149,6 @@ class Keyboard {
     if (panels.endTour()) return true;
     const open = app.paint.isOpen || app.body.isOpen || app.voice.isOpen || app.chords.openSlot !== null || app.rings.paletteOpen;
     if (!open && app.stage) app.toggleStage(false);
-    panels.closeMenu();
     app.chords.close();
     app.rings.closePalette();
     app.hideCursor();

@@ -19,15 +19,17 @@
   <body>
     <div class="app" id="app">
       <header class="bar">
-        <a class="brand" href="../" title="Zur Musik-Werkstatt">
-          <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
-            <circle cx="16" cy="16" r="14" fill="none" stroke="#e4572e" stroke-width="3.2"/>
-            <circle cx="16" cy="16" r="9.6" fill="none" stroke="#e9bd24" stroke-width="3.2"/>
-            <circle cx="16" cy="16" r="5.2" fill="none" stroke="#27a79c" stroke-width="3.2"/>
-            <circle cx="16" cy="16" r="1.9" fill="currentColor"/>
-          </svg>
-          <h1>Kreisel</h1>
-        </a>
+        <h1 class="brand">
+          <button id="kreisel-menu" type="button" aria-haspopup="menu" aria-expanded="false" title="Neu anfangen, Stil der Würfel, zur Musik-Werkstatt">
+            <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+              <circle cx="16" cy="16" r="14" fill="none" stroke="#e4572e" stroke-width="3.2"/>
+              <circle cx="16" cy="16" r="9.6" fill="none" stroke="#e9bd24" stroke-width="3.2"/>
+              <circle cx="16" cy="16" r="5.2" fill="none" stroke="#27a79c" stroke-width="3.2"/>
+              <circle cx="16" cy="16" r="1.9" fill="currentColor"/>
+            </svg>
+            <span class="name">Kreisel</span><span class="caret" aria-hidden="true">▾</span>
+          </button>
+        </h1>
         <button id="play" class="button go" type="button" aria-pressed="false" title="Starten und anhalten (Leertaste)"><span class="glyph" aria-hidden="true"></span><span class="label">Start</span></button>
         <div class="knobs">
           <label class="field"><span>Tempo</span><input id="bpm" type="number" min="60" max="200" step="1" inputmode="numeric" aria-label="Tempo in Schlägen pro Minute"></label>
@@ -35,30 +37,19 @@
           <label class="field"><span>Tonart</span><select id="root"></select></label>
           <label class="field"><span>Leiter</span><select id="scale"></select></label>
           <label class="field slide"><span>Pumpen</span><input id="pump" type="range" min="0" max="100" step="1" title="Wie stark die Kick Bass, Akkorde und Melodie wegdrückt"></label>
+          <button id="sound" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" title="Lautstärke und Druck" aria-label="Lautstärke und Druck"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg></button>
         </div>
         <div class="actions">
           <button id="undo" class="button icon" type="button" title="Rückgängig (Strg+Z)" aria-label="Rückgängig"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 12h-2" transform="translate(0 -3)"/></svg></button>
           <button id="redo" class="button icon" type="button" title="Wiederholen (Strg+Umschalt+Z)" aria-label="Wiederholen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 12h2" transform="translate(0 -3)"/></svg></button>
-          <button id="share" class="button" type="button" title="Den ganzen Kreisel als Link kopieren" aria-label="Link teilen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="label">Teilen</span></button>
-          <button id="relay" class="button" type="button" title="Reihum: Der Kreisel wandert als Link von Hand zu Hand, jeder baut einen Zug">Reihum</button>
-          <button id="record" class="button rec" type="button" aria-pressed="false" title="Aufnehmen, was du hörst"><span class="lamp" aria-hidden="true"></span><span class="label">Aufnehmen</span></button>
+          <button id="share" class="button" type="button" aria-haspopup="menu" aria-expanded="false" title="Den Kreisel weitergeben: als Link oder reihum" aria-label="Teilen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="label">Teilen</span><span class="caret" aria-hidden="true">▾</span></button>
+          <div class="split">
+            <button id="record" class="button rec" type="button" aria-pressed="false" title="Aufnehmen, was du hörst"><span class="lamp" aria-hidden="true"></span><span class="label">Aufnehmen</span></button>
+            <button id="record-more" class="button rec-more" type="button" aria-haspopup="menu" aria-expanded="false" title="Aufnehmen oder als Datei speichern" aria-label="Mehr zum Aufnehmen"><span class="caret" aria-hidden="true">▾</span></button>
+          </div>
           <div class="more">
-            <button id="more" class="button icon" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menu" aria-label="Mehr"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
-            <div id="menu" class="menu" hidden>
-              <label class="field slide"><span>Lautstärke</span><input id="volume" type="range" min="0" max="100" step="1"></label>
-              <label class="field slide"><span>Druck</span><input id="pressure" type="range" min="0" max="100" step="1" title="Presst alles zusammen gegen die Decke: lauter, dichter, härter. Unter 150 Hz rückt alles in die Mitte."></label>
-              <button type="button" data-do="relay">Reihum: von Hand zu Hand</button>
-              <button type="button" data-do="save">Als Opus speichern</button>
-              <button type="button" data-do="stage">Bühne: nur das Rad, im Dunkeln</button>
-              <button type="button" data-do="lights" role="switch" aria-checked="true">Lichtspiel</button>
-              <button type="button" data-do="clear-scene">Diese Szene leeren</button>
-              <button type="button" data-do="style" role="switch" aria-checked="true">Techno würfeln</button>
-              <button type="button" data-do="empty">Leerer Kreisel</button>
-              <button type="button" data-do="techno">Techno-Kreisel laden</button>
-              <button type="button" data-do="factory">Werks-Kreisel laden</button>
-              <button type="button" data-do="tour">Tour: die ersten Schritte</button>
-              <button type="button" data-do="help">Hilfe und Tasten</button>
-            </div>
+            <button id="help-open" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" title="Hilfe und Tour" aria-label="Hilfe"><span class="sign" aria-hidden="true">?</span></button>
+            <button id="more" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Mehr"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
           </div>
         </div>
       </header>
@@ -86,6 +77,7 @@
             <canvas id="kreisel" tabindex="0" role="application" aria-label="Der Kreisel: sieben Ringe aus Schritten. Pfeiltasten bewegen den Zeiger, Eingabe setzt einen Schlag." aria-describedby="status"></canvas>
             <span class="invite" aria-hidden="true"></span>
             <button id="stage-toggle" class="button icon small stage-toggle" type="button" aria-pressed="false" title="Bühne: nur das Rad, im Dunkeln" aria-label="Bühne"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="grow" d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/><path class="shrink" d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5"/></svg></button>
+            <button id="lights-toggle" class="button icon small lights-toggle" type="button" aria-pressed="true" title="Lichtspiel" aria-label="Lichtspiel"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="4.2"/><path d="M12 3v2.5M4.6 6.1l1.8 1.8M19.4 6.1l-1.8 1.8M3 13h2.5M18.5 13H21M9.5 20h5"/></svg></button>
             <div id="tip" class="tip" hidden></div>
             <div id="chord-menu" class="chord-menu" hidden></div>
             <div id="easel" class="easel" hidden>
@@ -260,8 +252,8 @@
             </section>
             <section>
               <h3>Bühne und Lichtspiel</h3>
-              <p>Solange der Kreisel spielt, wirft jeder Schlag Licht auf den Tisch, betonte Schläge sprühen Funken, und die Kick schickt eine Welle durch die Ringe. Das Lichtspiel schaltest du hinter den drei Punkten aus und wieder an; wer im System weniger Bewegung eingestellt hat, sieht es nie.</p>
-              <p>Die Bühne zeigt nur das Rad, im Dunkeln: mit dem Knopf in der Ecke neben dem Rad oder der Taste O. Esc bringt alles zurück. „Tour“ hinter den drei Punkten zeigt die ersten Schritte noch einmal.</p>
+              <p>Solange der Kreisel spielt, wirft jeder Schlag Licht auf den Tisch, betonte Schläge sprühen Funken, und die Kick schickt eine Welle durch die Ringe. Das Lichtspiel schaltest du mit der Lampe in der Ecke neben dem Rad aus und wieder an; wer im System weniger Bewegung eingestellt hat, sieht es nie.</p>
+              <p>Die Bühne zeigt nur das Rad, im Dunkeln: mit dem Knopf in der Ecke neben dem Rad oder der Taste O. Esc bringt alles zurück. Das Fragezeichen in der Leiste zeigt die ersten Schritte noch einmal („Tour“).</p>
             </section>
             <section>
               <h3>Tasten</h3>

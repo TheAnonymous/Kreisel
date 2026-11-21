@@ -63,7 +63,6 @@
 .track .pick,
 .track .mute,
 .track .roll,
-.menu button,
 .menu-row,
 .menu-choice button,
 .chip,
@@ -225,11 +224,6 @@
 }
 
 /* Menus unfold from where they hang; messages come up from below. */
-.menu:not([hidden]) {
-  transform-origin: 100% 0;
-  animation: unfold 0.14s var(--snap);
-}
-
 .context:not([hidden]) {
   transform-origin: 0 0;
   animation: unfold 0.12s var(--snap);

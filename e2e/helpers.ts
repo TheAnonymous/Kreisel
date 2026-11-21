@@ -150,3 +150,14 @@ export async function focusPiece(page: Page): Promise<void> {
 export const onPhone = ({ isMobile }: { isMobile: boolean }): boolean => isMobile;
 /** For `test.skip`: on a laptop, where there is no finger. */
 export const onLaptop = ({ isMobile }: { isMobile: boolean }): boolean => !isMobile;
+
+/** Opens the menu under one of the bar's buttons and presses the row with this name. */
+export async function fromBar(page: Page, opener: "kreisel-menu" | "sound" | "share" | "record-more" | "help-open" | "more", row: string | RegExp): Promise<void> {
+  await page.locator(`#${opener}`).click();
+  await page.locator("#context").getByRole("menuitem", { name: row }).click();
+}
+
+/** "Teilen", then "Link kopieren". */
+export const copyLink = (page: Page): Promise<void> => fromBar(page, "share", /Link kopieren/);
+/** "Teilen", then Reihum: the window with the turns. */
+export const openRelay = (page: Page): Promise<void> => fromBar(page, "share", /Reihum/);

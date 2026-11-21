@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { bodyOf, heard, knockAt, onLaptop, onPhone, open, pickSound, soundOf, state, status, where } from "./helpers";
+import { bodyOf, copyLink, heard, knockAt, onLaptop, onPhone, open, pickSound, soundOf, state, status, where } from "./helpers";
 
 /*
  * Klangkörper: a ring's own sound as a body that rings, built on the
@@ -134,7 +134,7 @@ test.describe("am Laptop", () => {
       app.dismiss();
     });
     const shared = await state(page);
-    await page.locator("#share").click();
+    await copyLink(page);
     await expect(page.locator("#toast")).toContainText("Link kopiert");
     const link = await page.evaluate(() => navigator.clipboard.readText());
     const other = await context.newPage();
@@ -146,9 +146,9 @@ test.describe("am Laptop", () => {
     expect(await soundOf(other, 0)).toBe(5);
 
     // The saved file holds the body's sound.
-    await other.locator("#more").click();
+    await other.locator("#record-more").click();
     const rendered = other.waitForEvent("download");
-    await other.locator("#menu").getByText("Als Opus speichern").click();
+    await other.locator("#context").getByText("Als Opus speichern").click();
     const file = await heard(other, await rendered);
     expect(file.peak).toBeGreaterThan(0.15);
     expect(problems).toEqual([]);

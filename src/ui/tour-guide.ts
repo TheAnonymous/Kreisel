@@ -28,7 +28,7 @@ export class TourGuide {
       { target: "#panel", side: "left", title: "Sein Klang", text: "Jeder Ring hat 50 Klänge: Die Pfeile blättern, ein Klick auf den Namen zeigt die ganze Palette. Zieh den Punkt im Klangfeld, und der Klang verändert sich. „Würfeln“ bringt eine neue Idee, „Variieren“ ändert sie nur ein wenig." },
       { target: "#fx", side: "left", title: "Effekte zum Festhalten", text: "Halt eine dieser Tasten, solange es spielt: dumpf, dünn, Stottern, Echo, Pause. Auf der anderen Seite des Rads liegen die Werkzeuge zum Malen." },
       { target: "#scenes", side: "right", title: "Vom Loop zum Stück", text: "Acht Szenen: Eine leere wird beim Anklicken zur Kopie der aktuellen, und schon hast du einen zweiten Teil. „Teilen“ oben packt alles in einen Link." },
-      { target: "#more", side: "below", title: "Und überall: die rechte Taste", text: "Ein Rechtsklick zeigt an jeder Stelle, was dort geht. Hinter den drei Punkten findest du die Hilfe, die Bühne und diese Tour." },
+      { target: ".more", side: "below", title: "Und überall: die rechte Taste", text: "Ein Rechtsklick zeigt an jeder Stelle, was dort geht. Hier oben findest du die Hilfe und diese Tour wieder; am Namen „Kreisel“ fängst du neu an." },
     ];
     const tour = new Tour(byId("tour"), steps, () => {
       try {
@@ -42,7 +42,6 @@ export class TourGuide {
       // A step that asks for something to be tried starts from how things are now.
       before = hits();
       ring = app.selected;
-      this.panels.closeMenu();
       if (app.stage) app.toggleStage(false);
       tour.start();
     };

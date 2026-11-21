@@ -230,11 +230,12 @@ test.describe("am Handy", () => {
     await page.locator("#play").tap();
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "false");
 
-    // Reihum lives in the menu here.
+    // A phone's bar has no speaker and no help of its own: the three dots hold all of that, Reihum too.
+    await expect(page.locator("#sound")).toBeHidden();
+    await expect(page.locator("#help-open")).toBeHidden();
     await page.locator("#more").tap();
-    await page.locator("#menu").getByText("Reihum").tap();
+    await page.locator("#context").getByText("Reihum").tap();
     await expect(page.locator("#reihum")).toBeVisible();
-    await expect(page.locator("#relay")).toBeHidden();
     await page.locator("#reihum").getByRole("button", { name: "Schließen", exact: true }).tap();
     await expect(page.locator("#reihum")).toBeHidden();
 
