@@ -207,6 +207,8 @@ export interface Project {
   scale: ScaleId;
   /** How much the kick pushes bass, chords and melody down, 0..1. */
   pump: number;
+  /** How hard the kick is driven before anything else hears it, 0..1: from clean to clipped flat. */
+  hard: number;
   /** The Nachbeben's character, both 0..1: from deep and clean to dirty, from one smooth swell to rolling sixteenths. */
   dirt: number;
   roll: number;
@@ -336,6 +338,7 @@ export function factoryProject(): Project {
     root: 9,
     scale: "moll",
     pump: 0.3,
+    hard: 0,
     dirt: 0.35,
     roll: 0.2,
     volume: 0.8,
@@ -408,6 +411,8 @@ export function technoProject(): Project {
     root: 7,
     scale: "phrygisch",
     pump: 0.55,
+    // The techno Kreisel's kick is a hard one: its body stands about twice as long as the clean kick's.
+    hard: 0.55,
     dirt: 0.45,
     roll: 0.2,
     volume: 0.8,

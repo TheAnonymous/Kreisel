@@ -131,8 +131,8 @@ interface Packed {
   o: number;
   t: (number | string)[][];
   c: (PackedScene | 0)[];
-  /** The Nachbeben's character: dirt and roll, in hundredths. */
-  w?: [number, number];
+  /** The Nachbeben's character and the kick's: dirt, roll and (where the kick is driven at all) hardness, in hundredths. */
+  w?: [number, number] | [number, number, number];
   i: number;
   k: number;
   n: number;
@@ -183,7 +183,9 @@ export function packState(project: Project): Packed {
       if (sky && scene.wind.some((wind) => wind !== 0)) packed.d = scene.wind;
       return packed;
     }),
-    w: [Math.round(project.dirt * 100), Math.round(project.roll * 100)],
+    w: project.hard > 0
+      ? [Math.round(project.dirt * 100), Math.round(project.roll * 100), Math.round(project.hard * 100)]
+      : [Math.round(project.dirt * 100), Math.round(project.roll * 100)],
     i: project.scene,
     k: project.chain ? 1 : 0,
     n: project.repeats,
@@ -309,6 +311,8 @@ export function unpack(value: unknown, inTurn = false): Project {
     root: integer(data.r, 0, 11, 9),
     scale: SCALE_IDS.includes(data.m as ScaleId) ? (data.m as ScaleId) : "moll",
     pump: number(data.p, 0, 1, 0.3),
+    // A link from before the kick could be driven has a clean kick.
+    hard: Array.isArray(data.w) ? number(Number(data.w[2] ?? 0) / 100, 0, 1, 0) : 0,
     dirt: Array.isArray(data.w) ? number(Number(data.w[0]) / 100, 0, 1, 0.35) : 0.35,
     roll: Array.isArray(data.w) ? number(Number(data.w[1]) / 100, 0, 1, 0.2) : 0.2,
     volume: number(data.o, 0, 1, 0.8),

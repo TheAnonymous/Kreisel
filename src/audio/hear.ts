@@ -54,7 +54,7 @@ export async function hear(project: Project, track: number, sound: number, x = 0
   const kit = new Kit(context, { noiseSeed: 4711 });
   const midis = track === 3 ? [percMidi(project, 0)] : track === 4 ? [bassMidi(project, 0, 0)] : track === 5 ? chordMidis(project, 0, 0) : track === 6 ? [leadMidi(project, 0)] : [];
   const melodic = TRACK_INFO[TRACK_KINDS[track] ?? "kick"].melodic;
-  playHit(kit, context.destination, track, { ...settings, sound, x, y }, 0.01, { gain: 0.78, accent: false, pitch: 0, midis, duration: melodic ? 0.5 : 0.1, glideFrom: null });
+  playHit(kit, context.destination, track, { ...settings, sound, x, y }, 0.01, { gain: 0.78, accent: false, pitch: 0, midis, duration: melodic ? 0.5 : 0.1, glideFrom: null, root: project.root });
   const buffer = await context.startRendering();
   return measure(buffer.getChannelData(0));
 }

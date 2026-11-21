@@ -53,16 +53,17 @@ export class RumbleDesk {
     else if (text) this.app.say(text);
   }
 
-  /** The Nachbeben's character: how dirty it is, how much it rolls. */
-  set(change: Partial<Pick<Project, "dirt" | "roll">>, key?: string): void {
+  /** How hard the kick is driven, and the Nachbeben's character: how dirty it is, how much it rolls. */
+  set(change: Partial<Pick<Project, "hard" | "dirt" | "roll">>, key?: string): void {
     if (this.app.relay.refuse(0)) return;
     this.app.store.edit((project) => {
+      if (change.hard !== undefined) project.hard = clamp(change.hard, 0, 1);
       if (change.dirt !== undefined) project.dirt = clamp(change.dirt, 0, 1);
       if (change.roll !== undefined) project.roll = clamp(change.roll, 0, 1);
     }, key);
   }
 
-  reset(field: "dirt" | "roll"): void {
+  reset(field: "hard" | "dirt" | "roll"): void {
     this.set({ [field]: startProject(this.app.project.style)[field] });
   }
 

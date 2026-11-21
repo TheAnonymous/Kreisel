@@ -2,14 +2,15 @@ import { duck, type Kit } from "klangwerk";
 import { rumbleHz, rumbleShare } from "../rumble";
 
 /*
- * Makes the Nachbeben. Every kick, whatever its sound, also goes down into a
- * cellar: a long dark room (for the swell) and a row of echoes a sixteenth
- * apart (for the roll). What comes back is kept low and does two things: it
- * is heard as it is, a shapeless rumble, and it moves a deep tone up and
- * down with it (the root of the bar's chord and its octave), so the ground
- * shakes in key. Both are driven until they growl and then let out by the
- * line painted into the kick's ring. Each kick pushes it all away for a
- * moment, so the kick is always heard alone.
+ * Makes the Nachbeben, in the order a techno rumble is built. The kick, as
+ * hard as it has been driven, also goes down into a cellar: a long dark room
+ * (for the swell) and a row of echoes a sixteenth apart (for the roll). What
+ * comes back is driven until it growls, and only then is what is high taken
+ * off again: the growl stays below, the hiss is gone. Under it lies a quiet
+ * deep tone that moves with it, at the root of the bar's chord, so the
+ * ground has a pitch. All of it is let out by the line painted into the
+ * kick's ring, and each kick pushes it away for a moment, so the kick is
+ * always heard alone.
  */
 
 export interface Rumble {
@@ -27,13 +28,13 @@ export interface Rumble {
   echoes: DelayNode;
   again: GainNode;
   roll: GainNode;
-  dark: BiquadFilterNode[];
-  /** The tone the ground has: the chord's root, and its octave for small speakers. */
-  tone: OscillatorNode;
-  over: OscillatorNode;
   drive: GainNode;
   makeup: GainNode;
-  top: BiquadFilterNode;
+  /** Takes off what is high, after the growl: twice, so it falls away steeply. */
+  dark: BiquadFilterNode[];
+  /** The tone under the growl: the chord's root, and its octave for small speakers. */
+  tone: OscillatorNode;
+  over: OscillatorNode;
   /** What was last asked for, so nothing is scheduled twice; and how much it rolls. */
   state: { step: number; hz: number; roll: number; pulsing: boolean };
 }
@@ -42,7 +43,7 @@ const lerp = (from: number, to: number, share: number): number => from + (to - f
 const expo = (from: number, to: number, share: number): number => from * (to / from) ** share;
 
 /** How loud the Nachbeben is against the kick it comes from (set by measurement). */
-const LEVEL = 0.38;
+const LEVEL = 0.31;
 /** How far ahead of a kick the ground starts to give way, so the kick's first moment is its own. */
 const AHEAD = 0.012;
 
@@ -110,20 +111,25 @@ export function buildRumble(kit: Kit, to: AudioNode): Rumble {
   thud.connect(again).connect(echoes);
   thud.connect(roll);
 
-  const sum = kit.gain(1);
-  wash.connect(sum);
-  roll.connect(sum);
-  const dark = [kit.filter("lowpass", 130, 0.7), kit.filter("lowpass", 130, 0.7)];
-  sum.connect(dark[0]!).connect(dark[1]!);
-  // What is left is heard as it is, a shapeless rumble …
+  // What comes back from the cellar is driven first, while everything it has is still in it …
   const drive = kit.gain(1);
-  const body = kit.gain(0.5);
-  dark[1]!.connect(body).connect(drive);
-  // … and its loudness, followed slowly, is the loudness of a deep tone: the ground shakes at the pitch of the chord.
+  wash.connect(drive);
+  roll.connect(drive);
+  const shaper = context.createWaveShaper();
+  shaper.curve = growl();
+  shaper.oversample = "2x";
+  const makeup = kit.gain(1);
+  // … and darkened after, so what the drive has added up high goes and what it has added below stays.
+  const dark = [kit.filter("lowpass", 180, 0.7), kit.filter("lowpass", 180, 0.7)];
+  const floor = kit.filter("highpass", 32, 0.7);
+  const bed = kit.gain(1);
+  drive.connect(shaper).connect(makeup).connect(dark[0]!).connect(dark[1]!).connect(floor).connect(bed);
+
+  // Under the growl a deep tone: its loudness, followed slowly, is the growl's.
   const swing = context.createWaveShaper();
   swing.curve = size();
   const slow = [kit.filter("lowpass", 16, 0.5), kit.filter("lowpass", 16, 0.5)];
-  dark[1]!.connect(swing).connect(slow[0]!).connect(slow[1]!);
+  floor.connect(swing).connect(slow[0]!).connect(slow[1]!);
   const voice = (octave: number, depth: number): OscillatorNode => {
     const tone = context.createOscillator();
     tone.type = "sine";
@@ -131,26 +137,20 @@ export function buildRumble(kit: Kit, to: AudioNode): Rumble {
     const loud = kit.gain(0);
     const follow = kit.gain(depth);
     slow[1]!.connect(follow).connect(loud.gain);
-    tone.connect(loud).connect(drive);
+    tone.connect(loud).connect(bed);
     tone.start();
     return tone;
   };
-  const tone = voice(1, 5.2);
-  const over = voice(2, 2);
+  const tone = voice(1, 1.5);
+  const over = voice(2, 0.4);
 
-  const shaper = context.createWaveShaper();
-  shaper.curve = growl();
-  shaper.oversample = "2x";
-  const makeup = kit.gain(1);
-  const top = kit.filter("lowpass", 220, 0.7);
-  const floor = kit.filter("highpass", 30, 0.7);
   const level = kit.gain(0);
   const pulse = kit.gain(1);
   const ducker = kit.gain(1);
   const out = kit.gain(0);
-  drive.connect(shaper).connect(makeup).connect(top).connect(floor).connect(level).connect(pulse).connect(ducker).connect(out).connect(to);
+  bed.connect(level).connect(pulse).connect(ducker).connect(out).connect(to);
 
-  return { input, level, duck: ducker, pulse, out, wash, echoes, again, roll, dark, tone, over, drive, makeup, top, state: { step: 0, hz: 0, roll: 0, pulsing: false } };
+  return { input, level, duck: ducker, pulse, out, wash, echoes, again, roll, drive, makeup, dark, tone, over, state: { step: 0, hz: 0, roll: 0, pulsing: false } };
 }
 
 /** The Nachbeben's character and how loud it is let out, as the project has them now. */
@@ -159,11 +159,11 @@ export function shadeRumble(rumble: Rumble, dirt: number, roll: number, loudness
     param.setTargetAtTime(value, time, glide);
   };
   set(rumble.out.gain, loudness * LEVEL);
-  // Dirt drives it into the growl, lets more of what is high through, and is evened out so it does not just get louder.
-  set(rumble.drive.gain, expo(0.9, 9, dirt));
-  set(rumble.makeup.gain, expo(1.06, 0.7, dirt));
-  set(rumble.top.frequency, expo(190, 1700, dirt));
-  for (const filter of rumble.dark) set(filter.frequency, expo(115, 230, dirt));
+  // Dirt drives it harder into the growl, lets more of what that adds through, and is evened out so it does not just get louder.
+  set(rumble.drive.gain, expo(0.25, 6, dirt));
+  // (Hardly driven it comes out much quieter, and with all that is high taken off quieter still.)
+  set(rumble.makeup.gain, 0.66 + 3.1 * (1 - dirt) ** 6);
+  for (const filter of rumble.dark) set(filter.frequency, expo(90, 700, dirt));
   rumble.state.roll = roll;
   // Roll takes from the swell and gives to the echoes.
   set(rumble.wash.gain, lerp(1, 0.4, roll));

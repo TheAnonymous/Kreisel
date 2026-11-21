@@ -1,4 +1,5 @@
 import { clap, fmBell, fmPiano, kick, midiToHz, noiseHit, snare, toneHit, voice, type Automation, type FilterSpec, type Kit, type OscSpec } from "klangwerk";
+import { kickHz } from "../kick";
 import type { Track } from "../model";
 import { drumOf, toneOf, trimOf, type Drum, type Tone } from "../sounds/index";
 import type { FilterRow } from "../sounds/shapes";
@@ -26,6 +27,8 @@ export interface Hit {
   duration: number;
   /** Hz a tied note slides in from. */
   glideFrom: number | null;
+  /** The key's root (0 = C … 11 = H), for what tunes itself to the key. */
+  root: number;
 }
 
 type Play = (kit: Kit, out: AudioNode, time: number, track: Track, hit: Hit) => void;
@@ -81,6 +84,8 @@ interface Shaping {
   ring: number;
   /** The pad's length as it stands, 0..1. */
   long: number;
+  /** Where a falling tone lands, where the ring has a say in that: the kick's body lands in the key. */
+  land?: (hz: number) => number;
 }
 
 /** Plays a struck recipe: every part its own little hit. */
@@ -101,7 +106,8 @@ function playDrum(kit: Kit, out: AudioNode, time: number, recipe: Drum, gain: nu
         peak,
         decay,
         attack: part.attack ?? 0.002,
-        ...(part.fall ? { drop: { to: hz(part.fall[0] * shaping.tone), time: part.fall[1] } } : {}),
+        // (A tone that rises instead is left where its recipe puts it.)
+        ...(part.fall ? { drop: { to: hz(shaping.land && part.fall[0] < part.at ? shaping.land(part.fall[0] * shaping.tone) : part.fall[0] * shaping.tone), time: part.fall[1] } } : {}),
         ...(part.filter ? { filters: [filterOf(part.filter, shaping.tone)] } : {}),
       });
     } else {
@@ -204,13 +210,21 @@ const playKick: Play = (kit, out, time, track, hit) => {
   const tune = semitones(hit.pitch) * expo(0.78, 1.3, track.x);
   const recipe = drumOf(0, track.sound);
   if (recipe) {
-    playDrum(kit, out, time, recipe, hit.gain, trimOf(0, track.sound), { tone: tune, air: 1, ring: expo(0.5, 2, track.y), long: track.y });
+    playDrum(kit, out, time, recipe, hit.gain, trimOf(0, track.sound), {
+      tone: tune,
+      air: 1,
+      ring: expo(0.5, 2, track.y),
+      long: track.y,
+      // The body lands in the key; a step's own tuning moves it from there.
+      land: (landed) => kickHz(landed / semitones(hit.pitch), hit.root) * semitones(hit.pitch),
+    });
     return;
   }
   const preset = KICKS[track.sound] ?? KICKS[0];
   kick(kit, out, time, {
     top: preset.top * tune,
-    bottom: preset.bottom * tune,
+    // The body lands in the key; a step's own tuning moves it from there.
+    bottom: kickHz(preset.bottom * expo(0.78, 1.3, track.x), hit.root) * semitones(hit.pitch),
     sweep: preset.sweep,
     decay: preset.decay * expo(0.5, 2, track.y),
     level: preset.level * hit.gain,

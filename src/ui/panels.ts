@@ -645,7 +645,17 @@ export class Panels {
     };
     characterSlider("Dreck", "dirt", "Von tief und sauber bis verzerrt und dreckig");
     characterSlider("Rollen", "roll", "Von einem einzigen Schwellen bis zu rollenden Sechzehnteln");
-    quake.append(shaking, character);
+    // The kick itself comes first: the Nachbeben is made from the kick as hard as it is here.
+    const drive = el("label", "line");
+    const hardness = el("input");
+    hardness.type = "range";
+    hardness.min = "0";
+    hardness.max = "100";
+    hardness.id = "kick-hard";
+    hardness.title = "Die Kick selbst verzerren: von sauber bis flach geklippt, mit stehendem Körper";
+    this.slider(hardness, () => app.project.hard, (value) => app.rumble.set({ hard: value }, "hard"), () => app.rumble.reset("hard"));
+    drive.append(el("span", "label", "Härte"), hardness);
+    quake.append(drive, shaking, character);
     return quake;
   }
 

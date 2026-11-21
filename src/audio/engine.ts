@@ -22,9 +22,11 @@ import {
 import { BAR, BODY_SOUND, currentScene, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Project, type Scene, type Step, wrap } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
+import { hasRumble } from "../rumble";
 import { barCount, dropsQuiet, gateLevel, planBar, type BarPlan } from "../piece";
 import { playBild } from "./bild";
 import { playBody } from "./body";
+import { buildDrive, buildGroup, shadeDrive, shadeGroup, type KickDrive, type KickGroup } from "./kick";
 import { playVoice } from "./voice";
 import { buildRumble, hitRumble, shadeRumble, stepRumble, stillRumble, type Rumble } from "./rumble";
 import { buildChain, clearChain, stepChain, type Chain } from "./weather";
@@ -57,8 +59,12 @@ export interface Graph {
   lowpass: BiquadFilterNode;
   highpass: BiquadFilterNode;
   analyser: AnalyserNode | null;
+  /** What makes the kick hard, before anything else hears it. */
+  drive: KickDrive;
   /** The Nachbeben under the kick. */
   rumble: Rumble;
+  /** Where the kick and its Nachbeben leave for the mix together. */
+  group: KickGroup;
   /** What the weather does to each ring's sound. */
   chains: Chain[];
 }
@@ -79,14 +85,17 @@ export function buildGraph(context: BaseAudioContext): Graph {
   const echo = createPingPong(kit, { feedback: 0.42, tone: 3400, to: master.input, level: 0.7 });
   const throwSend = kit.gain(0);
   mix.connect(throwSend).connect(echo.input);
-  const buses = TRACK_KINDS.map(() => createBus(context, { level: 0, to: mix, sends: { hall: hall.input, echo: echo.input } }));
-  const rumble = buildRumble(kit, mix);
+  const group = buildGroup(kit, mix);
+  const buses = TRACK_KINDS.map((_, index) => createBus(context, { level: 0, to: index === 0 ? group.input : mix, sends: { hall: hall.input, echo: echo.input } }));
+  const rumble = buildRumble(kit, group.input);
   const chains = buses.map((bus) => buildChain(kit, bus.input, bus.output, hall.input, echo.input));
+  // The kick is driven first; as hard as it comes out, it goes on to its bus and down into the cellar.
+  const drive = buildDrive(kit);
+  if (chains[0]) drive.output.connect(chains[0].input);
+  drive.output.connect(rumble.input);
   const inlets = chains.map((chain, index) => {
     const inlet = kit.gain(1);
-    inlet.connect(chain.input);
-    // The kick also goes down into the cellar.
-    if (index === 0) inlet.connect(rumble.input);
+    inlet.connect(index === 0 ? drive.input : chain.input);
     return inlet;
   });
   let analyser: AnalyserNode | null = null;
@@ -95,7 +104,7 @@ export function buildGraph(context: BaseAudioContext): Graph {
     analyser.fftSize = 1024;
     master.output.connect(analyser);
   }
-  return { context, kit, master, mix, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, rumble, chains };
+  return { context, kit, master, mix, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, drive, rumble, group, chains };
 }
 
 export const stepSeconds = (project: Project): number => 15 / project.bpm;
@@ -110,6 +119,7 @@ export function applyMix(graph: Graph, project: Project, audible: (track: number
     bus.sends.hall.gain.setTargetAtTime(track.hall, time, glideTime);
     bus.sends.echo.gain.setTargetAtTime(track.echo, time, glideTime);
   });
+  shadeDrive(graph.drive, project.hard, time, glideTime);
   // The Nachbeben is as loud as the kick's ring is set, and silent with it.
   const kick = project.tracks[0];
   shadeRumble(graph.rumble, project.dirt, project.roll, kick && audible(0) ? kick.level ** 1.5 * (TRIM[0] ?? 1) : 0, time, glideTime);
@@ -127,8 +137,8 @@ function hush(graph: Graph, time: number): void {
     setTimeout(() => old.disconnect(), 600);
     const inlet = graph.kit.gain(1);
     const chain = graph.chains[index];
-    if (chain) inlet.connect(chain.input);
-    if (index === 0) inlet.connect(graph.rumble.input);
+    if (index === 0) inlet.connect(graph.drive.input);
+    else if (chain) inlet.connect(chain.input);
     return inlet;
   });
   stillRumble(graph.rumble, time);
@@ -189,7 +199,7 @@ class Voices {
       const frequency = midiToHz(midis[0] ?? 60);
       const before = this.last[track];
       const glideFrom = glides(track, settings.sound) && before && before.until > at - 0.012 && before.hz !== frequency ? before.hz : null;
-      const hit = { gain: (VELOCITY[step.vel] ?? 0.78) * (repeat === 0 ? 1 : 0.7) * level, accent: step.vel === 2, pitch: step.pitch, midis, duration, glideFrom };
+      const hit = { gain: (VELOCITY[step.vel] ?? 0.78) * (repeat === 0 ? 1 : 0.7) * level, accent: step.vel === 2, pitch: step.pitch, midis, duration, glideFrom, root: project.root };
       // The ring's own sound is its picture or its body; without one (or with an empty picture) it is silent.
       if (settings.sound === VOICE_SOUND) {
         // A voice sings the syllable that this hit is in the ring's line (a roll repeats it).
@@ -264,6 +274,8 @@ export class Player {
   private barNow = 0;
   private cutoff = 20_000;
   private runUp: { cut(time: number): void } | null = null;
+  /** How much the kick and its Nachbeben are pressed into one right now; −1 before the first step. */
+  private glued = -1;
 
   constructor(
     private readonly graph: Graph,
@@ -287,6 +299,7 @@ export class Player {
     this.pieceBar = bar;
     this.pieceSteps = 0;
     this.seek = null;
+    this.glued = -1;
   }
 
   /** Where the master lowpass sits by the piece's line right now (wide open without a piece). */
@@ -399,6 +412,12 @@ export class Player {
     const kicks = scene.patterns[0];
     const shaking = kicks && this.audible(0) && !this.pause && (!this.plan || (this.plan.gates[0] ?? 0) > 0);
     stepRumble(this.graph.rumble, shaking ? (scene.rumble[position % kicks.len] ?? 0) : 0, midiToHz(bassMidi(project, chord, 0)), time, duration);
+    // Where a scene shakes, the kick and the Nachbeben leave as one, the more the dirtier; a kick without one is left alone.
+    const glued = shaking && hasRumble(scene, kicks.len) ? 0.3 + 0.7 * project.dirt : 0;
+    if (glued !== this.glued) {
+      shadeGroup(this.graph.group, glued, time, 0.04);
+      this.glued = glued;
+    }
     const bar = this.plan ? this.barNow + (this.pieceSteps % BAR) / BAR : null;
     this.report({ position, local: this.local, scene: this.scene, chord, fired, time, duration, bar });
     this.local += 1;

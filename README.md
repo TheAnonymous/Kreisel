@@ -168,12 +168,25 @@ over from the one still ringing. A body is six small numbers in the link.
 ## Part six: Nachbeben
 
 The rumble under the kick, as hard techno and acid techno have it. The usual
-way to build one is a chain: reverb, equaliser, distortion, sidechain. Here
-it is one line painted into the kick's ring.
+way to build one is a chain: the kick is driven, a copy of it goes through a
+delay and a reverb, that is driven again and then low-passed, ducked under
+the kick, and both leave through one group. Here the chain is wired that way
+inside, and what you do is paint one line into the kick's ring.
 
-- **It comes from your kick.** Every kick, whatever its sound, also goes down
-  into a cellar: a long dark room and a row of echoes a sixteenth apart. What
-  comes back is the rumble, so it always suits the kick it came from.
+- **The kick can be hard.** "Härte" drives the kick itself into a clipper
+  before anything else hears it: its tail is pressed up into a body that
+  stands, and what the drive adds up high is taken off again after it. At
+  nothing the kick passes untouched; at full it is some 5 dB louder on
+  average at a lower peak.
+- **The kick is in key.** Its body lands on the key's root or on its fifth,
+  whichever is nearer to where the sound and the pad put it (never more than
+  three and a half semitones away); the pad still moves where the fall
+  starts. A step's own tuning moves it from there.
+- **It comes from your kick.** Every kick, whatever its sound and as hard as
+  it has been driven, also goes down into a cellar: a long dark room and a
+  row of echoes a sixteenth apart. What comes back is driven until it growls
+  and only then darkened (24 dB an octave, from 90 Hz to 700 Hz with
+  "Dreck"), so it always suits the kick it came from.
 - **You paint where the ground shakes.** On the kick's ring the tool that
   holds notes elsewhere (a drum has none to hold) paints the Nachbeben: one
   stroke around the ring, far out is a lot, the inner edge is nothing; the
@@ -182,22 +195,32 @@ it is one line painted into the kick's ring.
 - **The kick punches through by itself.** Every kick pushes the Nachbeben
   away for a moment (starting a few milliseconds early), so the kick is
   always heard alone and the pumping comes for free.
-- **In key.** The loudness of what comes back from the cellar moves a deep
-  tone with it: the root of the bar's chord, brought down to between 38 and
-  76 Hz, with its octave for small speakers. Bar by bar the ground shakes at
-  the pitch of the chord, like a sub bass line the kick plays by itself.
+- **In key.** Under the growl lies a deep tone that moves with its
+  loudness: the root of the bar's chord, brought down to between 38 and
+  76 Hz, with a little of its octave for small speakers. Bar by bar the
+  ground shakes at the pitch of the chord, like a sub bass line the kick
+  plays by itself.
+- **One thing.** Where a scene shakes, the kick's bus and the Nachbeben
+  leave for the mix through one soft clipper, the more the dirtier: the kick
+  pushes the rumble down for the moment it is there. A kick without a
+  Nachbeben does not pass through it.
 - **Character.** "Dreck" drives it from deep and clean into a growl,
   "Rollen" breaks the swell into sixteenths. Dice lay the usual shapes
   around the kicks that are there: off-beat swell, rolling, tail.
 
 The line is a number from 0 to 15 for each step of the kick's ring, kept
 with the scene (one hex digit a step in the link); the character is two
-numbers for the whole Kreisel. The shapes and the pitch are plain arithmetic
-(`src/rumble.ts`), the sound is a small graph of its own beside the rings'
-buses (`src/audio/rumble.ts`): convolver, echoes, an envelope follower made
-from a wave shaper and two slow filters that drives two sine oscillators, a
-shaper for the growl, and three gains for the line, the roll and the kick's
-push. It is the same live and in the saved file.
+numbers for the whole Kreisel, and the kick's hardness a third (left out of
+the link where the kick is clean, so an older link has a clean kick). The
+shapes and the pitches are plain arithmetic (`src/rumble.ts`, `src/kick.ts`).
+The sound is two small graphs beside the rings' buses: the kick's clipper
+and the group (`src/audio/kick.ts`, wave shapers without oversampling, so
+the driven kick is not late against the clean one), and the Nachbeben
+(`src/audio/rumble.ts`): convolver, echoes, a shaper for the growl, two
+low-passes and a high-pass, an envelope follower made from a wave shaper and
+two slow filters that drives two sine oscillators, and three gains for the
+line, the roll and the kick's push. It is the same live and in the saved
+file.
 
 ## Part seven: Wetter
 
@@ -410,10 +433,10 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/patterns.ts` | turning, spreading, dice in both styles and small variations (pure, seeded) |
 | `src/codec.ts`, `src/store.ts` | the project as a link and in the browser's storage; undo |
 | `src/bild.ts`, `src/imitate.ts`, `src/collection.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes; the shelf of kept pictures |
-| `src/body.ts`, `src/voice.ts`, `src/rumble.ts`, `src/weather.ts` | the rules of the Klangkörper, the voice, the Nachbeben and the weather |
+| `src/body.ts`, `src/voice.ts`, `src/kick.ts`, `src/rumble.ts`, `src/weather.ts` | the rules of the Klangkörper, the voice, the kick's place in the key, the Nachbeben and the weather |
 | `src/piece.ts`, `src/relay.ts` | the piece: what a bar's tension asks for; Reihum: what a turn touched, people's colours |
 | `src/sounds/` | the palettes: 350 ready-made sounds as recipes (`shapes.ts` says what a recipe is, a file for each ring holds its fifty, `index.ts` knows their numbers and names, `trims.ts` how loud each is) |
-| `src/audio/` | the ready-made sounds made audible, painted sounds, bodies and voices, listening, the mixer, the player (live and offline), effects, recording; `hear.ts` renders one hit by itself and measures it |
+| `src/audio/` | the ready-made sounds made audible, painted sounds, bodies and voices, the kick's drive and the Nachbeben, listening, the mixer, the player (live and offline), effects, recording; `hear.ts` renders one hit by itself and measures it |
 | `src/app/app.ts` | the app's core: the table, what is in focus, starting and stopping, steps back, messages |
 | `src/app/rings.ts`, `voice.ts`, `weather.ts`, `rumble.ts`, `relay.ts`, `piece.ts`, `paint.ts`, `body.ts`, `chords.ts`, `scenes.ts`, `files.ts` | one desk for each subject |
 | `src/app/workshop.ts`, `prefs.ts` | what the three windows for a ring's own sound share; what the browser remembers |
