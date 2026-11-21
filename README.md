@@ -26,7 +26,9 @@ and no knobs. So Kreisel has no knobs either:
   is under the pointer: a hit (accent, chance, roll, length, pitch), a ring
   (dice, turn, length, sound, mute, copy and paste its pattern), a bar of the
   piece (play from here, lay a scene, tension), a chord field (chord, double
-  or remove the bar), a scene (copy, clear) and the hub. The rows that change
+  or remove the bar), a scene (copy, lay into the row, clear), a round of the
+  row (play from here, once more, another scene, earlier or later, take out)
+  and the hub. The rows that change
   a value keep the menu open, and it redraws as the Kreisel changes. A right
   click on an effect latches it, on a control puts it back to its factory
   value. A finger that rests on a ring gets the same menu, and so does the
@@ -48,9 +50,10 @@ and no knobs. So Kreisel has no knobs either:
 - **Happy accidents.** Dice give a ring a new idea in the manner of its
   instrument, "Variieren" changes it only a little, "Verteilen" spreads hits
   evenly (Euclidean rhythms), and undo takes any of it back.
-- **From loop to piece.** Eight scenes; an empty one becomes a copy of the
-  current one when clicked. Scenes change on the bar line, and the chain
-  plays them one after another.
+- **From loop to piece.** Eight scenes, each shown as a small wheel; an empty
+  one becomes a copy of the current one when clicked. Scenes change on the
+  bar line, and the row ("Folge") under the wheel plays them in the order
+  they were laid (see "Scenes and the row").
 - **Play it.** The bottom row of the keyboard holds five effects (lowpass,
   highpass, stutter, echo throw, pause with a crash on release), the home row
   plays the ring in focus, and "Einspielen" writes what is played into the
@@ -470,6 +473,39 @@ machine; `src/audio/acid.ts` makes it sound). Still to come: breaks that take
 the kick out, and a techno Kreisel that uses the ride, the open hi-hat and the
 claps of the new palettes (its drums start on the classics for now).
 
+## Scenes and the row
+
+What is in a scene, and in which order the scenes play, can be seen and laid
+by hand.
+
+- **A scene is a small wheel** (`src/ui/scene-thumb.ts`): its hits where they
+  lie, in the rings' colours, the kick innermost as on the wheel itself. A
+  thick frame marks the scene on the table, a red dot the one that is heard,
+  an empty one shows a plus.
+- **One switch says what plays** (under the scenes): the scene on the table
+  round and round, the row, or the piece. It replaces the tick "Folge
+  spielen" and the piece's own switch stays in step with it. The row and the
+  piece are kept as they were laid; only which of them is heard changes.
+- **The row** lies under the wheel while it plays: one tile a round, a round
+  being a scene once through its chords. "+" lays the scene on the table at
+  the end, a scene carried there with the mouse lands where it is let go, a
+  tile carried along the row takes another place. A click on a tile goes
+  there at the next bar line (while the Kreisel stands, the row will begin
+  there), the right button repeats the round, gives it another scene, moves
+  it a round earlier or later or takes it out (as Delete does). A new scene joins the row at its end, a cleared
+  one takes its rounds along. A scene carried onto an empty one is copied
+  there. On a phone the row is laid with "+" and a resting finger (its menu
+  moves a round); carrying is the mouse's.
+- **In the link** the row is a string of digits (`f`), left out while every
+  filled scene plays once in turn. A Kreisel from before, which could only
+  say "every scene so many times", is read as just that row.
+
+The rules are in `src/order.ts` (plain functions on the list of rounds, with
+`tests/order.test.ts`), the player walks the row in `src/audio/engine.ts`
+(`changeScene`), `src/app/scenes.ts` is the desk, and the two parts of the page
+are `src/ui/scenes-box.ts` and `src/ui/row-band.ts`; `src/ui/carry.ts` carries
+a thing across the page with the mouse.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the
@@ -504,7 +540,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/codec.ts`, `src/store.ts` | the project as a link and in the browser's storage; undo |
 | `src/bild.ts`, `src/imitate.ts`, `src/collection.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes; the shelf of kept pictures |
 | `src/body.ts`, `src/voice.ts`, `src/kick.ts`, `src/rumble.ts`, `src/weather.ts`, `src/press.ts`, `src/acid.ts` | the rules of the Klangkörper, the voice, the kick's place in the key, the Nachbeben, the weather, of Zerre and Druck, and of the acid machine |
-| `src/piece.ts`, `src/relay.ts` | the piece: what a bar's tension asks for; Reihum: what a turn touched, people's colours |
+| `src/piece.ts`, `src/order.ts`, `src/relay.ts` | the piece: what a bar's tension asks for; the row of scenes: laying, moving and walking its rounds; Reihum: what a turn touched, people's colours |
 | `src/sounds/` | the palettes: 350 ready-made sounds as recipes (`shapes.ts` says what a recipe is, a file for each ring holds its fifty, `index.ts` knows their numbers and names, `trims.ts` how loud each is) |
 | `src/audio/` | the ready-made sounds made audible, painted sounds, bodies and voices, the kick's drive and the Nachbeben, listening, the mixer, the player (live and offline), effects, recording; `hear.ts` renders one hit by itself and measures it, `whole.ts` the whole Kreisel |
 | `src/app/app.ts` | the app's core: the table, what is in focus, starting and stopping, steps back, messages |
@@ -513,13 +549,14 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/ring.ts`, `ring-gestures.ts`, `ring-shape.ts` | the wheel: drawing it; what a pointer does on it; what both go by |
 | `src/ui/motion.ts`, `lights.ts`, `answers.ts` | motion on the wheel, the light show, the little motions with which the page answers |
 | `src/ui/easel.ts`, `bench.ts`, `booth.ts` | the canvases in the three windows: the sheet, the body, the mouth |
-| `src/ui/panels.ts` | everything around the wheel: the bar, the list of rings, scenes, tools, the panel of the ring in focus |
+| `src/ui/panels.ts` | everything around the wheel: the bar, the list of rings, tools, the panel of the ring in focus |
+| `src/ui/scenes-box.ts`, `row-band.ts`, `scene-thumb.ts`, `carry.ts` | the scenes as small wheels with the switch for what plays; the row under the wheel; a scene drawn small; carrying a thing with the mouse |
 | `src/ui/easel-window.ts`, `bench-window.ts`, `booth-window.ts`, `piece-panel.ts`, `weather-panel.ts`, `relay-dialog.ts`, `chord-menu.ts`, `toast.ts`, `help.ts`, `tour-guide.ts`, `tour.ts` | the parts of the page that have a file of their own |
 | `src/ui/sound-palette.ts` | the row with the ring's sound in its panel, and the palette of all fifty |
 | `src/ui/menu.ts`, `menus.ts`, `bar-menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the same menu under the bar's buttons; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
 | `scripts/level-sounds.mjs` | `npm run level`: measures every ready-made sound and writes `src/sounds/trims.ts` |
-| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
+| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`, `kick`, `bar`, `scenes`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
 
 ## License
 

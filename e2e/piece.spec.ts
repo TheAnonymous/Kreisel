@@ -56,7 +56,7 @@ test.describe("am Laptop", () => {
     // Switched on, the piece lays the scenes out itself.
     await page.locator(".piece-toggle").click();
     expect((await pieceOf(page)).on).toBe(true);
-    await expect(page.locator("#chain")).toBeDisabled();
+    await expect(page.locator("#plays").getByRole("radio", { name: "Stück" })).toHaveAttribute("aria-checked", "true");
     await expect(page.locator("#piece-on")).toBeChecked();
     // Back on a ring, the ring's panel is back.
     await page.keyboard.press("ArrowDown");

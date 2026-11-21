@@ -1,0 +1,245 @@
+/* ---- what plays, the row ("Folge") under the wheel, and carrying a scene there ---- */
+
+/* The switch under the scenes: the scene on the table, the row, or the piece. */
+.plays {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 4px;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+}
+
+.plays button {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 800;
+  transition: background-color 0.12s, color 0.12s;
+}
+
+.plays button + button {
+  border-left: 2px solid var(--ink);
+}
+
+.plays button[aria-checked="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.plays button:focus-visible {
+  outline-offset: -4px;
+}
+
+/* The row: one tile a round, in the order they play. */
+
+.row-band {
+  grid-area: row;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.row-name {
+  flex: none;
+  margin-right: 2px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.row-sum {
+  flex: none;
+  margin-left: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--soft);
+}
+
+/* Room around the tiles for the frame of the round that sounds: what scrolls sideways cuts off what sticks out. */
+.rounds {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.rounds::-webkit-scrollbar {
+  display: none;
+}
+
+.round {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  padding: 0;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: 0 2px 0 var(--ink);
+  color: var(--ink);
+  font-size: 0.62rem;
+  font-weight: 800;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+
+.round canvas {
+  display: block;
+  width: 23px;
+  height: 23px;
+  pointer-events: none;
+}
+
+.round .letter {
+  position: absolute;
+  top: 0;
+  left: 1px;
+  padding: 0 2px;
+  border-radius: 4px;
+  background: var(--paper);
+  line-height: 1.3;
+  color: var(--soft);
+  pointer-events: none;
+}
+
+.round:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+
+.round.now {
+  outline: 3px solid var(--go);
+  outline-offset: 1px;
+}
+
+.round.now:focus-visible {
+  outline-color: var(--focus);
+}
+
+/* How far the round has come, at the foot of its tile. */
+.round.now::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 3px;
+  width: calc((100% - 6px) * var(--done, 0));
+  height: 3px;
+  border-radius: 2px;
+  background: var(--go);
+}
+
+.round.queued {
+  animation: blink 0.5s steps(2, start) infinite;
+}
+
+.round.add {
+  border-style: dashed;
+  border-color: var(--hair);
+  background: none;
+  box-shadow: none;
+  color: var(--soft);
+  font-size: 1rem;
+}
+
+.round.add:disabled {
+  opacity: 0.4;
+}
+
+/* Where a carried scene or round would land. */
+.rounds .gap {
+  flex: none;
+  width: 4px;
+  height: 31px;
+  border-radius: 2px;
+  background: var(--go);
+}
+
+.scene.landing {
+  border: 2px solid var(--go);
+  color: var(--go);
+}
+
+/* The picture that follows the pointer. */
+.carried {
+  position: fixed;
+  z-index: 70;
+  margin: 0;
+  opacity: 0.8;
+  box-shadow: 0 6px 0 rgb(0 0 0 / 0.35);
+  transform: translate(-50%, -60%) rotate(-6deg);
+  transition: none;
+  animation: none;
+  pointer-events: none;
+}
+
+.carried.lands {
+  opacity: 1;
+}
+
+.scene.carried {
+  width: 44px;
+  height: 44px;
+}
+
+:root[data-carrying],
+:root[data-carrying] * {
+  cursor: grabbing !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* A laptop: the row has its place under the wheel whether it shows or not, so the wheel does not jump when it comes. */
+@media (min-width: 1100px) and (min-height: 540px) {
+  .wheel {
+    grid-template-rows: minmax(0, 1fr) 41px auto;
+  }
+
+  /* A message would lie right on the row: while the row is there, it is slimmer and keeps below it, over the status line. */
+  :root[data-row] .toast {
+    bottom: 3px;
+    padding-block: 3px;
+  }
+}
+
+/* A phone: bigger tiles for a finger, and a long row begins at the left and is pushed along. */
+@media (max-width: 719px) {
+  .row-band {
+    justify-content: flex-start;
+  }
+
+  .round {
+    width: 38px;
+    height: 38px;
+  }
+
+  .round canvas {
+    width: 28px;
+    height: 28px;
+  }
+
+  .rounds .gap {
+    height: 38px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .round.queued {
+    animation: none;
+    opacity: 0.6;
+  }
+}

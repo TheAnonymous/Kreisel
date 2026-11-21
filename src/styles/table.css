@@ -141,17 +141,51 @@
 .scenes {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  gap: 7px;
 }
 
+/* A scene is a small wheel: its hits where they lie, in the rings' colours. */
 .scene {
-  aspect-ratio: 1.45;
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
   padding: 0;
   border: 2px dashed var(--hair);
   border-radius: 12px;
   background: none;
   color: var(--soft);
   font-weight: 800;
+}
+
+.scene canvas {
+  display: none;
+  width: 78%;
+  height: 78%;
+  pointer-events: none;
+}
+
+.scene .letter {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  padding: 0 2px;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  line-height: 1.3;
+  pointer-events: none;
+}
+
+/* Over the small wheel the letter stands on a bit of paper, so it can be read. */
+.scene.filled .letter {
+  background: var(--paper);
+}
+
+/* An empty one asks to be filled. */
+.scene:not(.filled)::before {
+  content: "+";
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .scene.filled {
@@ -161,22 +195,41 @@
   color: var(--ink);
 }
 
+.scene.filled canvas {
+  display: block;
+}
+
+.scene.filled .letter {
+  color: var(--soft);
+}
+
+/* On the table: a thick frame. */
 .scene.current {
-  background: var(--ink);
-  color: var(--bg);
+  outline: 3px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.scene.current .letter {
+  color: var(--ink);
+}
+
+.scene.current:focus-visible {
+  outline-color: var(--focus);
+}
+
+/* Heard right now: a red dot. */
+.scene.sounding::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--go);
 }
 
 .scene.queued {
   animation: blink 0.5s steps(2, start) infinite;
 }
 
-.chain {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.chain select {
-  height: 30px;
-}

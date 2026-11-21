@@ -239,10 +239,10 @@ export interface Project {
   scenes: (Scene | null)[];
   /** The scene on the table. */
   scene: number;
-  /** Play the filled scenes one after another. */
+  /** Play the row instead of looping the scene on the table. */
   chain: boolean;
-  /** How often each scene plays its chords in the chain. */
-  repeats: number;
+  /** The row ("Folge"): scenes in the order they play, one entry a round (a scene once through its chords). See order.ts. */
+  order: number[];
   piece: Piece;
   /** The turns of a Kreisel that is passed around; `null` for one that is not. */
   relay: Relay | null;
@@ -377,7 +377,7 @@ export function factoryProject(): Project {
     scenes: [scene, null, null, null, null, null, null, null],
     scene: 0,
     chain: false,
-    repeats: 1,
+    order: [0],
     piece: firstPiece(),
     relay: null,
   };
@@ -454,7 +454,7 @@ export function technoProject(): Project {
     scenes: [scene, null, null, null, null, null, null, null],
     scene: 0,
     chain: false,
-    repeats: 1,
+    order: [0],
     piece: technoPiece(),
     relay: null,
   };

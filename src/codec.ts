@@ -5,6 +5,7 @@ import { cleanRumble } from "./rumble";
 import { cleanWind, packWeather, unpackWeather } from "./weather";
 import { ACID_SOUND, BODY_SOUND, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Acid, type Bild, type Body, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
+import { MAX_ROUNDS, orderOfOld, packOrder, unpackOrder } from "./order";
 import { soundPiece } from "./piece";
 import { LAST_SOUND } from "./sounds/index";
 import { cleanName } from "./relay";
@@ -143,7 +144,10 @@ interface Packed {
   w?: [number, number] | [number, number, number];
   i: number;
   k: number;
-  n: number;
+  /** The row, a digit a round, where it is not simply every filled scene once in turn. */
+  f?: string;
+  /** Only in links from before the row: how often every filled scene played in turn. */
+  n?: number;
   z?: [number, string, string];
   /** Reihum: the rule, whether it is revealed, and the turns as [name, the project then]. */
   y?: { r: number; o: number; t: [string, unknown][] };
@@ -153,7 +157,7 @@ const round = (value: number): number => Math.round(value * 100) / 100;
 
 /** The project without the turns it has been through: what one turn keeps of it. */
 export function packState(project: Project): Packed {
-  return {
+  const packed: Packed = {
     v: 1,
     ...(project.style === "frei" ? {} : { g: project.style }),
     ...(project.pressure > 0 ? { u: Math.round(project.pressure * 100) } : {}),
@@ -207,9 +211,11 @@ export function packState(project: Project): Packed {
       : [Math.round(project.dirt * 100), Math.round(project.roll * 100)],
     i: project.scene,
     k: project.chain ? 1 : 0,
-    n: project.repeats,
     z: packPiece(project.piece),
   };
+  // The row, a digit a round. While it is every filled scene once in turn it goes without saying.
+  if (packOrder(project.order) !== packOrder(orderOfOld(project.scenes, 1))) packed.f = packOrder(project.order);
+  return packed;
 }
 
 export function pack(project: Project): Packed {
@@ -333,6 +339,10 @@ export function unpack(value: unknown, inTurn = false): Project {
   const tracks = Array.isArray(data.t) ? data.t : [];
   const first = scenes.findIndex((scene) => scene !== null);
   const piece = unpackPiece(data.z, first);
+  // The row as it was laid. A link from before the row says how often every filled scene plays in turn (`n`);
+  // one that says neither plays each once.
+  const laid = unpackOrder(data.f).filter((scene) => scenes[scene]).slice(0, MAX_ROUNDS);
+  const order = laid.length > 0 ? laid : orderOfOld(scenes, [1, 2, 4].includes(data.n as number) ? (data.n as number) : 1);
   // A bar cannot play a scene that is not there.
   piece.scenes = piece.scenes.map((scene) => (scenes[scene] ? scene : first));
   return {
@@ -353,7 +363,7 @@ export function unpack(value: unknown, inTurn = false): Project {
     scenes,
     scene: scenes[wanted] ? wanted : scenes.findIndex((scene) => scene !== null),
     chain: data.k === 1,
-    repeats: [1, 2, 4].includes(data.n as number) ? (data.n as number) : 1,
+    order,
     piece,
     relay: inTurn ? null : unpackRelay(data.y),
   };

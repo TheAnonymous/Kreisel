@@ -41,7 +41,7 @@ describe("projects", () => {
     busy.scenes[3] = clone(scene);
     busy.scene = 3;
     busy.chain = true;
-    busy.repeats = 4;
+    busy.order = [3, 0, 0, 3];
     busy.scale = "lydisch";
     busy.tracks[2]!.mute = true;
     expect(deserialize(serialize(busy))).toEqual(busy);
@@ -67,7 +67,7 @@ describe("projects", () => {
     expect(project.scale).toBe("moll");
     expect(project.pump).toBe(0.3);
     expect(project.scene).toBe(0);
-    expect(project.repeats).toBe(1);
+    expect(project.order).toEqual([0]);
     expect(project.tracks).toHaveLength(TRACK_COUNT);
     expect(project.tracks[0]).toEqual({ sound: 0, x: 1, y: 0, level: 1, hall: 0, echo: 0, drive: 0, mute: true, bild: null, body: null, voice: null, acid: null });
     expect(stepAt(project.scenes[0]!.patterns[0]!, 0).on).toBe(true);

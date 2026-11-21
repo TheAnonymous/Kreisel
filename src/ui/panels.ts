@@ -5,7 +5,7 @@ import { describeBody } from "../body";
 import { describeRumble, hasRumble } from "../rumble";
 import { describeVoice, FIELD_LETTERS } from "../voice";
 import { describeWeather } from "../weather";
-import { ACID_SOUND, clamp, currentScene, VOICE_SOUND, MAX_STEPS, MIN_STEPS, patternOf, SCENE_COUNT, SCENE_NAMES, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
+import { ACID_SOUND, clamp, currentScene, VOICE_SOUND, MAX_STEPS, MIN_STEPS, patternOf, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
 import { NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
 import { activeSteps, describe } from "../patterns";
 import { describePiece } from "../piece";
@@ -30,6 +30,8 @@ import { EaselWindow } from "./easel-window";
 import { BoothWindow } from "./booth-window";
 import { BenchWindow } from "./bench-window";
 import { SoundPalette, soundLabel } from "./sound-palette";
+import { RowBand } from "./row-band";
+import { ScenesBox } from "./scenes-box";
 
 /*
  * Everything around the Kreisel: transport and key in the bar, the list of
@@ -65,7 +67,6 @@ export class Panels {
   /** Opens the menu that hangs under one of the bar's buttons (set by whoever holds the menu). */
   onBarMenu: (opener: HTMLElement, which: BarMenu, byKeyboard: boolean) => void = () => undefined;
   readonly trackRows: HTMLLIElement[] = [];
-  private readonly sceneButtons: HTMLButtonElement[] = [];
   private readonly toolButtons = new Map<Tool, HTMLButtonElement>();
   private readonly fxButtons = new Map<FxName, HTMLButtonElement>();
   readonly own = { pick: button("own-pick", ""), thumb: el("canvas", "thumb"), label: el("span", "own-label") };
@@ -104,6 +105,8 @@ export class Panels {
   private readonly boothWindow: BoothWindow;
   private readonly benchWindow: BenchWindow;
   private readonly palette: SoundPalette;
+  private readonly rowBand: RowBand;
+  private readonly scenesBox: ScenesBox;
 
   constructor(private readonly app: App, private readonly ring: RingView, private readonly easel: EaselView, private readonly bench: BenchView, private readonly mouth: BoothView) {
     this.relayDialog = new RelayDialog(this, app);
@@ -118,9 +121,12 @@ export class Panels {
     this.boothWindow = new BoothWindow(this, app, mouth);
     this.benchWindow = new BenchWindow(this, app, bench);
     this.palette = new SoundPalette(app);
+    this.rowBand = new RowBand(app);
+    this.scenesBox = new ScenesBox(app, this.rowBand);
     this.buildBar();
     this.buildTracks();
-    this.buildScenes();
+    this.rowBand.build();
+    this.scenesBox.build();
     this.buildTools();
     this.easelWindow.build();
     this.benchWindow.build();
@@ -311,10 +317,6 @@ export class Panels {
       opener.addEventListener("click", (event) => this.onBarMenu(opener, which, event.detail === 0));
     }
 
-    const chain = byId<HTMLInputElement>("chain");
-    chain.addEventListener("change", () => app.setGlobal({ chain: chain.checked }));
-    const repeats = byId<HTMLSelectElement>("repeats");
-    repeats.addEventListener("change", () => app.setGlobal({ repeats: Number(repeats.value) }));
   }
 
   showHelp(): void {
@@ -380,20 +382,6 @@ export class Panels {
       });
       list.append(row);
       this.trackRows[track] = row;
-    }
-  }
-
-  private buildScenes(): void {
-    const holder = byId("scenes");
-    for (let index = 0; index < SCENE_COUNT; index += 1) {
-      const scene = button("scene", SCENE_NAMES[index] ?? "");
-      scene.addEventListener("click", (event) => {
-        if (event.shiftKey) this.app.scenes.clear(index);
-        else this.app.scenes.pick(index);
-      });
-      onContext(scene, (x, y, byKeyboard) => this.app.openContext({ kind: "scene", index }, x, y, byKeyboard));
-      holder.append(scene);
-      this.sceneButtons.push(scene);
     }
   }
 
@@ -695,7 +683,8 @@ export class Panels {
     this.syncBar();
     this.piecePanel.sync();
     this.syncTracks();
-    this.syncScenes();
+    this.scenesBox.sync();
+    this.rowBand.sync();
     this.syncTools();
     // The workbench first: it puts its window away when its body is gone, and the tools go by what is open.
     this.benchWindow.sync();
@@ -770,12 +759,6 @@ export class Panels {
     byId<HTMLSelectElement>("scale").value = project.scale;
     byId<HTMLButtonElement>("undo").disabled = !app.store.canUndo;
     byId<HTMLButtonElement>("redo").disabled = !app.store.canRedo;
-    const chain = byId<HTMLInputElement>("chain");
-    chain.checked = project.chain;
-    // A piece lays the scenes out itself.
-    chain.disabled = project.piece.on;
-    byId<HTMLSelectElement>("repeats").disabled = project.piece.on;
-    byId<HTMLSelectElement>("repeats").value = String(project.repeats);
     for (const slider of this.sliders) {
       const value = String(Math.round(slider.read() * 100));
       if (slider.input.value !== value) slider.input.value = value;
@@ -809,21 +792,6 @@ export class Panels {
       row.querySelector(".pick")!.setAttribute("aria-pressed", String(track === selected && !app.piece.focused && !app.weather.focused));
       row.querySelector(".mute")!.setAttribute("aria-pressed", String(!app.audible(track)));
       this.moved(row.querySelector(".mute svg"), !app.audible(track), "pop");
-    });
-  }
-
-  private syncScenes(): void {
-    const app = this.app;
-    const project = app.project;
-    const queued = app.engine.queuedScene;
-    this.sceneButtons.forEach((node, index) => {
-      const filled = project.scenes[index] !== null;
-      node.classList.toggle("filled", filled);
-      node.classList.toggle("current", index === project.scene);
-      node.classList.toggle("queued", index === queued && index !== project.scene);
-      node.setAttribute("aria-pressed", String(index === project.scene));
-      this.moved(node, index === project.scene, "pop", "true");
-      node.title = filled ? `Szene ${SCENE_NAMES[index]} · mit Umschalt leeren` : `Leer: Klick macht eine Kopie von Szene ${SCENE_NAMES[project.scene]}`;
     });
   }
 

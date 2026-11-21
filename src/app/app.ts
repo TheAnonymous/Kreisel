@@ -34,7 +34,8 @@ export type ContextTarget =
   | { kind: "chord"; slot: number }
   | { kind: "hub" }
   | { kind: "weather" }
-  | { kind: "scene"; index: number };
+  | { kind: "scene"; index: number }
+  | { kind: "round"; round: number };
 
 export interface Toast {
   text: string;
@@ -134,6 +135,7 @@ export class App {
       onStep: (local) => this.weather.trail(local),
       scene: (index) => this.project.scenes[index] ?? null,
       pieceStart: () => (this.project.piece.on ? this.piece.start % barCount(this.project.piece) : 0),
+      roundStart: () => this.scenes.startRound(),
     });
     this.store.subscribe(() => {
       this.relay.changed();
@@ -305,7 +307,7 @@ export class App {
     this.setGlobal({ [field]: startProject(this.project.style)[field] });
   }
 
-  setGlobal(change: Partial<Pick<Project, "style" | "bpm" | "swing" | "root" | "scale" | "pump" | "pressure" | "volume" | "chain" | "repeats">>, key?: string): void {
+  setGlobal(change: Partial<Pick<Project, "style" | "bpm" | "swing" | "root" | "scale" | "pump" | "pressure" | "volume" | "chain">>, key?: string): void {
     this.store.edit((project) => { Object.assign(project, change); }, key);
   }
 

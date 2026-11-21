@@ -2,7 +2,7 @@
 
 .wheel {
   display: grid;
-  grid-template: "tools stage fx" minmax(0, 1fr) "status status status" auto / auto minmax(0, 1fr) auto;
+  grid-template: "tools stage fx" minmax(0, 1fr) "row row row" auto "status status status" auto / auto minmax(0, 1fr) auto;
   gap: 6px 14px;
   min-width: 0;
   min-height: 0;

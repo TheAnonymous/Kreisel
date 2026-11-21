@@ -5,6 +5,7 @@ import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
 import { hasWeather, WEATHER_NAMES, windName } from "../weather";
+import { MAX_ROUNDS } from "../order";
 import { barCount } from "../piece";
 import { SOUND_COUNT } from "../sounds/index";
 import type { MenuRow, MenuSpec } from "./menu";
@@ -242,8 +243,29 @@ function sceneMenu(app: App, index: number): MenuSpec | null {
     rows: [
       { kind: "action", label: "Hierher wechseln", disabled: project.scene === index, run: () => app.scenes.pick(index) },
       { kind: "action", label: free >= 0 ? `Kopie nach ${SCENE_NAMES[free]} legen` : "Kopie anlegen (kein Platz frei)", disabled: free < 0, run: () => app.scenes.copy(index) },
+      { kind: "action", label: "In die Folge legen", disabled: project.order.length >= MAX_ROUNDS, run: () => app.scenes.lay(index) },
       { kind: "action", label: "Im ganzen Stück spielen", run: () => app.piece.sceneForBars(0, index, true) },
       { kind: "action", label: "Leeren", hint: "Umschalt+Klick", disabled: filled <= 1, run: () => app.scenes.clear(index) },
+    ],
+  };
+}
+
+/** One round of the row under the wheel. */
+function roundMenu(app: App, round: number): MenuSpec | null {
+  const project = app.project;
+  const scene = project.order[round];
+  if (scene === undefined) return null;
+  const filled = project.scenes.flatMap((entry, index) => (entry ? [index] : []));
+  return {
+    title: `Folge: ${round + 1}. Runde, Szene ${SCENE_NAMES[scene] ?? ""}`,
+    rows: [
+      { kind: "action", label: "Von hier spielen", run: () => app.scenes.playFrom(round) },
+      { kind: "action", label: "Noch einmal", keep: true, disabled: project.order.length >= MAX_ROUNDS, run: () => app.scenes.repeatRound(round) },
+      { kind: "choice", label: "Szene", options: filled.map((index) => ({ label: SCENE_NAMES[index] ?? "", title: `Diese Runde spielt Szene ${SCENE_NAMES[index] ?? ""}`, active: index === scene, run: () => app.scenes.setRound(round, index) })) },
+      // What the mouse does by carrying the tile, for a finger and for the keyboard.
+      { kind: "action", label: "Eine Runde früher", disabled: round === 0, run: () => app.scenes.moveRound(round, round - 1) },
+      { kind: "action", label: "Eine Runde später", disabled: round >= project.order.length - 1, run: () => app.scenes.moveRound(round, round + 1) },
+      { kind: "action", label: "Herausnehmen", hint: "Entf", disabled: project.order.length <= 1, run: () => app.scenes.removeRound(round) },
     ],
   };
 }
@@ -295,6 +317,7 @@ export function buildMenu(app: App, target: ContextTarget, doors: MenuDoors): Me
   if (target.kind === "piece") return pieceMenu(app, target.bar);
   if (target.kind === "chord") return chordMenu(app, target.slot);
   if (target.kind === "scene") return sceneMenu(app, target.index);
+  if (target.kind === "round") return roundMenu(app, target.round);
   if (target.kind === "weather") return weatherMenu(app);
   return hubMenu(app, doors);
 }

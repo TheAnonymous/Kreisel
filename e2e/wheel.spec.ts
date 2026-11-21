@@ -190,7 +190,7 @@ test.describe("am Laptop", () => {
     await page.locator(".scene", { hasText: "A" }).click();
     await expect(page.locator(".scene.current")).toHaveText("A", { timeout: 6000 });
 
-    // The chain walks through the filled scenes by itself.
+    // The row walks through its rounds by itself: the new scene joined it when it was made.
     await page.evaluate(() => window.kreisel.app.setGlobal({ bpm: 200 }));
     await page.evaluate(() => {
       const app = window.kreisel.app;
@@ -198,7 +198,7 @@ test.describe("am Laptop", () => {
         for (const scene of project.scenes) if (scene) scene.chords = [0];
       });
     });
-    await page.locator("#chain").check();
+    await page.locator("#plays").getByRole("radio", { name: "Folge" }).click();
     await expect(page.locator(".scene.current")).toHaveText("B", { timeout: 6000 });
     await expect(page.locator(".scene.current")).toHaveText("A", { timeout: 6000 });
     await page.keyboard.press("Space");

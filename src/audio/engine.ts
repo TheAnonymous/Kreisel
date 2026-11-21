@@ -34,6 +34,7 @@ import { buildPress, shadePress, type Press } from "./press";
 import { buildChain, clearChain, driveChain, stepChain, type Chain } from "./weather";
 import { brightness, shaded, shadesSound, weatherOver } from "../weather";
 import { hitNumber } from "../voice";
+import { firstRound, nextRound, orderBars, roundAfter } from "../order";
 import { soundFile, type SoundFile } from "./opus";
 import { playAcid, type AcidNote } from "./acid";
 import { glides, playHit, type Hit } from "./sounds";
@@ -277,19 +278,8 @@ export interface StepReport {
   duration: number;
   /** While a piece plays: the bar that sounds, with the step inside it as its fraction. `null` otherwise. */
   bar: number | null;
-}
-
-function nextFilled(project: Project, from: number): number {
-  for (let offset = 1; offset <= project.scenes.length; offset += 1) {
-    const index = (from + offset) % project.scenes.length;
-    if (project.scenes[index]) return index;
-  }
-  return from;
-}
-
-/** How many bars the chain plays: every filled scene, its chords `repeats` times. */
-export function chainBars(project: Project): number {
-  return project.scenes.reduce((sum, scene) => sum + (scene ? scene.chords.length * project.repeats : 0), 0);
+  /** While the row plays: which of its rounds this is. `null` otherwise, and while a scene sounds that is none of its rounds. */
+  round: number | null;
 }
 
 /** Walks through the scenes step by step; the same for the live sound and for renders. */
@@ -298,6 +288,10 @@ export class Player {
   /** Steps since the scene began: the next one to schedule. */
   local = 0;
   queued: number | null = null;
+  /** The round of the row that plays; `null` while the scene that sounds is none of its rounds. */
+  round: number | null = null;
+  /** The round to jump to at the next bar line. */
+  queuedRound: number | null = null;
   /** While the pause is held, drums and bass drop out. */
   pause = false;
   chord = 0;
@@ -330,11 +324,13 @@ export class Player {
     this.random = seeded(seed);
   }
 
-  /** Back to the start of `scene`; a piece begins at bar `bar`. */
-  reset(scene: number, bar = 0): void {
+  /** Back to the start of `scene`; a piece begins at bar `bar`, the row with round `round`. */
+  reset(scene: number, bar = 0, round: number | null = null): void {
     this.scene = scene;
     this.local = 0;
     this.queued = null;
+    this.round = round;
+    this.queuedRound = null;
     this.stutter = null;
     this.skip.clear();
     this.plan = null;
@@ -462,7 +458,9 @@ export class Player {
       this.glued = glued;
     }
     const bar = this.plan ? this.barNow + (this.pieceSteps % BAR) / BAR : null;
-    this.report({ position, local: this.local, scene: this.scene, chord, fired, time, duration, bar });
+    // The round is told only while it is the scene that sounds: after a change to the row it may not be, until the next round comes.
+    const round = project.chain && !this.plan && this.round !== null && project.order[this.round] === this.scene ? this.round : null;
+    this.report({ position, local: this.local, scene: this.scene, chord, fired, time, duration, bar, round });
     this.local += 1;
     if (this.plan) this.pieceSteps += 1;
   }
@@ -474,16 +472,30 @@ export class Player {
   }
 
   private changeScene(project: Project): void {
+    const order = project.order;
     let next: number | null = null;
-    if (this.queued !== null && project.scenes[this.queued]) {
+    const wanted = this.queuedRound === null ? undefined : order[this.queuedRound];
+    if (wanted !== undefined && project.scenes[wanted]) {
+      // A round of the row picked by hand.
+      this.round = this.queuedRound;
+      next = wanted;
+    } else if (this.queued !== null && project.scenes[this.queued]) {
+      // A scene picked by hand: the row goes on from its next round of that scene, if it has one.
       next = this.queued;
+      this.round = roundAfter(order, next, this.round);
     } else if (project.chain) {
+      // The row: a round is a scene once through its chords, then the next round comes (which may be the same scene again).
       const scene = project.scenes[this.scene];
-      if (this.local >= (scene?.chords.length ?? 1) * project.repeats * BAR) next = nextFilled(project, this.scene);
+      if (this.local >= (scene?.chords.length ?? 1) * BAR) {
+        this.round = nextRound(order, this.round);
+        const following = order[this.round];
+        next = following !== undefined && project.scenes[following] ? following : project.scene;
+      }
     } else if (!project.scenes[this.scene]) {
       next = project.scene;
     }
     this.queued = null;
+    this.queuedRound = null;
     if (next === null) return;
     this.scene = next;
     this.local = 0;
@@ -506,6 +518,8 @@ export interface EngineView {
   onStopped(): void;
   /** The bar a piece starts from. */
   pieceStart(): number;
+  /** The round the row starts from; without it, the first round of the scene on the table. */
+  roundStart?(): number | null;
   /** A step is heard: how many steps the scene has played by now. */
   onStep?(local: number): void;
   /** Scene `index` as it is now. */
@@ -517,6 +531,8 @@ export class Engine {
   recording = false;
   /** The step heard right now, for the runners on the rings. */
   heard: StepReport | null = null;
+  /** Steps that are scheduled and not heard yet. */
+  private readonly coming: StepReport[] = [];
   /** When each ring last struck, on the listener's clock. */
   readonly struck: number[] = Array.from({ length: TRACK_COUNT }, () => -10);
   /** Which hit of its line each ring last played (a voice sings a syllable a hit). */
@@ -564,7 +580,11 @@ export class Engine {
     if (this.playing || !(await this.wake())) return;
     const context = this.host.context;
     if (!context || !this.player) return;
-    this.player.reset(this.project().scene, this.view.pieceStart());
+    const project = this.project();
+    const round = this.view.roundStart?.() ?? null;
+    const begin = round !== null && project.chain && !project.piece.on ? project.order[round] : undefined;
+    if (begin !== undefined && project.scenes[begin]) this.player.reset(begin, this.view.pieceStart(), round);
+    else this.player.reset(project.scene, this.view.pieceStart(), firstRound(project.order, project.scene));
     this.transport.begin(context, context.currentTime + 0.06);
     this.playing = true;
     // An effect that was switched on while it stood takes hold now: a stutter and a pause need something that plays.
@@ -577,6 +597,7 @@ export class Engine {
     this.transport.halt();
     this.playing = false;
     this.cues.cancel();
+    this.coming.length = 0;
     this.heard = null;
     const graph = this.host.graph;
     if (graph) {
@@ -606,6 +627,46 @@ export class Engine {
 
   get queuedScene(): number | null {
     return this.playing ? (this.player?.queued ?? null) : null;
+  }
+
+  /** Jump to round `round` of the row at the next bar line (`null`: do not jump after all). */
+  queueRound(round: number | null): void {
+    if (!this.playing || !this.player) return;
+    this.player.queuedRound = round;
+    this.view.onState();
+  }
+
+  get queuedRound(): number | null {
+    return this.playing ? (this.player?.queuedRound ?? null) : null;
+  }
+
+  /** The row was changed while it plays: `where` says where each of its rounds is now, so the player stays with its own. */
+  followRow(where: (round: number) => number): void {
+    const player = this.player;
+    if (!this.playing || !player) return;
+    if (player.round !== null) player.round = where(player.round);
+    if (player.queuedRound !== null) player.queuedRound = where(player.queuedRound);
+    // What is heard now, and what is on its way to the ear, is counted the same way.
+    for (const report of this.heard ? [this.heard, ...this.coming] : this.coming) {
+      if (report.round !== null) report.round = where(report.round);
+    }
+  }
+
+  /** The round of the row that is heard; `null` when nothing plays, or not the row. */
+  get round(): number | null {
+    if (!this.playing) return null;
+    if (this.heard) return this.heard.round;
+    // Started, and the first step is still on its way: the round it will be.
+    const project = this.project();
+    return project.chain && !project.piece.on ? (this.player?.round ?? null) : null;
+  }
+
+  /** How far the round that is heard has come, in steps with fractions; `null` when the row does not play. */
+  roundCursor(): number | null {
+    const heard = this.heard;
+    if (!this.playing || !heard || heard.round === null) return null;
+    const share = (this.host.visualTime() - heard.time) / heard.duration;
+    return heard.local + Math.max(0, Math.min(1, share));
   }
 
   /** Where the runner of a ring is, in steps since the scene began; `null` when nothing plays. */
@@ -734,8 +795,12 @@ export class Engine {
   }
 
   private onStep(report: StepReport): void {
+    this.coming.push(report);
     this.cues.at(report.time, () => {
+      const at = this.coming.indexOf(report);
+      if (at >= 0) this.coming.splice(at, 1);
       const before = this.heard?.scene;
+      const roundBefore = this.heard?.round ?? null;
       this.heard = report;
       for (let track = 0; track < TRACK_COUNT; track += 1) {
         if (!(report.fired & (1 << track))) continue;
@@ -745,6 +810,8 @@ export class Engine {
         if (pattern) this.sung[track] = hitNumber(pattern, report.position % pattern.len, report.local);
       }
       if (report.scene !== before) this.view.onScene(report.scene);
+      // The same scene again is a new round all the same: whoever shows the row has to hear of it.
+      else if (report.round !== roundBefore) this.view.onState();
       this.view.onStep?.(report.local);
     });
   }
@@ -756,9 +823,9 @@ export interface RenderPlan {
   seconds: number;
 }
 
-/** What a WAV of the project holds: the piece once round, the whole chain, or the scene on the table twice through its chords. */
+/** What a WAV of the project holds: the piece once round, the whole row, or the scene on the table twice through its chords. */
 export function renderPlan(project: Project): RenderPlan {
-  const bars = project.piece.on ? barCount(project.piece) : project.chain ? chainBars(project) : currentScene(project).chords.length * 2;
+  const bars = project.piece.on ? barCount(project.piece) : project.chain ? orderBars(project) : currentScene(project).chords.length * 2;
   const steps = bars * BAR;
   return { steps, seconds: steps * stepSeconds(project) + 3 };
 }
@@ -771,7 +838,8 @@ export async function renderBuffer(project: Project, onProgress: (share: number)
   const audible = (track: number): boolean => !project.tracks[track]?.mute;
   applyMix(graph, project, audible, 0, 0.001);
   const player = new Player(graph, () => project, audible);
-  player.reset(project.chain ? project.scenes.findIndex((scene) => scene !== null) : project.scene);
+  if (project.chain && !project.piece.on) player.reset(project.order[0] ?? project.scene, 0, 0);
+  else player.reset(project.scene);
   const transport = new Transport({
     stepDuration: () => stepSeconds(project),
     swing: () => project.swing * 0.42,

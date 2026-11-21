@@ -61,10 +61,7 @@
           <button id="dice-all" class="button small" type="button" title="Alle sieben Ringe neu würfeln">Alles würfeln</button>
           <h2>Szenen</h2>
           <div id="scenes" class="scenes" role="group" aria-label="Szenen"></div>
-          <div class="chain">
-            <label class="check"><input id="chain" type="checkbox"><span>Folge spielen</span></label>
-            <label class="field"><span class="sr">Wiederholungen je Szene</span><select id="repeats"><option value="1">je 1×</option><option value="2">je 2×</option><option value="4">je 4×</option></select></label>
-          </div>
+          <div id="plays" class="plays" role="radiogroup" aria-label="Was spielt"></div>
         </section>
 
         <section class="wheel" aria-label="Kreisel">
@@ -148,6 +145,7 @@
             </div>
           </div>
           <div id="fx" class="fx" role="group" aria-label="Effekte, solange gehalten"></div>
+          <div id="row" class="row-band" role="group" aria-label="Folge: die Szenen in der Reihenfolge, in der sie spielen" hidden></div>
           <p id="status" class="status" aria-live="polite"></p>
         </section>
 

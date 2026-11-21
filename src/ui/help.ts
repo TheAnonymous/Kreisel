@@ -35,6 +35,7 @@ export class HelpDialog {
       [key("KeyM"), "Ring stumm · mit Umschalt allein hören"],
       [key("KeyO"), "Bühne: nur das Rad, im Dunkeln · Esc zurück"],
       [", .", "Szene zurück oder vor"],
+      ["Szenen und Folge", "der Schalter unter den Szenen sagt, was spielt: die Szene im Kreis, die Folge oder das Stück · die Folge liegt unter dem Rad, eine Kachel je Runde · eine Szene dorthin ziehen oder „+“ legt sie hinein · Klick auf eine Kachel springt beim nächsten Takt dorthin · ziehen ordnet um · Rechtsklick: noch einmal, andere Szene, früher oder später, herausnehmen (auch Entf)"],
       ["8", "den Stück-Ring wählen · dort: ← → Takt, + − Spannung, Eingabe spielt ab dem Takt"],
       ["9", `das Wetter wählen · dort: ${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")} ${key("KeyY")} Nebel, Sonne, Wolken, Regen, Funken, Hagel · ${key("KeyN")} würfeln · Entf nimmt das gewählte Wetter weg`],
       ["Am Namen „Kreisel“", "neu anfangen: leer, mit dem Techno-Kreisel oder dem Werks-Kreisel · Stil der Würfel: Bei „Techno“ werfen sie Kick auf jedem Schlag, offene Hi-Hat dazwischen und Acid-Linien, das Stück bekommt Abschnitte von 16 und 32 Takten"],

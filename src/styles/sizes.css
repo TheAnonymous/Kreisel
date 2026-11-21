@@ -4,7 +4,8 @@
 @media (min-width: 1100px) and (min-height: 540px) {
   .app {
     height: 100dvh;
-    overflow: hidden;
+    /* "clip", not "hidden": what is hidden can still be rolled by the browser itself (the glow under the wheel reaches below the page, and Chromium rolled the whole page up by that much). */
+    overflow: clip;
   }
 }
 
@@ -29,7 +30,7 @@
   }
 }
 
-/* A phone: one column, tools and effects as rows under the wheel. */
+/* A phone: one column; the row, tools and effects as rows under the wheel. */
 @media (max-width: 719px) {
   .app {
     gap: 10px;
@@ -100,7 +101,7 @@
   }
 
   .wheel {
-    grid-template: "stage" auto "tools" auto "fx" auto "status" auto / minmax(0, 1fr);
+    grid-template: "stage" auto "row" auto "tools" auto "fx" auto "status" auto / minmax(0, 1fr);
     gap: 8px;
   }
 
