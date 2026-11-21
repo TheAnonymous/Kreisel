@@ -394,8 +394,38 @@ first step is where a Kreisel begins.
   16 in a piece under 64 bars). In a techno piece the kick comes in first. A
   piece can be 256 bars now, a little under seven minutes at 150.
 
-The rules are in `src/model.ts` (the two starts), `src/patterns.ts` (the dice)
-and `src/piece.ts` (the form). Still to come: distortion as a control, a real
+The second step is hardness: in this music nearly every sound is distorted,
+and so is the sum.
+
+- **Zerre** drives one ring. It is the fourth control in a ring's panel,
+  under volume, hall and echo, and it uses the shaper the weather's sparks
+  already had: a ring can be driven all the time, and sparks painted on it
+  come on top. The control is levelled by measurement (`driveTrim` in
+  `src/press.ts`), so turning it changes how the ring sounds more than how
+  loud it is (within about 3 dB, a little differently in each browser): its
+  peaks come down to its body. The kick's ring has no Zerre: what makes a
+  kick hard is its own control, "Härte" (see the Nachbeben).
+- **Druck** presses the sum of everything, behind the three dots under the
+  volume. Mix, hall and echo meet in a press on their way to the master
+  (`src/audio/press.ts`): two soft clippers in a row, pushed harder the
+  further the control goes, and everything below 150 Hz brought to the
+  middle. On the techno Kreisel it makes about 3 dB at a third and 6 dB at
+  full, and the peaks stand 9 dB above the average instead of 12. The
+  master's filters, compressor and limiter come after it, so a filter ride
+  sweeps the pressed sound.
+- **At zero both are nothing**: a ring that is not driven and a Kreisel that
+  is not pressed sound as they always did, and are packed into a link as
+  before. The Werks-Kreisel has neither; the techno Kreisel starts with a
+  little of both.
+- `window.kreisel.whole()` renders the Kreisel on the table faster than it
+  plays and measures it (`src/audio/whole.ts`): peak, loudness, how far the
+  peaks stand above it, brightness, and how much of the deep lows differs
+  between left and right. The numbers above come from it, and the tests use
+  it; nobody has to listen for a test to pass, and nothing here was set by
+  ear.
+
+The rules are in `src/model.ts` (the two starts), `src/patterns.ts` (the dice),
+`src/piece.ts` (the form) and `src/press.ts` (hardness). Still to come: a real
 303 voice with slides one can see, breaks that take the kick out, and a techno
 Kreisel that uses the ride, the open hi-hat and the claps of the new palettes
 (it starts on the classics for now).
@@ -433,10 +463,10 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/patterns.ts` | turning, spreading, dice in both styles and small variations (pure, seeded) |
 | `src/codec.ts`, `src/store.ts` | the project as a link and in the browser's storage; undo |
 | `src/bild.ts`, `src/imitate.ts`, `src/collection.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes; the shelf of kept pictures |
-| `src/body.ts`, `src/voice.ts`, `src/kick.ts`, `src/rumble.ts`, `src/weather.ts` | the rules of the Klangkörper, the voice, the kick's place in the key, the Nachbeben and the weather |
+| `src/body.ts`, `src/voice.ts`, `src/kick.ts`, `src/rumble.ts`, `src/weather.ts`, `src/press.ts` | the rules of the Klangkörper, the voice, the kick's place in the key, the Nachbeben, the weather, and of Zerre and Druck |
 | `src/piece.ts`, `src/relay.ts` | the piece: what a bar's tension asks for; Reihum: what a turn touched, people's colours |
 | `src/sounds/` | the palettes: 350 ready-made sounds as recipes (`shapes.ts` says what a recipe is, a file for each ring holds its fifty, `index.ts` knows their numbers and names, `trims.ts` how loud each is) |
-| `src/audio/` | the ready-made sounds made audible, painted sounds, bodies and voices, the kick's drive and the Nachbeben, listening, the mixer, the player (live and offline), effects, recording; `hear.ts` renders one hit by itself and measures it |
+| `src/audio/` | the ready-made sounds made audible, painted sounds, bodies and voices, the kick's drive and the Nachbeben, listening, the mixer, the player (live and offline), effects, recording; `hear.ts` renders one hit by itself and measures it, `whole.ts` the whole Kreisel |
 | `src/app/app.ts` | the app's core: the table, what is in focus, starting and stopping, steps back, messages |
 | `src/app/rings.ts`, `voice.ts`, `weather.ts`, `rumble.ts`, `relay.ts`, `piece.ts`, `paint.ts`, `body.ts`, `chords.ts`, `scenes.ts`, `files.ts` | one desk for each subject |
 | `src/app/workshop.ts`, `prefs.ts` | what the three windows for a ring's own sound share; what the browser remembers |
@@ -449,7 +479,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/menu.ts`, `menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
 | `scripts/level-sounds.mjs` | `npm run level`: measures every ready-made sound and writes `src/sounds/trims.ts` |
-| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
+| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
 
 ## License
 

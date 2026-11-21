@@ -1,4 +1,5 @@
 import type { Kit } from "klangwerk";
+import { ringGains } from "../press";
 
 /*
  * What the weather does to a ring's sound. Every ring's notes pass through a
@@ -6,6 +7,9 @@ import type { Kit } from "klangwerk";
  * the highs, sparks drive the sound into a shaper, hail chops it. Clouds and
  * rain send what leaves the bus into the hall and the echo. Step by step the
  * player says how much of each kind lies on the ring right now.
+ *
+ * The shaper is also the ring's "Zerre": a ring can be driven all the time,
+ * and the sparks that lie on it come on top.
  */
 
 export interface Chain {
@@ -19,6 +23,8 @@ export interface Chain {
   chop: GainNode;
   cloud: GainNode;
   rain: GainNode;
+  /** The ring's own Zerre, 0..1: how hard it is driven under a clear sky. */
+  drive: number;
   /** What was asked for last, kind by kind, so nothing is scheduled twice. */
   last: number[];
 }
@@ -55,7 +61,22 @@ export function buildChain(kit: Kit, to: AudioNode, tap: AudioNode, hall: AudioN
   const rain = kit.gain(0);
   tap.connect(cloud).connect(hall);
   tap.connect(rain).connect(echo);
-  return { input, fog, sun, dry, push, wet, chop, cloud, rain, last: [0, 0, 0, 0, 0, 0] };
+  return { input, fog, sun, dry, push, wet, chop, cloud, rain, drive: 0, last: [0, 0, 0, 0, 0, 0] };
+}
+
+/** Sets the three gains around the shaper for the ring's Zerre and the sparks over it. */
+function shape(chain: Chain, sparks: number, time: number): void {
+  const gains = ringGains(chain.drive, sparks);
+  chain.dry.gain.setTargetAtTime(gains.dry, time, GLIDE);
+  chain.push.gain.setTargetAtTime(gains.push, time, GLIDE);
+  chain.wet.gain.setTargetAtTime(gains.wet, time, GLIDE);
+}
+
+/** The ring's own Zerre, 0..1. The sparks that lie on the ring right now stay on top of it. */
+export function driveChain(chain: Chain, drive: number, time: number): void {
+  if (drive === chain.drive) return;
+  chain.drive = drive;
+  shape(chain, chain.last[4] ?? 0, time);
 }
 
 /** A step of the ring: how much of each kind of weather (fog, sun, clouds, rain, sparks, hail; each 0..1) lies on it now. */
@@ -66,12 +87,7 @@ export function stepChain(chain: Chain, over: readonly number[], time: number, s
   if (sun !== last[1]) chain.sun.gain.setTargetAtTime(sun * 7, time, GLIDE);
   if (cloud !== last[2]) chain.cloud.gain.setTargetAtTime(cloud * 0.9, time, GLIDE);
   if (rain !== last[3]) chain.rain.gain.setTargetAtTime(rain * 0.85, time, GLIDE);
-  if (sparks !== last[4]) {
-    // More of the sound goes through the shaper, harder; what comes out is evened against what went in.
-    chain.dry.gain.setTargetAtTime(1 - sparks * 0.9, time, GLIDE);
-    chain.push.gain.setTargetAtTime(expo(1.2, 5, sparks), time, GLIDE);
-    chain.wet.gain.setTargetAtTime(sparks * 0.27, time, GLIDE);
-  }
+  if (sparks !== last[4]) shape(chain, sparks, time);
   if (hail > 0) {
     // Twice a step the sound is let through and cut off again, the deeper the more hail there is.
     const gain = chain.chop.gain;

@@ -29,7 +29,8 @@ import { playBody } from "./body";
 import { buildDrive, buildGroup, shadeDrive, shadeGroup, type KickDrive, type KickGroup } from "./kick";
 import { playVoice } from "./voice";
 import { buildRumble, hitRumble, shadeRumble, stepRumble, stillRumble, type Rumble } from "./rumble";
-import { buildChain, clearChain, stepChain, type Chain } from "./weather";
+import { buildPress, shadePress, type Press } from "./press";
+import { buildChain, clearChain, driveChain, stepChain, type Chain } from "./weather";
 import { brightness, shaded, shadesSound, weatherOver } from "../weather";
 import { hitNumber } from "../voice";
 import { soundFile, type SoundFile } from "./opus";
@@ -48,6 +49,8 @@ export interface Graph {
   context: BaseAudioContext;
   kit: Kit;
   master: Master;
+  /** "Druck": where the sum is pressed before the master hears it. */
+  press: Press;
   mix: GainNode;
   buses: Bus[];
   /** Where each ring's notes go in; swapped for a fresh one to cut what still rings. */
@@ -79,10 +82,12 @@ export function buildGraph(context: BaseAudioContext): Graph {
   const highpass = kit.filter("highpass", 20, 0.7);
   const lowpass = kit.filter("lowpass", 20_000, 0.7);
   const master = new Master(context, { chain: [highpass, lowpass, "gate"], open: true });
+  // Mix, hall and echo meet in the press on their way to the master; at rest it lets them through as they come.
+  const press = buildPress(kit, master.input);
   const mix = kit.gain(1);
-  mix.connect(master.input);
-  const hall = createReverb(kit, hallImpulse(context, 2.4, { decay: 4.5 }), { to: master.input, level: 0.8 });
-  const echo = createPingPong(kit, { feedback: 0.42, tone: 3400, to: master.input, level: 0.7 });
+  mix.connect(press.input);
+  const hall = createReverb(kit, hallImpulse(context, 2.4, { decay: 4.5 }), { to: press.input, level: 0.8 });
+  const echo = createPingPong(kit, { feedback: 0.42, tone: 3400, to: press.input, level: 0.7 });
   const throwSend = kit.gain(0);
   mix.connect(throwSend).connect(echo.input);
   const group = buildGroup(kit, mix);
@@ -104,7 +109,7 @@ export function buildGraph(context: BaseAudioContext): Graph {
     analyser.fftSize = 1024;
     master.output.connect(analyser);
   }
-  return { context, kit, master, mix, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, drive, rumble, group, chains };
+  return { context, kit, master, press, mix, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, drive, rumble, group, chains };
 }
 
 export const stepSeconds = (project: Project): number => 15 / project.bpm;
@@ -118,8 +123,11 @@ export function applyMix(graph: Graph, project: Project, audible: (track: number
     bus.output.gain.setTargetAtTime(level, time, glideTime);
     bus.sends.hall.gain.setTargetAtTime(track.hall, time, glideTime);
     bus.sends.echo.gain.setTargetAtTime(track.echo, time, glideTime);
+    const chain = graph.chains[index];
+    if (chain) driveChain(chain, track.drive, time);
   });
   shadeDrive(graph.drive, project.hard, time, glideTime);
+  shadePress(graph.press, project.pressure, time, glideTime);
   // The Nachbeben is as loud as the kick's ring is set, and silent with it.
   const kick = project.tracks[0];
   shadeRumble(graph.rumble, project.dirt, project.roll, kick && audible(0) ? kick.level ** 1.5 * (TRIM[0] ?? 1) : 0, time, glideTime);
@@ -720,8 +728,8 @@ export function renderPlan(project: Project): RenderPlan {
   return { steps, seconds: steps * stepSeconds(project) + 3 };
 }
 
-/** Renders the project faster than it plays and saves it as Opus (as a 16-bit WAV where the browser cannot write Opus). */
-export async function renderFile(project: Project, onProgress: (share: number) => void = () => undefined, sampleRate = 48_000): Promise<SoundFile> {
+/** Renders the project faster than it plays: what would be heard, and how many of its samples are music (the rest rings out). */
+export async function renderBuffer(project: Project, onProgress: (share: number) => void = () => undefined, sampleRate = 48_000): Promise<{ buffer: AudioBuffer; length: number }> {
   const plan = renderPlan(project);
   const context = new OfflineAudioContext(2, Math.ceil(plan.seconds * sampleRate), sampleRate);
   const graph = buildGraph(context);
@@ -739,6 +747,11 @@ export async function renderFile(project: Project, onProgress: (share: number) =
   });
   transport.begin(context, 0.05);
   const buffer = await renderInChunks(context, (until) => transport.renderUntil(until), plan.seconds, 2, onProgress);
-  const length = trimmedLength(buffer, Math.round(plan.steps * stepSeconds(project) * sampleRate));
+  return { buffer, length: trimmedLength(buffer, Math.round(plan.steps * stepSeconds(project) * sampleRate)) };
+}
+
+/** Renders the project and saves it as Opus (as a 16-bit WAV where the browser cannot write Opus). */
+export async function renderFile(project: Project, onProgress: (share: number) => void = () => undefined, sampleRate = 48_000): Promise<SoundFile> {
+  const { buffer, length } = await renderBuffer(project, onProgress, sampleRate);
   return soundFile(buffer.getChannelData(0).subarray(0, length), buffer.getChannelData(1).subarray(0, length), sampleRate, () => encodeWav(buffer, length));
 }

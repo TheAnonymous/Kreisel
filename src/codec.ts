@@ -119,10 +119,15 @@ interface PackedScene {
   d?: number[];
 }
 
+/** Where a ring's Zerre stands in its packed list: after its settings (0 to 6) and its picture, body and voice (7 to 9). */
+const DRIVE_AT = 10;
+
 interface Packed {
   v: 1;
   /** The style, where it is not "frei": links from before there were styles have none. */
   g?: string;
+  /** Druck, in hundredths, where there is any. */
+  u?: number;
   b: number;
   s: number;
   r: number;
@@ -148,6 +153,7 @@ export function packState(project: Project): Packed {
   return {
     v: 1,
     ...(project.style === "frei" ? {} : { g: project.style }),
+    ...(project.pressure > 0 ? { u: Math.round(project.pressure * 100) } : {}),
     b: project.bpm,
     s: round(project.swing),
     r: project.root,
@@ -162,6 +168,11 @@ export function packState(project: Project): Packed {
       else if (track.voice) packed.push(0);
       // A voice is the room in its mouth and its breath in hundredths, then the line it sings.
       if (track.voice) packed.push(`${Math.round(track.voice.mouth * 100)}.${Math.round(track.voice.breath * 100)}.${track.voice.text}`);
+      // Zerre, in hundredths, has the place after the ring's three own sounds; a ring that is not driven ends before it.
+      if (track.drive > 0) {
+        while (packed.length < DRIVE_AT) packed.push(0);
+        packed.push(Math.round(track.drive * 100));
+      }
       return packed;
     }),
     c: project.scenes.map((scene) => {
@@ -280,6 +291,7 @@ function unpackTrack(value: unknown): Track {
     level: number(list[3], 0, 1, 0.7),
     hall: number(list[4], 0, 1, 0),
     echo: number(list[5], 0, 1, 0),
+    drive: number(Number(list[DRIVE_AT] ?? 0) / 100, 0, 1, 0),
     mute: list[6] === 1,
     bild,
     body,
@@ -311,6 +323,7 @@ export function unpack(value: unknown, inTurn = false): Project {
     root: integer(data.r, 0, 11, 9),
     scale: SCALE_IDS.includes(data.m as ScaleId) ? (data.m as ScaleId) : "moll",
     pump: number(data.p, 0, 1, 0.3),
+    pressure: number(Number(data.u ?? 0) / 100, 0, 1, 0),
     // A link from before the kick could be driven has a clean kick.
     hard: Array.isArray(data.w) ? number(Number(data.w[2] ?? 0) / 100, 0, 1, 0) : 0,
     dirt: Array.isArray(data.w) ? number(Number(data.w[0]) / 100, 0, 1, 0.35) : 0.35,

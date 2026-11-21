@@ -1,6 +1,7 @@
 import "./style.css";
 import { App } from "./app/app";
 import { hear, type Heard } from "./audio/hear";
+import { hearWhole, type Whole } from "./audio/whole";
 import { serialize } from "./codec";
 import { PALETTE_ORDER } from "./sounds/index";
 import { bindKeys } from "./ui/keys";
@@ -90,6 +91,8 @@ declare global {
       light(): { sparks: number; waves: number; glowing: boolean };
       /** One hit of a ring's ready-made sound by itself, measured; x and y are where the pad's point stands (the middle unless said). */
       hear(track: number, sound: number, x?: number, y?: number): Promise<Heard>;
+      /** The whole Kreisel on the table, rendered faster than it plays (as a saved file would hold it), and what can be measured on it. */
+      whole(): Promise<Whole>;
       /** The numbers of a ring's fifty ready-made sounds, in the order of its palette. */
       palette: readonly number[];
     };
@@ -110,5 +113,6 @@ window.kreisel = {
   motion: () => ring.motion(),
   light: () => ring.light(),
   hear: (track, sound, x, y) => hear(app.project, track, sound, x, y),
+  whole: () => hearWhole(structuredClone(app.project)),
   palette: PALETTE_ORDER,
 };

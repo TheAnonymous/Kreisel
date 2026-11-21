@@ -189,3 +189,18 @@
   gap: 2px;
   margin-left: auto;
 }
+
+/* Two lines side by side, for two controls that belong together: their labels are only as wide as their words. */
+.lines {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.lines .line {
+  flex: 1;
+}
+
+.lines .line .label {
+  width: auto;
+}

@@ -267,7 +267,7 @@ export class RingDesk {
   }
 
   /** The right button on a control puts it back where a fresh Kreisel has it. */
-  resetTrack(track: number, field: "level" | "hall" | "echo"): void {
+  resetTrack(track: number, field: "level" | "hall" | "echo" | "drive"): void {
     const fresh = trackOf(startProject(this.app.project.style), track);
     this.setTrack(track, { [field]: fresh[field] });
   }

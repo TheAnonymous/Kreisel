@@ -113,6 +113,8 @@ export interface Track {
   level: number;
   hall: number;
   echo: number;
+  /** "Zerre": how hard the ring is driven into its shaper, 0..1. The sparks of the weather come on top. */
+  drive: number;
   mute: boolean;
   /** The ring's own sound, once one was painted. */
   bild: Bild | null;
@@ -207,6 +209,8 @@ export interface Project {
   scale: ScaleId;
   /** How much the kick pushes bass, chords and melody down, 0..1. */
   pump: number;
+  /** "Druck": how hard the sum of everything is pressed against the ceiling before the master, 0..1. */
+  pressure: number;
   /** How hard the kick is driven before anything else hears it, 0..1: from clean to clipped flat. */
   hard: number;
   /** The Nachbeben's character, both 0..1: from deep and clean to dirty, from one smooth swell to rolling sixteenths. */
@@ -338,18 +342,19 @@ export function factoryProject(): Project {
     root: 9,
     scale: "moll",
     pump: 0.3,
+    pressure: 0,
     hard: 0,
     dirt: 0.35,
     roll: 0.2,
     volume: 0.8,
     tracks: [
-      { sound: 0, x: 0.5, y: 0.5, level: 0.85, hall: 0, echo: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 1, x: 0.5, y: 0.5, level: 0.78, hall: 0.25, echo: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 0, x: 0.5, y: 0.5, level: 0.7, hall: 0.05, echo: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 1, x: 0.5, y: 0.5, level: 0.6, hall: 0.2, echo: 0.25, mute: false, bild: null, body: null, voice: null },
-      { sound: 3, x: 0.45, y: 0.4, level: 0.7, hall: 0, echo: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 2, x: 0.45, y: 0.5, level: 0.7, hall: 0.3, echo: 0.15, mute: false, bild: null, body: null, voice: null },
-      { sound: 0, x: 0.55, y: 0.45, level: 0.72, hall: 0.3, echo: 0.4, mute: false, bild: null, body: null, voice: null },
+      { sound: 0, x: 0.5, y: 0.5, level: 0.85, hall: 0, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null },
+      { sound: 1, x: 0.5, y: 0.5, level: 0.78, hall: 0.25, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null },
+      { sound: 0, x: 0.5, y: 0.5, level: 0.7, hall: 0.05, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null },
+      { sound: 1, x: 0.5, y: 0.5, level: 0.6, hall: 0.2, echo: 0.25, drive: 0, mute: false, bild: null, body: null, voice: null },
+      { sound: 3, x: 0.45, y: 0.4, level: 0.7, hall: 0, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null },
+      { sound: 2, x: 0.45, y: 0.5, level: 0.7, hall: 0.3, echo: 0.15, drive: 0, mute: false, bild: null, body: null, voice: null },
+      { sound: 0, x: 0.55, y: 0.45, level: 0.72, hall: 0.3, echo: 0.4, drive: 0, mute: false, bild: null, body: null, voice: null },
     ],
     scenes: [scene, null, null, null, null, null, null, null],
     scene: 0,
@@ -411,20 +416,21 @@ export function technoProject(): Project {
     root: 7,
     scale: "phrygisch",
     pump: 0.55,
+    pressure: 0.35,
     // The techno Kreisel's kick is a hard one: its body stands about twice as long as the clean kick's.
     hard: 0.55,
     dirt: 0.45,
     roll: 0.2,
     volume: 0.8,
     tracks: [
-      // The hard kick, tuned down to the root (49 Hz).
-      { sound: 1, x: 0.3, y: 0.55, level: 0.9, hall: 0, echo: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 1, x: 0.5, y: 0.35, level: 0.7, hall: 0.12, echo: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 1, x: 0.5, y: 0.5, level: 0.62, hall: 0.03, echo: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 0, x: 0.3, y: 0.45, level: 0.55, hall: 0.1, echo: 0.15, mute: false, bild: null, body: null, voice: null },
-      { sound: 2, x: 0.5, y: 0.35, level: 0.72, hall: 0, echo: 0.12, mute: false, bild: null, body: null, voice: null },
-      { sound: 1, x: 0.55, y: 0.3, level: 0.5, hall: 0.25, echo: 0.3, mute: false, bild: null, body: null, voice: null },
-      { sound: 3, x: 0.55, y: 0.4, level: 0.6, hall: 0.1, echo: 0.3, mute: false, bild: null, body: null, voice: null },
+      // The hard kick, tuned down to the root (49 Hz). What makes a kick hard is its own; the rings after it are driven a little.
+      { sound: 1, x: 0.3, y: 0.55, level: 0.9, hall: 0, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null },
+      { sound: 1, x: 0.5, y: 0.35, level: 0.7, hall: 0.12, echo: 0, drive: 0.25, mute: false, bild: null, body: null, voice: null },
+      { sound: 1, x: 0.5, y: 0.5, level: 0.62, hall: 0.03, echo: 0, drive: 0.15, mute: false, bild: null, body: null, voice: null },
+      { sound: 0, x: 0.3, y: 0.45, level: 0.55, hall: 0.1, echo: 0.15, drive: 0.3, mute: false, bild: null, body: null, voice: null },
+      { sound: 2, x: 0.5, y: 0.35, level: 0.72, hall: 0, echo: 0.12, drive: 0.4, mute: false, bild: null, body: null, voice: null },
+      { sound: 1, x: 0.55, y: 0.3, level: 0.5, hall: 0.25, echo: 0.3, drive: 0.35, mute: false, bild: null, body: null, voice: null },
+      { sound: 3, x: 0.55, y: 0.4, level: 0.6, hall: 0.1, echo: 0.3, drive: 0.3, mute: false, bild: null, body: null, voice: null },
     ],
     scenes: [scene, null, null, null, null, null, null, null],
     scene: 0,

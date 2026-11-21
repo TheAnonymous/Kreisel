@@ -299,11 +299,11 @@ export class App {
     this.store.cancel(gesture);
   }
 
-  resetGlobal(field: "swing" | "pump" | "volume"): void {
+  resetGlobal(field: "swing" | "pump" | "volume" | "pressure"): void {
     this.setGlobal({ [field]: startProject(this.project.style)[field] });
   }
 
-  setGlobal(change: Partial<Pick<Project, "style" | "bpm" | "swing" | "root" | "scale" | "pump" | "volume" | "chain" | "repeats">>, key?: string): void {
+  setGlobal(change: Partial<Pick<Project, "style" | "bpm" | "swing" | "root" | "scale" | "pump" | "pressure" | "volume" | "chain" | "repeats">>, key?: string): void {
     this.store.edit((project) => { Object.assign(project, change); }, key);
   }
 

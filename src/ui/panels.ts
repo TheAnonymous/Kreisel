@@ -82,6 +82,8 @@ export class Panels {
   private readonly seen = new WeakMap<Element, string>();
   private shownRing = -1;
   private readonly lamps: boolean[] = [];
+  /** The row of the ring's Zerre. The kick's ring has none: what makes a kick hard is its own. */
+  private driveRow: HTMLElement | null = null;
   private readonly doing = { roll: button("button small", "Würfeln", "Eine neue Idee für diesen Ring (N)"), vary: button("button small", "Variieren", "Nur ein wenig verändern (Umschalt+N)"), wipe: button("button small", "Leeren", "Alle Schläge dieses Rings entfernen (Umschalt+Entf)") };
   private readonly head = el("header", "panel-head");
 
@@ -283,6 +285,7 @@ export class Panels {
     this.slider(byId("swing"), () => app.project.swing, (swing) => app.setGlobal({ swing }, "swing"), () => app.resetGlobal("swing"));
     this.slider(byId("pump"), () => app.project.pump, (pump) => app.setGlobal({ pump }, "pump"), () => app.resetGlobal("pump"));
     this.slider(byId("volume"), () => app.project.volume, (volume) => app.setGlobal({ volume }, "volume"), () => app.resetGlobal("volume"));
+    this.slider(byId("pressure"), () => app.project.pressure, (pressure) => app.setGlobal({ pressure }, "pressure"), () => app.resetGlobal("pressure"));
 
     const root = byId<HTMLSelectElement>("root");
     NOTE_NAMES.forEach((name, index) => root.append(new Option(name, String(index))));
@@ -659,23 +662,29 @@ export class Panels {
     return quake;
   }
 
-  /** The ring in the mix: how loud, how much hall, how much echo. */
+  /** The ring in the mix: how loud, how much hall and echo (the two share a row), and how hard it is driven. */
   private buildMix(): HTMLElement {
     const app = this.app;
     const mix = el("div", "group");
-    const mixSlider = (label: string, field: "level" | "hall" | "echo"): void => {
+    const mixSlider = (label: string, field: "level" | "hall" | "echo" | "drive", hint = "", into: HTMLElement = mix): HTMLElement => {
       const line = el("label", "line");
       const input = el("input");
       input.type = "range";
       input.min = "0";
       input.max = "100";
+      if (hint) line.title = hint;
       this.slider(input, () => trackOf(app.project, app.selected)[field], (value) => app.rings.setTrack(app.selected, { [field]: value }, field), () => app.rings.resetTrack(app.selected, field));
       line.append(el("span", "label", label), input);
-      mix.append(line);
+      into.append(line);
+      return line;
     };
     mixSlider("Lautstärke", "level");
-    mixSlider("Hall", "hall");
-    mixSlider("Echo", "echo");
+    const sends = el("div", "lines");
+    mixSlider("Hall", "hall", "", sends);
+    mixSlider("Echo", "echo", "", sends);
+    mix.append(sends);
+    this.driveRow = mixSlider("Zerre", "drive", "Treibt den Ring in die Verzerrung. Funken aus dem Wetter kommen obendrauf.");
+    this.driveRow.id = "drive-row";
     return mix;
   }
 
@@ -849,6 +858,7 @@ export class Panels {
       hold.title = selected === 0 ? "Am Kick-Ring entlang ziehen malt das Nachbeben: außen stark, innen nichts; die rechte Taste radiert" : "Am Ring entlang ziehen hält den Ton länger";
     }
     this.quake.hidden = selected !== 0;
+    if (this.driveRow) this.driveRow.hidden = selected === 0;
   }
 
   /** "Einspielen" and the effect keys: held, latched, or let go. */
