@@ -1,8 +1,9 @@
+import { cleanAcid, takesAcid } from "./acid";
 import { cleanBody } from "./body";
 import { cleanVoice } from "./voice";
 import { cleanRumble } from "./rumble";
 import { cleanWind, packWeather, unpackWeather } from "./weather";
-import { BODY_SOUND, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Bild, type Body, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
+import { ACID_SOUND, BODY_SOUND, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Acid, type Bild, type Body, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { soundPiece } from "./piece";
 import { LAST_SOUND } from "./sounds/index";
@@ -121,6 +122,8 @@ interface PackedScene {
 
 /** Where a ring's Zerre stands in its packed list: after its settings (0 to 6) and its picture, body and voice (7 to 9). */
 const DRIVE_AT = 10;
+/** And where its acid machine stands, after that. */
+const ACID_AT = 11;
 
 interface Packed {
   v: 1;
@@ -172,6 +175,11 @@ export function packState(project: Project): Packed {
       if (track.drive > 0) {
         while (packed.length < DRIVE_AT) packed.push(0);
         packed.push(Math.round(track.drive * 100));
+      }
+      // An acid machine is its bite and its decay in hundredths, and 1 for a square wave.
+      if (track.acid) {
+        while (packed.length < ACID_AT) packed.push(0);
+        packed.push(`${Math.round(track.acid.bite * 100)}.${Math.round(track.acid.decay * 100)}.${track.acid.square ? 1 : 0}`);
       }
       return packed;
     }),
@@ -275,17 +283,28 @@ export function unpackBody(value: unknown): Body | null {
   return cleanBody({ kind, size: size / 100, tight: tight / 100, material: material / 100, exciter, where: where / 100 });
 }
 
-function unpackTrack(value: unknown): Track {
+/** An acid machine from untrusted data: "bite.decay.wave", the first two in hundredths. */
+function unpackAcid(value: unknown): Acid | null {
+  if (typeof value !== "string" || value.length > 12) return null;
+  const parts = value.split(".").map((part) => (/^\d{1,3}$/.test(part) ? Number(part) : Number.NaN));
+  if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) return null;
+  const [bite = 60, decay = 35, wave = 0] = parts;
+  return cleanAcid({ bite: bite / 100, decay: decay / 100, square: wave === 1 });
+}
+
+function unpackTrack(value: unknown, index: number): Track {
   const list = Array.isArray(value) ? value : [];
   const bild = unpackBild(list[7]);
   const body = unpackBody(list[8]);
   const voice = unpackVoice(list[9]);
+  // Only the bass and the melody can have an acid machine.
+  const acid = takesAcid(index) ? unpackAcid(list[ACID_AT]) : null;
   // A number that is no sound (a damaged link, or one from a later Kreisel that has more sounds) is read as the ring's first.
-  const stored = integer(list[0], -1, LAST_SOUND + 1, 0);
-  const sound = stored < 0 || stored > LAST_SOUND ? 0 : stored;
+  const stored = integer(list[0], -1, ACID_SOUND + 1, 0);
+  const sound = stored < 0 || (stored > LAST_SOUND && stored !== ACID_SOUND) ? 0 : stored;
   return {
-    // A ring cannot play a picture, a body or a voice it does not have.
-    sound: (sound === OWN_SOUND && !bild) || (sound === BODY_SOUND && !body) || (sound === VOICE_SOUND && !voice) ? 0 : sound,
+    // A ring cannot play a picture, a body, a voice or a machine it does not have.
+    sound: (sound === OWN_SOUND && !bild) || (sound === BODY_SOUND && !body) || (sound === VOICE_SOUND && !voice) || (sound === ACID_SOUND && !acid) ? 0 : sound,
     x: number(list[1], 0, 1, 0.5),
     y: number(list[2], 0, 1, 0.5),
     level: number(list[3], 0, 1, 0.7),
@@ -296,6 +315,7 @@ function unpackTrack(value: unknown): Track {
     bild,
     body,
     voice,
+    acid,
   };
 }
 
@@ -329,7 +349,7 @@ export function unpack(value: unknown, inTurn = false): Project {
     dirt: Array.isArray(data.w) ? number(Number(data.w[0]) / 100, 0, 1, 0.35) : 0.35,
     roll: Array.isArray(data.w) ? number(Number(data.w[1]) / 100, 0, 1, 0.2) : 0.2,
     volume: number(data.o, 0, 1, 0.8),
-    tracks: Array.from({ length: TRACK_COUNT }, (_, index) => unpackTrack(tracks[index])),
+    tracks: Array.from({ length: TRACK_COUNT }, (_, index) => unpackTrack(tracks[index], index)),
     scenes,
     scene: scenes[wanted] ? wanted : scenes.findIndex((scene) => scene !== null),
     chain: data.k === 1,

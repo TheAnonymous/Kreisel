@@ -19,7 +19,8 @@ import {
   trimmedLength,
   type ChannelBus,
 } from "klangwerk";
-import { BAR, BODY_SOUND, currentScene, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Project, type Scene, type Step, wrap } from "../model";
+import { charged, noteSeconds } from "../acid";
+import { ACID_SOUND, BAR, BODY_SOUND, currentScene, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Project, type Scene, type Step, type Track, wrap } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
 import { hasRumble } from "../rumble";
@@ -34,7 +35,8 @@ import { buildChain, clearChain, driveChain, stepChain, type Chain } from "./wea
 import { brightness, shaded, shadesSound, weatherOver } from "../weather";
 import { hitNumber } from "../voice";
 import { soundFile, type SoundFile } from "./opus";
-import { glides, playHit } from "./sounds";
+import { playAcid, type AcidNote } from "./acid";
+import { glides, playHit, type Hit } from "./sounds";
 
 /*
  * The sound of a Kreisel: seven channel buses with hall and echo sends into a
@@ -183,11 +185,20 @@ function rise(kit: Kit, out: AudioNode, start: number, end: number, peak: number
 /** Turns steps into notes, and remembers each ring's last note for slides. */
 class Voices {
   private readonly last: ({ hz: number; until: number } | null)[] = Array.from({ length: TRACK_COUNT }, () => null);
+  /** The note each ring's acid machine is playing, for the one that follows it. */
+  private readonly acid: (AcidNote | null)[] = Array.from({ length: TRACK_COUNT }, () => null);
+  /** Whether that note was one of a roll: a roll is struck every time, and nothing is tied to it. */
+  private readonly rolled: boolean[] = Array.from({ length: TRACK_COUNT }, () => false);
+  /** What earlier accents have left on each ring's machine, and when that was counted. */
+  private readonly charge: { amount: number; at: number }[] = Array.from({ length: TRACK_COUNT }, () => ({ amount: 0, at: 0 }));
 
   constructor(private readonly graph: Graph) {}
 
-  /** Plays `step` of ring `track` at `time`; `stepTime` is how long one step lasts, `level` scales how loud it is. */
-  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number, level = 1, bright = 0, number = 0): void {
+  /**
+   * Plays `step` of ring `track` at `time`; `stepTime` is how long one step lasts, `level` scales how loud it is.
+   * `quakes` says that the ground shakes in this scene (then an acid machine leaves the lows to it).
+   */
+  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number, level = 1, bright = 0, number = 0, quakes = false): void {
     const plain = project.tracks[track];
     // Sun and fog reach into the sound itself where a ring has a brightness of its own: note by note, as a filter is played.
     const settings = plain && bright !== 0 ? { ...plain, x: shaded(plain.x, bright) } : plain;
@@ -201,7 +212,7 @@ class Voices {
       : track === 6 ? [leadMidi(project, step.pitch)]
       : [];
     const held = melodic ? step.len : 1;
-    const duration = count > 1 ? (stepTime / count) * 0.9 : held * stepTime * 0.92;
+    const duration = count > 1 ? (stepTime / count) * 0.9 : noteSeconds(settings.sound, held, stepTime);
     for (let repeat = 0; repeat < count; repeat += 1) {
       const at = time + (repeat * stepTime) / count;
       const frequency = midiToHz(midis[0] ?? 60);
@@ -209,7 +220,9 @@ class Voices {
       const glideFrom = glides(track, settings.sound) && before && before.until > at - 0.012 && before.hz !== frequency ? before.hz : null;
       const hit = { gain: (VELOCITY[step.vel] ?? 0.78) * (repeat === 0 ? 1 : 0.7) * level, accent: step.vel === 2, pitch: step.pitch, midis, duration, glideFrom, root: project.root };
       // The ring's own sound is its picture or its body; without one (or with an empty picture) it is silent.
-      if (settings.sound === VOICE_SOUND) {
+      if (settings.sound === ACID_SOUND) {
+        if (settings.acid) this.acid[track] = this.playAcid(track, settings, settings.acid, at, hit, quakes, count > 1);
+      } else if (settings.sound === VOICE_SOUND) {
         // A voice sings the syllable that this hit is in the ring's line (a roll repeats it).
         if (settings.voice) playVoice(this.graph.kit, inlet, track, settings, at, hit, settings.voice, number);
       } else if (settings.sound === BODY_SOUND) {
@@ -227,6 +240,27 @@ class Voices {
         }
       }
     }
+  }
+
+  /**
+   * One note of a ring's acid machine. The machine has one voice: the note before lets go, and where it was held
+   * into this one, this one slides out of it. Accents that follow closely push one another higher.
+   */
+  private playAcid(track: number, settings: Track, acid: Acid, at: number, hit: Hit, quakes: boolean, roll: boolean): AcidNote | null {
+    const inlet = this.graph.inlets[track];
+    if (!inlet) return null;
+    const before = this.acid[track] ?? null;
+    const tied = before && !roll && !this.rolled[track] && before.until > at - 0.012 ? before : null;
+    this.rolled[track] = roll;
+    if (before && before.until > at) before.cut(at);
+    const charge = this.charge[track];
+    if (hit.accent && charge) {
+      charge.amount = charged(charge.amount, at - charge.at);
+      charge.at = at;
+    }
+    // The charge an accent meets is what the ones before it left: its own is for the next.
+    const met = hit.accent && charge ? charge.amount - 1 : 0;
+    return playAcid(this.graph.kit, inlet, at, settings, acid, hit, tied, met, quakes);
   }
 }
 
@@ -395,6 +429,10 @@ export class Player {
     const chord = chordAt(scene, position);
     this.chord = chord;
     let fired = 0;
+    // The Nachbeben is the kick's: silent where the kick is (muted, paused, not yet in the piece).
+    const kicks = scene.patterns[0];
+    const shaking = kicks && this.audible(0) && !this.pause && (!this.plan || (this.plan.gates[0] ?? 0) > 0);
+    const quakes = Boolean(shaking && kicks && hasRumble(scene, kicks.len));
     for (let track = 0; track < TRACK_COUNT; track += 1) {
       const pattern = scene.patterns[track];
       if (!pattern) continue;
@@ -412,16 +450,13 @@ export class Player {
       const gate = this.plan ? (this.plan.gates[track] ?? 0) : 1;
       if (gate <= 0 || (this.plan && step.vel === 0 && dropsQuiet(gate))) continue;
       fired |= 1 << track;
-      this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, shadesSound(track) ? brightness(over) : 0, hitNumber(pattern, position % pattern.len, this.local));
+      this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, shadesSound(track) ? brightness(over) : 0, hitNumber(pattern, position % pattern.len, this.local), quakes);
       if (track === 0) hitRumble(this.graph.rumble, time, duration);
     }
     // The Nachbeben: as much as the line in the kick's ring lets out at this step, at the pitch of the bar's chord.
-    // It is the kick's: silent where the kick is (muted, paused, not yet in the piece).
-    const kicks = scene.patterns[0];
-    const shaking = kicks && this.audible(0) && !this.pause && (!this.plan || (this.plan.gates[0] ?? 0) > 0);
     stepRumble(this.graph.rumble, shaking ? (scene.rumble[position % kicks.len] ?? 0) : 0, midiToHz(bassMidi(project, chord, 0)), time, duration);
     // Where a scene shakes, the kick and the Nachbeben leave as one, the more the dirtier; a kick without one is left alone.
-    const glued = shaking && hasRumble(scene, kicks.len) ? 0.3 + 0.7 * project.dirt : 0;
+    const glued = quakes ? 0.3 + 0.7 * project.dirt : 0;
     if (glued !== this.glued) {
       shadeGroup(this.graph.group, glued, time, 0.04);
       this.glued = glued;
@@ -435,7 +470,7 @@ export class Player {
   /** Plays one step by hand, over `chord`; a voice sings syllable `number` of its line. */
   play(track: number, step: Step, time: number, chord: number, number = 0): void {
     const project = this.project();
-    this.voices.strike(project, track, step, chord, time, stepSeconds(project), 1, 0, number);
+    this.voices.strike(project, track, step, chord, time, stepSeconds(project), 1, 0, number, hasRumble(currentScene(project)));
   }
 
   private changeScene(project: Project): void {

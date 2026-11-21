@@ -18,8 +18,15 @@ export interface Whole {
   crest: number;
   /** How bright it is: the Hz that as many zero crossings would make in a pure tone. */
   bright: number;
+  /**
+   * How sharp it is: the Hz of a pure tone that changes as fast from sample to sample as this does on average. Unlike the
+   * zero crossings it rises with every overtone a filter lets through, also where the wave keeps crossing zero at its own pace.
+   */
+  sharp: number;
   /** How much of its deep lows differs between left and right, against what they share: 0 when the lows are in the middle. */
   lowSide: number;
+  /** How much of it lies deep down (below about 75 Hz), against all of it: 0..1. */
+  deep: number;
 }
 
 /** What is left of `samples` below about `hz`: four soft filters in a row, enough for a measurement. */
@@ -56,6 +63,9 @@ export function measureWhole(left: Float32Array, right: Float32Array, sampleRate
     if (index > 0 && (middle[index] ?? 0) >= 0 !== (middle[index - 1] ?? 0) >= 0) crossings += 1;
   }
   const loud = Math.sqrt((rms(left) ** 2 + rms(right) ** 2) / 2);
+  const steps = new Float32Array(Math.max(0, middle.length - 1));
+  for (let index = 0; index < steps.length; index += 1) steps[index] = (middle[index + 1] ?? 0) - (middle[index] ?? 0);
+  const even = rms(middle);
   // Well below where the press brings the lows together, so that what is measured is its doing and not the slope of its filters.
   const deep = MONO_BELOW / 2;
   const shared = rms(lows(middle, deep, sampleRate));
@@ -64,7 +74,9 @@ export function measureWhole(left: Float32Array, right: Float32Array, sampleRate
     loud,
     crest: loud > 0 ? 20 * Math.log10(peak / loud) : 0,
     bright: left.length === 0 ? 0 : (crossings / 2) * (sampleRate / left.length),
+    sharp: even > 0 ? (sampleRate / (2 * Math.PI)) * (rms(steps) / even) : 0,
     lowSide: shared > 0 ? rms(lows(side, deep, sampleRate)) / shared : 0,
+    deep: loud > 0 ? Math.min(1, shared / loud) : 0,
   };
 }
 

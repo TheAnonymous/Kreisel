@@ -1,4 +1,5 @@
-import { currentScene, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, WEATHER_MAX, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Pattern, type Scene, type Step, wrap } from "../model";
+import { nextHit, slidesInto } from "../acid";
+import { ACID_SOUND, currentScene, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, WEATHER_MAX, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Pattern, type Scene, type Step, wrap } from "../model";
 import { chordAt, chordName } from "../music";
 import { drawMouth } from "./booth";
 import { WEATHER_COLORS, windDrift } from "../weather";
@@ -568,13 +569,11 @@ export class RingView {
   private hitBrush(frame: Frame, lane: Lane): (step: Step, index: number, steps: number, size: number, strength: number, struck: number) => number {
     const context = this.context;
     const { ink } = this.palette;
-    const { band, info, thickness, middle, focus, heard, tile, low, high } = lane;
+    const { band, info, heard, tile } = lane;
     const fill = (): void => context.fill();
     return (step, index, steps, size, strength, struck) => {
       const wide = TAU / steps;
-      const share = (step.pitch - PITCH_MIN) / (PITCH_MAX - PITCH_MIN);
-      const resting = Math.max(low, Math.min(high, middle + (share - 1 / 3) * thickness * 0.4));
-      const radius = lerp(resting, lerp(low, high, share), focus);
+      const radius = this.hitRadius(lane, step);
       const half = ((tile * (step.vel === 0 ? 0.55 : 1)) / 2) * size + struck * 2;
       const inner = Math.max(band.inner + 1, radius - half);
       const outer = Math.min(band.outer - 1, radius + half);
@@ -655,11 +654,54 @@ export class RingView {
         fresh[track] = false;
       }
     }
+    this.drawSlides(frame, lane);
     if (fresh[track]) {
       // Struck by hand, with no hit lying there: the light comes from where the runner is.
       const angle = TOP + (((playhead ?? 0) % length) / length) * TAU;
       this.lights.strike(now, center + Math.cos(angle) * middle, center + Math.sin(angle) * middle, this.size, info.color, 0.62, 3);
       if (track === 0) this.lights.wave(now, 0.62);
+    }
+  }
+
+  /** How far out a hit lies in its ring: by its pitch, and the more so the more the ring is in focus. */
+  private hitRadius(lane: Lane, step: Step): number {
+    const share = (step.pitch - PITCH_MIN) / (PITCH_MAX - PITCH_MIN);
+    const resting = Math.max(lane.low, Math.min(lane.high, lane.middle + (share - 1 / 3) * lane.thickness * 0.4));
+    return lerp(resting, lerp(lane.low, lane.high, share), lane.focus);
+  }
+
+  /**
+   * Where the acid machine slides from one note into the next, a stroke leads
+   * from the one to the other across the place where the next begins: the
+   * way the pitch goes.
+   */
+  private drawSlides(frame: Frame, lane: Lane): void {
+    const { track, pattern } = lane;
+    const project = this.app.project;
+    const sound = project.tracks[track]?.sound;
+    if (sound !== ACID_SOUND) return;
+    const context = this.context;
+    const { center } = frame.geometry;
+    const wide = TAU / pattern.len;
+    const stepSeconds = 15 / project.bpm;
+    for (let index = 0; index < pattern.len; index += 1) {
+      if (!slidesInto(pattern, index, sound, stepSeconds)) continue;
+      const next = nextHit(pattern, index);
+      if (!next) continue;
+      const from = this.hitRadius(lane, stepAt(pattern, index));
+      const to = this.hitRadius(lane, stepAt(pattern, next.index));
+      const at = TOP + next.index * wide;
+      const lean = Math.min(wide * 0.38, 7 / Math.max(from, to));
+      context.beginPath();
+      context.moveTo(center + Math.cos(at - lean) * from, center + Math.sin(at - lean) * from);
+      context.lineTo(center + Math.cos(at + lean) * to, center + Math.sin(at + lean) * to);
+      context.lineWidth = 2.6;
+      context.lineCap = "round";
+      context.strokeStyle = this.palette.ink;
+      context.globalAlpha = 0.35 + 0.65 * lane.focus;
+      context.stroke();
+      context.globalAlpha = 1;
+      context.lineCap = "butt";
     }
   }
 

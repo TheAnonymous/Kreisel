@@ -5,6 +5,7 @@ import { seeded } from "../patterns";
 import { barCount } from "../piece";
 import { Store } from "../store";
 import { readFlag, writeFlag } from "./prefs";
+import { AcidDesk } from "./acid";
 import { RingDesk } from "./rings";
 import { VoiceDesk } from "./voice";
 import { WeatherDesk } from "./weather";
@@ -101,6 +102,7 @@ export class App {
 
   // ---- the desks: what can be done to one subject each ----
   readonly rings = new RingDesk(this);
+  readonly acid = new AcidDesk(this);
   readonly voice = new VoiceDesk(this);
   readonly weather = new WeatherDesk(this);
   readonly rumble = new RumbleDesk(this);

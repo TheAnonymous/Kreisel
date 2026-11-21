@@ -104,6 +104,22 @@ export interface Voice {
   breath: number;
 }
 
+/** The number of the acid machine among a ring's sounds: the first after the fifty of the palette (see src/sounds/index.ts). */
+export const ACID_SOUND = 53;
+
+/**
+ * The acid machine's own settings (see src/acid.ts). Where its filter rests
+ * and how much it rings are the sound pad's two directions, as for any sound.
+ */
+export interface Acid {
+  /** "Biss": how far the envelope opens the filter at a note, 0..1. */
+  bite: number;
+  /** "Dauer": how slowly the filter falls shut again, 0..1. */
+  decay: number;
+  /** A square wave instead of a saw. */
+  square: boolean;
+}
+
 export interface Track {
   /** Which sound of the ring's shelf (see sounds/index.ts), or OWN_SOUND for its picture, BODY_SOUND for its body, VOICE_SOUND for its voice. */
   sound: number;
@@ -122,6 +138,8 @@ export interface Track {
   body: Body | null;
   /** The ring's own voice, once it was given a line to sing. */
   voice: Voice | null;
+  /** The ring's acid machine, once it was switched on (bass and melody). */
+  acid: Acid | null;
 }
 
 /** Fog, sun, clouds, rain, sparks, hail: effects painted onto the wheel. */
@@ -348,13 +366,13 @@ export function factoryProject(): Project {
     roll: 0.2,
     volume: 0.8,
     tracks: [
-      { sound: 0, x: 0.5, y: 0.5, level: 0.85, hall: 0, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 1, x: 0.5, y: 0.5, level: 0.78, hall: 0.25, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 0, x: 0.5, y: 0.5, level: 0.7, hall: 0.05, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 1, x: 0.5, y: 0.5, level: 0.6, hall: 0.2, echo: 0.25, drive: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 3, x: 0.45, y: 0.4, level: 0.7, hall: 0, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 2, x: 0.45, y: 0.5, level: 0.7, hall: 0.3, echo: 0.15, drive: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 0, x: 0.55, y: 0.45, level: 0.72, hall: 0.3, echo: 0.4, drive: 0, mute: false, bild: null, body: null, voice: null },
+      { sound: 0, x: 0.5, y: 0.5, level: 0.85, hall: 0, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: 1, x: 0.5, y: 0.5, level: 0.78, hall: 0.25, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: 0, x: 0.5, y: 0.5, level: 0.7, hall: 0.05, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: 1, x: 0.5, y: 0.5, level: 0.6, hall: 0.2, echo: 0.25, drive: 0, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: 3, x: 0.45, y: 0.4, level: 0.7, hall: 0, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: 2, x: 0.45, y: 0.5, level: 0.7, hall: 0.3, echo: 0.15, drive: 0, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: 0, x: 0.55, y: 0.45, level: 0.72, hall: 0.3, echo: 0.4, drive: 0, mute: false, bild: null, body: null, voice: null, acid: null },
     ],
     scenes: [scene, null, null, null, null, null, null, null],
     scene: 0,
@@ -385,7 +403,7 @@ export function technoPiece(scene = 0): Piece {
  * The techno Kreisel, which a first visit starts with: 150 beats a minute and
  * no swing, G Phrygian over one chord, the kick on every beat with the ground
  * shaking between, an open hi-hat on the off-beats, a clap on two and four, a
- * low drum on a ring of twelve, and an acid line that slides three times.
+ * low drum on a ring of twelve, and an acid machine whose line slides three times.
  */
 export function technoProject(): Project {
   const scene: Scene = {
@@ -401,9 +419,9 @@ export function technoProject(): Project {
       pattern(16, [[1, 0, 1, 0], [2, 3, 1, 2], [3, 0, 1, 0], [5, 0, 1, 0], [6, 3, 1, 2], [7, 0, 1, 0], [9, 0, 1, 0], [10, 3, 1, 2], [11, 0, 1, 0], [13, 0, 1, 0], [14, 3, 1, 2], [15, 0, 1, 0, 0, 2]]),
       pattern(12, [[3, -3], [7, 0, 1, 0], [10, -3, 1, 1, 1]]),
       // An octave above the ground the Nachbeben shakes on: the root (7), the small step above it (8) and the octave (14).
-      // A note right after another of a different pitch slides into it: the octave down to the root, the root up
+      // A note held into the next one (two steps long here) slides into it: the octave down to the root, the root up
       // the small step, and that step back to the root over the bar line.
-      pattern(16, [[0, 7], [1, 7, 1, 0], [3, 14, 1, 2], [4, 7], [6, 7], [7, 8, 1, 2], [9, 7], [10, 7, 1, 0], [12, 14, 1, 2], [13, 14], [15, 8]]),
+      pattern(16, [[0, 7], [1, 7, 1, 0], [3, 14, 2, 2], [4, 7], [6, 7, 2], [7, 8, 1, 2], [9, 7], [10, 7, 1, 0], [12, 14, 1, 2], [13, 14], [15, 8, 2]]),
       pattern(16, [[6, 0, 1, 2], [13, 0, 1, 0]]),
       emptyPattern(16),
     ],
@@ -424,13 +442,14 @@ export function technoProject(): Project {
     volume: 0.8,
     tracks: [
       // The hard kick, tuned down to the root (49 Hz). What makes a kick hard is its own; the rings after it are driven a little.
-      { sound: 1, x: 0.3, y: 0.55, level: 0.9, hall: 0, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null },
-      { sound: 1, x: 0.5, y: 0.35, level: 0.7, hall: 0.12, echo: 0, drive: 0.25, mute: false, bild: null, body: null, voice: null },
-      { sound: 1, x: 0.5, y: 0.5, level: 0.62, hall: 0.03, echo: 0, drive: 0.15, mute: false, bild: null, body: null, voice: null },
-      { sound: 0, x: 0.3, y: 0.45, level: 0.55, hall: 0.1, echo: 0.15, drive: 0.3, mute: false, bild: null, body: null, voice: null },
-      { sound: 2, x: 0.5, y: 0.35, level: 0.72, hall: 0, echo: 0.12, drive: 0.4, mute: false, bild: null, body: null, voice: null },
-      { sound: 1, x: 0.55, y: 0.3, level: 0.5, hall: 0.25, echo: 0.3, drive: 0.35, mute: false, bild: null, body: null, voice: null },
-      { sound: 3, x: 0.55, y: 0.4, level: 0.6, hall: 0.1, echo: 0.3, drive: 0.3, mute: false, bild: null, body: null, voice: null },
+      { sound: 1, x: 0.3, y: 0.55, level: 0.9, hall: 0, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: 1, x: 0.5, y: 0.35, level: 0.7, hall: 0.12, echo: 0, drive: 0.25, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: 1, x: 0.5, y: 0.5, level: 0.62, hall: 0.03, echo: 0, drive: 0.15, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: 0, x: 0.3, y: 0.45, level: 0.55, hall: 0.1, echo: 0.15, drive: 0.3, mute: false, bild: null, body: null, voice: null, acid: null },
+      // The acid machine: its filter less than half open and ringing, a saw that bites.
+      { sound: ACID_SOUND, x: 0.42, y: 0.68, level: 0.72, hall: 0, echo: 0.12, drive: 0.4, mute: false, bild: null, body: null, voice: null, acid: { bite: 0.6, decay: 0.35, square: false } },
+      { sound: 1, x: 0.55, y: 0.3, level: 0.5, hall: 0.25, echo: 0.3, drive: 0.35, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: 3, x: 0.55, y: 0.4, level: 0.6, hall: 0.1, echo: 0.3, drive: 0.3, mute: false, bild: null, body: null, voice: null, acid: null },
     ],
     scenes: [scene, null, null, null, null, null, null, null],
     scene: 0,

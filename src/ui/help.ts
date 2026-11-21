@@ -39,6 +39,7 @@ export class HelpDialog {
       ["9", `das Wetter wählen · dort: ${key("KeyQ")} ${key("KeyW")} ${key("KeyE")} ${key("KeyR")} ${key("KeyT")} ${key("KeyY")} Nebel, Sonne, Wolken, Regen, Funken, Hagel · ${key("KeyN")} würfeln · Entf nimmt das gewählte Wetter weg`],
       ["Hinter den drei Punkten", "Techno-Kreisel oder Werks-Kreisel laden · „Techno würfeln“: Die Würfel werfen Kick auf jedem Schlag, offene Hi-Hat dazwischen und Acid-Linien, das Stück bekommt Abschnitte von 16 und 32 Takten"],
       ["Härte", "„Zerre“ im Feld eines Rings treibt ihn in die Verzerrung (Funken aus dem Wetter kommen obendrauf) · „Druck“ hinter den drei Punkten presst alles zusammen: lauter, dichter, die Tiefen in der Mitte"],
+      ["Acid-Maschine", "für Bass und Melodie, unten in der Klang-Palette · das Klangfeld ist ihr Filter, darunter Biss, Dauer, Welle und die Filterfahrt · ein Ton, der in den nächsten hineinreicht, gleitet in ihn (Rechtsklick auf den Ton: „In den nächsten ziehen“)"],
       ["Strg+Z", "Rückgängig · mit Umschalt wiederholen"],
       ["?", "diese Hilfe"],
     ];

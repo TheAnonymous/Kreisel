@@ -1,5 +1,6 @@
 import type { App } from "../app/app";
-import { BODY_SOUND, clamp, trackInfo, trackOf, VOICE_SOUND, type Track } from "../model";
+import { takesAcid } from "../acid";
+import { ACID_SOUND, BODY_SOUND, clamp, trackInfo, trackOf, VOICE_SOUND, type Track } from "../model";
 import { BODY_NAMES } from "../body";
 import { FAMILY_COUNT, FAMILY_SIZE, familyNames, familySounds, placeOf, SOUND_COUNT, soundAt, soundName } from "../sounds/index";
 import { button, byId, el } from "./dom";
@@ -9,6 +10,7 @@ import { onContext } from "./menu";
 export function soundLabel(track: number, settings: Track): string {
   const name = soundName(track, settings.sound);
   if (name !== null) return name;
+  if (settings.sound === ACID_SOUND) return "Acid 303";
   if (settings.sound === VOICE_SOUND) return "Stimme";
   return settings.sound === BODY_SOUND && settings.body ? (BODY_NAMES[settings.body.kind] ?? "Klangkörper") : "Gemalt";
 }
@@ -30,6 +32,9 @@ export class SoundPalette {
   private readonly pick = button("sound-pick", "", `Alle ${SOUND_COUNT} Klänge dieses Rings zeigen (P) · Rechtsklick würfelt einen`);
   private readonly name = el("span", "sound-name");
   private readonly family = el("span", "sound-family");
+  /** The acid machine: one more sound, for the two rings that can have it. */
+  private readonly machineRow = el("div", "palette-machine");
+  private readonly machine = button("machine", "Acid 303", "Die Acid-Maschine: ein Filter, der schmatzt, Betonungen, die sich hochschaukeln, und Töne, die ineinander gleiten");
   /** The ring whose names the palette shows. */
   private shown = -1;
 
@@ -82,6 +87,10 @@ export class SoundPalette {
       this.card.append(heading, row);
       this.headings.push(heading);
     }
+    this.machine.id = "palette-machine";
+    this.machine.addEventListener("click", () => app.acid.use());
+    this.machineRow.append(el("strong", "", "Maschine"), this.machine, el("span", "hint", "mit eigenem Filter, Biss und Gleiten"));
+    this.card.append(this.machineRow);
   }
 
   /** A press outside puts the palette away. The list of rings and the bar are not outside: another ring's palette is one click away, and so is start and stop. */
@@ -95,7 +104,7 @@ export class SoundPalette {
     const settings = trackOf(app.project, track);
     const where = placeOf(settings.sound);
     this.name.textContent = soundLabel(track, settings);
-    this.family.textContent = where ? (familyNames(track)[where.family] ?? "") : "eigener Klang";
+    this.family.textContent = where ? (familyNames(track)[where.family] ?? "") : settings.sound === ACID_SOUND ? "Maschine" : "eigener Klang";
     const open = app.rings.paletteOpen && app.focus === "ring" && !app.relay.veiled(track);
     this.pick.setAttribute("aria-expanded", String(open));
     this.card.hidden = !open;
@@ -110,6 +119,8 @@ export class SoundPalette {
     this.title.textContent = `${info.name}: ${SOUND_COUNT} Klänge`;
     this.card.style.setProperty("--c", info.color);
     this.chips.forEach((chip, index) => chip.setAttribute("aria-pressed", String(soundAt(Math.floor(index / FAMILY_SIZE), index % FAMILY_SIZE) === settings.sound)));
+    this.machineRow.hidden = !takesAcid(track);
+    this.machine.setAttribute("aria-pressed", String(settings.sound === ACID_SOUND));
     this.place();
   }
 

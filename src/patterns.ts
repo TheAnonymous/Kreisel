@@ -297,7 +297,8 @@ function acidRhythm(len: number, random: Random): boolean[] {
  * It has at most five different notes: the root most of the time, its
  * octaves, and one or two notes of the scale. A note that follows another
  * without a rest keeps that one's pitch, except where the line is meant to
- * slide (one to three times): there it jumps, and the bass glides into it.
+ * slide (one to three times): there it jumps, and the note before it is held
+ * into it, so that the bass glides.
  * Two to four notes are accented, first the ones slid into, then ones between
  * the beats. The ring is a circle, so its last step counts as coming before
  * its first.
@@ -336,6 +337,9 @@ function technoAcid(len: number, random: Random): Pattern {
       slides.push(walk[place] ?? 0);
     }
   }
+
+  // A note that is slid out of is held into the next: that is what ties the two (see src/acid.ts).
+  for (const index of slides) stepAt(pattern, wrap(index - 1, len)).len = 2;
 
   const between = hits.filter((index) => index % 4 !== 0 && !slides.includes(index)).map((index) => ({ index, order: random() })).sort((a, b) => a.order - b.order).map(({ index }) => index);
   const onBeat = hits.filter((index) => index % 4 === 0 && !slides.includes(index));

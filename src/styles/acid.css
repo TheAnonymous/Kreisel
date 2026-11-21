@@ -1,0 +1,52 @@
+/* ---- the acid machine in a ring's panel -------------------------------------------- */
+
+/* The machine's panel holds a group more than the others: its sound pad lies flatter, so everything stays in view,
+   also where the ring has so many hits that the line telling of them takes two rows. */
+.panel-ring:has(.acid:not([hidden])) .pad {
+  aspect-ratio: 5.2 / 1;
+}
+
+.acid .line .label {
+  width: auto;
+  margin-right: 2px;
+}
+
+.acid .chip[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* The filter ride stands at the end of its row. */
+.acid .line .button.small {
+  margin-left: auto;
+  padding: 3px 9px;
+}
+
+/* The machine among the ring's sounds: one more line under the palette's fifty. */
+.palette-machine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 2px dotted var(--hair);
+}
+
+.palette-machine .machine {
+  padding: 4px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.palette-machine .machine[aria-pressed="true"] {
+  background: var(--c, var(--ink));
+  color: var(--ink);
+}
+
+.palette-machine .hint {
+  font-size: 0.72rem;
+  color: var(--soft);
+}

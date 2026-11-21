@@ -5,7 +5,7 @@ import { describeBody } from "../body";
 import { describeRumble, hasRumble } from "../rumble";
 import { describeVoice, FIELD_LETTERS } from "../voice";
 import { describeWeather } from "../weather";
-import { clamp, currentScene, VOICE_SOUND, MAX_STEPS, MIN_STEPS, patternOf, SCENE_COUNT, SCENE_NAMES, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
+import { ACID_SOUND, clamp, currentScene, VOICE_SOUND, MAX_STEPS, MIN_STEPS, patternOf, SCENE_COUNT, SCENE_NAMES, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
 import { NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
 import { activeSteps, describe } from "../patterns";
 import { describePiece } from "../piece";
@@ -23,6 +23,7 @@ import { HelpDialog } from "./help";
 import { ChordMenu } from "./chord-menu";
 import { ToastView } from "./toast";
 import { PiecePanel } from "./piece-panel";
+import { AcidPanel } from "./acid-panel";
 import { WeatherPanel } from "./weather-panel";
 import { EaselWindow } from "./easel-window";
 import { BoothWindow } from "./booth-window";
@@ -95,6 +96,7 @@ export class Panels {
   private readonly toast: ToastView;
   private readonly piecePanel: PiecePanel;
   private readonly weatherPanel: WeatherPanel;
+  private readonly acidPanel: AcidPanel;
   private readonly easelWindow: EaselWindow;
   private readonly boothWindow: BoothWindow;
   private readonly benchWindow: BenchWindow;
@@ -108,6 +110,7 @@ export class Panels {
     this.toast = new ToastView(app);
     this.piecePanel = new PiecePanel(this, app);
     this.weatherPanel = new WeatherPanel(this, app);
+    this.acidPanel = new AcidPanel(this, app);
     this.easelWindow = new EaselWindow(this, app, easel);
     this.boothWindow = new BoothWindow(this, app, mouth);
     this.benchWindow = new BenchWindow(this, app, bench);
@@ -466,7 +469,7 @@ export class Panels {
   /** The panel of the ring in focus, and the cloth over a ring that someone else has built (Stille Post). */
   private buildPanel(): void {
     this.head.append(el("span", "dot"), this.panel.name);
-    this.ringBox.append(this.head, this.panel.info, this.buildDoing(), this.palette.buildRow(), ...this.buildOwnSounds(), this.buildPad(), this.buildSteps(), this.buildQuake(), this.buildMix());
+    this.ringBox.append(this.head, this.panel.info, this.buildDoing(), this.palette.buildRow(), ...this.buildOwnSounds(), this.buildPad(), this.acidPanel.build(), this.buildSteps(), this.buildQuake(), this.buildMix());
     this.veilBox.append(
       el("header", "panel-head"),
       el("p", "veil-text", "Stille Post: Dieser Ring ist verdeckt. Jemand hat hier schon gebaut, aber du hörst und siehst nur den Ring der Person vor dir. Bau deinen eigenen dazu: Nimm einen Ring, der noch leer ist. Wenn alle fertig sind, deckt ihr im Reihum-Fenster auf."),
@@ -719,6 +722,7 @@ export class Panels {
     this.syncStatus();
     this.boothWindow.sync();
     this.weatherPanel.sync();
+    this.acidPanel.sync();
     this.chordMenu.sync();
     this.palette.sync();
     this.toast.sync();
@@ -887,11 +891,13 @@ export class Panels {
     parts.puck.style.left = `${settings.x * 100}%`;
     parts.puck.style.bottom = `${settings.y * 100}%`;
     const sings = settings.sound === VOICE_SOUND;
-    parts.axisX.textContent = sings ? "" : `${info.xLabel} →`;
-    parts.axisY.textContent = sings ? "" : `${info.yLabel} ↑`;
+    // For the acid machine the pad is its filter: how far open, and how much it rings.
+    const [xLabel, yLabel] = settings.sound === ACID_SOUND ? ["Filter", "Resonanz"] : [info.xLabel, info.yLabel];
+    parts.axisX.textContent = sings ? "" : `${xLabel} →`;
+    parts.axisY.textContent = sings ? "" : `${yLabel} ↑`;
     this.vowels.hidden = !sings;
     parts.pad.title = sings ? "Das Vokalfeld: Der Punkt zieht alle Vokale zu sich, am Rand ganz, in der Mitte gar nicht" : "";
-    parts.pad.setAttribute("aria-label", `Klangfeld: ${info.xLabel} ${Math.round(settings.x * 100)} %, ${info.yLabel} ${Math.round(settings.y * 100)} %. Pfeiltasten verändern.`);
+    parts.pad.setAttribute("aria-label", `Klangfeld: ${xLabel} ${Math.round(settings.x * 100)} %, ${yLabel} ${Math.round(settings.y * 100)} %. Pfeiltasten verändern.`);
     parts.steps.textContent = String(pattern.len);
     this.moved(parts.steps, pattern.len, "tick", undefined, !sameRing);
     const hits = activeSteps(pattern).length;

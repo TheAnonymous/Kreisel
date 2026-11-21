@@ -1,5 +1,6 @@
 import type { App, ContextTarget } from "../app/app";
-import { BODY_SOUND, VOICE_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, trackInfo, trackOf } from "../model";
+import { nextHit } from "../acid";
+import { ACID_SOUND, BODY_SOUND, VOICE_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, trackInfo, trackOf } from "../model";
 import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
@@ -51,6 +52,10 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
             { label: "+", title: "Den Ton länger halten", disabled: note.len >= longest, run: () => app.rings.setStep(track, at, { len: note.len + 1 }) },
           ],
         });
+        // The acid machine ties a note that is held into the next one: the next is not struck again, and slides if it is another note.
+        if (settings.sound === ACID_SOUND && nextHit(pattern, at)) {
+          rows.push({ kind: "choice", label: "In den nächsten", options: [{ label: "ziehen", active: app.acid.tied(track, at), title: "Den Ton in den nächsten hineinhalten: Der gleitet dann, statt neu anzuschlagen", run: () => app.acid.tie(track, at) }] });
+        }
       }
       rows.push(
         {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeLink, encodeLink, pack, unpack } from "../src/codec";
-import { currentScene, emptySceneFor, factoryProject, FIRST_ORDER, MAX_BARS, patternOf, PITCH_MAX, PITCH_MIN, startProject, stepAt, TECHNO_ORDER, technoPiece, technoProject, TENSION_MAX, TRACK_COUNT, wrap, type Pattern, type Piece } from "../src/model";
+import { ACID_SOUND, currentScene, emptySceneFor, factoryProject, FIRST_ORDER, MAX_BARS, patternOf, PITCH_MAX, PITCH_MIN, startProject, stepAt, TECHNO_ORDER, technoPiece, technoProject, TENSION_MAX, TRACK_COUNT, wrap, type Pattern, type Piece } from "../src/model";
+import { nextHit, slidesInto } from "../src/acid";
 import { ACID_ROOT, activeSteps, dice, seeded } from "../src/patterns";
 import { barCount, dicePiece, planBar, resizePiece, soundPiece, technoSections } from "../src/piece";
 import { shapeOf } from "../src/rumble";
@@ -8,8 +9,11 @@ import { shapeOf } from "../src/rumble";
 /** Seeds far apart: neighbouring ones start the generator off alike. */
 const SEEDS = Array.from({ length: 60 }, (_, index) => index * 7919 + 13);
 
-/** The notes that follow another note of a different pitch without a rest: there the bass slides. The ring is a circle. */
-const slides = (pattern: Pattern): number[] => activeSteps(pattern).filter((index) => {
+/** The notes the acid machine slides into at 150 beats a minute: the note before is held into them and differs in pitch. The ring is a circle. */
+const slides = (pattern: Pattern): number[] => activeSteps(pattern).filter((index) => slidesInto(pattern, index, ACID_SOUND, 0.1)).map((index) => nextHit(pattern, index)?.index ?? -1).sort((a, b) => a - b);
+
+/** The notes that follow another of a different pitch without a rest: where the older bass sounds glide, and the machine only if the first is held. */
+const touching = (pattern: Pattern): number[] => activeSteps(pattern).filter((index) => {
   const before = stepAt(pattern, wrap(index - 1, pattern.len));
   return activeSteps(pattern).length > 1 && before.on && before.pitch !== stepAt(pattern, index).pitch;
 });
@@ -42,7 +46,11 @@ describe("the techno Kreisel", () => {
 
   it("has an acid line of three notes that slides three times, once over the bar line", () => {
     const acid = patternOf(project, 4);
-    expect(project.tracks[4]?.sound).toBe(2);
+    // It is played by the acid machine, and every slide is a note held into the next.
+    expect(project.tracks[4]?.sound).toBe(ACID_SOUND);
+    expect(project.tracks[4]?.acid).toEqual({ bite: 0.6, decay: 0.35, square: false });
+    expect(touching(acid)).toEqual([0, 4, 7]);
+    expect([3, 6, 15].map((index) => stepAt(acid, index).len)).toEqual([2, 2, 2]);
     expect([...new Set(activeSteps(acid).map((index) => stepAt(acid, index).pitch))].sort((a, b) => a - b)).toEqual([ACID_ROOT, ACID_ROOT + 1, ACID_ROOT + 7]);
     expect(slides(acid)).toEqual([0, 4, 7]);
     expect(activeSteps(acid).filter((index) => stepAt(acid, index).vel === 2)).toEqual([3, 7, 12]);
@@ -120,10 +128,11 @@ describe("techno dice", () => {
       // At most five different notes, all of them the root, its octaves or within the octave above it.
       expect(new Set(pitches).size).toBeLessThanOrEqual(5);
       for (const pitch of pitches) expect([ACID_ROOT - 7, ACID_ROOT, ACID_ROOT + 1, ACID_ROOT + 2, ACID_ROOT + 4, ACID_ROOT + 6, ACID_ROOT + 7]).toContain(pitch);
-      // It slides, but not all the time.
-      const touching = hits.some((index) => stepAt(acid, wrap(index - 1, 16)).on);
+      // It slides, but not all the time; and where notes of different pitch touch, the first is held into the second, so that the machine slides there too.
+      const together = hits.some((index) => stepAt(acid, wrap(index - 1, 16)).on);
       expect(slides(acid).length).toBeLessThanOrEqual(3);
-      if (touching) expect(slides(acid).length).toBeGreaterThanOrEqual(1);
+      if (together) expect(slides(acid).length).toBeGreaterThanOrEqual(1);
+      expect(slides(acid)).toEqual(touching(acid).sort((a, b) => a - b));
       // Two to four accents, and the notes slid into get theirs before any other does.
       const accents = hits.filter((index) => stepAt(acid, index).vel === 2);
       expect(accents.length).toBeGreaterThanOrEqual(2);

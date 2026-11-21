@@ -424,11 +424,40 @@ and so is the sum.
   it; nobody has to listen for a test to pass, and nothing here was set by
   ear.
 
+The third step is acid as an instrument: a machine of its own, in the manner
+of the little silver bass machine the music is named after.
+
+- **Where it is.** The bass and the melody can each have an acid machine. It
+  is one more sound under the palette's fifty ("Maschine: Acid 303"), with the
+  number 53; nothing on the palette changed, and the older "Acid" sounds are
+  as they were. The techno Kreisel plays its line on it.
+- **The pad is its filter**: how far open from left to right, how much it
+  rings from bottom to top. Under the pad the machine has a group of its own:
+  "Biss" (how far a note opens the filter), "Dauer" (how slowly it falls shut),
+  saw or square, and the filter ride. The ring's Zerre is its distortion.
+- **Accents** are louder, fall shut at the shortest time whatever "Dauer"
+  says, and open the filter further; accents that follow closely leave a
+  charge that pushes the next one higher still, the more the filter rings.
+- **Slides.** The machine has one voice and plays a plain note for a little
+  more than half a step, so two notes side by side are two notes. A note that
+  is held into the next one is tied to it: the next is not struck again, its
+  filter goes on from where the first one's was, and if it is another note it
+  glides there in a sixteenth of a second. On the wheel a stroke leads from
+  the one to the other. The length tool makes a tie by pulling a note into the
+  next, and so does "In den nächsten ziehen" in the hit's menu. Nothing new is
+  stored: a tie is a note's length.
+- **Room for the Nachbeben.** While the ground shakes, the machine is thinned
+  out below 150 Hz, so that the Nachbeben has the lows to itself.
+- **The filter ride** ("Filterfahrt") lays a hill of sun over the ring and
+  sets the sun's wind to one step a bar: the filter opens and closes by
+  itself, once in as many bars as the ring has steps. It is ordinary weather
+  and can be repainted as such.
+
 The rules are in `src/model.ts` (the two starts), `src/patterns.ts` (the dice),
-`src/piece.ts` (the form) and `src/press.ts` (hardness). Still to come: a real
-303 voice with slides one can see, breaks that take the kick out, and a techno
-Kreisel that uses the ride, the open hi-hat and the claps of the new palettes
-(it starts on the classics for now).
+`src/piece.ts` (the form), `src/press.ts` (hardness) and `src/acid.ts` (the
+machine; `src/audio/acid.ts` makes it sound). Still to come: breaks that take
+the kick out, and a techno Kreisel that uses the ride, the open hi-hat and the
+claps of the new palettes (its drums start on the classics for now).
 
 ## Build
 
@@ -463,7 +492,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/patterns.ts` | turning, spreading, dice in both styles and small variations (pure, seeded) |
 | `src/codec.ts`, `src/store.ts` | the project as a link and in the browser's storage; undo |
 | `src/bild.ts`, `src/imitate.ts`, `src/collection.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes; the shelf of kept pictures |
-| `src/body.ts`, `src/voice.ts`, `src/kick.ts`, `src/rumble.ts`, `src/weather.ts`, `src/press.ts` | the rules of the Klangkörper, the voice, the kick's place in the key, the Nachbeben, the weather, and of Zerre and Druck |
+| `src/body.ts`, `src/voice.ts`, `src/kick.ts`, `src/rumble.ts`, `src/weather.ts`, `src/press.ts`, `src/acid.ts` | the rules of the Klangkörper, the voice, the kick's place in the key, the Nachbeben, the weather, of Zerre and Druck, and of the acid machine |
 | `src/piece.ts`, `src/relay.ts` | the piece: what a bar's tension asks for; Reihum: what a turn touched, people's colours |
 | `src/sounds/` | the palettes: 350 ready-made sounds as recipes (`shapes.ts` says what a recipe is, a file for each ring holds its fifty, `index.ts` knows their numbers and names, `trims.ts` how loud each is) |
 | `src/audio/` | the ready-made sounds made audible, painted sounds, bodies and voices, the kick's drive and the Nachbeben, listening, the mixer, the player (live and offline), effects, recording; `hear.ts` renders one hit by itself and measures it, `whole.ts` the whole Kreisel |
@@ -479,7 +508,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/menu.ts`, `menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
 | `scripts/level-sounds.mjs` | `npm run level`: measures every ready-made sound and writes `src/sounds/trims.ts` |
-| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
+| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
 
 ## License
 
