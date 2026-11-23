@@ -254,7 +254,7 @@ export class Panels {
       const key = this.fxButtons.get(fx.id)?.querySelector(".key");
       if (key) key.textContent = this.keyLabel(FX_CODES[index] ?? "");
     });
-    for (const nodes of [this.easelWindow.brushButtons, this.benchWindow.malletButtons, this.weatherPanel.cloudButtons]) {
+    for (const nodes of [this.easelWindow.brushButtons, this.benchWindow.malletButtons, this.weatherPanel.cloudButtons, this.piecePanel.toolButtons]) {
       nodes.forEach((node, index) => {
         const key = node.querySelector(".key");
         if (key) key.textContent = this.keyLabel(WEATHER_CODES[index] ?? "");
@@ -873,6 +873,8 @@ export class Panels {
     const settings = trackOf(project, selected);
     byId("status").textContent = app.weather.focused
       ? `Wetter: ${describeWeather(currentScene(project))}`
+      : app.piece.laying && app.piece.key !== null
+      ? app.piece.describeRoster(app.piece.lane, app.piece.key)
       : app.piece.focused
       ? `Stück: ${describePiece(project.piece, project.bpm)}${project.piece.on ? "" : " (aus)"}`
       : app.relay.veiled(selected) ? `${info.name}: verdeckt (Stille Post)`

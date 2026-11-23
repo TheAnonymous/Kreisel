@@ -1,6 +1,9 @@
-import { clamp, TENSION_MAX, type RunUp, wrap } from "../model";
-import { barCount, dicePiece, kickOut, moveInOrder, phraseOf, resizePiece, rotatePiece, setKick, setRunUp, setVary, smoothPiece } from "../piece";
+import { clamp, TENSION_MAX, TRACK_COUNT, trackInfo, type RunUp, wrap } from "../model";
+import { barCount, clearRoster, dicePiece, fillRoster, flipped, kickOut, moveInOrder, PHRASE, phraseOf, reached, resizePiece, ROSTER, rosterOf, rotatePiece, setKick, setRoster, setRunUp, setVary, smoothPiece, type RosterState } from "../piece";
 import type { App } from "./app";
+
+/** What the wheel shows of the piece while its ring is in focus: the tension to paint, or the roster ("Einsätze") to lay. */
+export type PieceTool = "spannung" | "einsaetze";
 
 /*
  * The piece: the outermost ring, where one turn is the whole piece.
@@ -10,6 +13,10 @@ export class PieceDesk {
   start = 0;
   /** The bar the keyboard points at on the piece's ring. */
   key: number | null = null;
+  /** What the wheel shows of the piece while its ring is in focus. */
+  tool: PieceTool = "spannung";
+  /** The ring the keyboard points at in the roster. */
+  lane = 0;
 
   constructor(private readonly app: App) {}
 
@@ -20,6 +27,17 @@ export class PieceDesk {
 
   playhead(): number | null {
     return this.app.engine.pieceCursor();
+  }
+
+  /** The seven rings show the roster: who plays in which phrase of the piece. */
+  get laying(): boolean {
+    return this.focused && this.tool === "einsaetze";
+  }
+
+  setTool(tool: PieceTool): void {
+    if (this.tool === tool) return;
+    this.tool = tool;
+    this.app.notify();
   }
 
   /** Puts the piece's ring in focus: it widens, and the panel shows the piece. */
@@ -71,6 +89,74 @@ export class PieceDesk {
     const next = plays ?? kickOut(piece, bar);
     this.app.store.edit((project) => setKick(project.piece, from, to, next));
     this.app.say(next ? `Takt ${from + 1} bis ${to} wieder mit Kick.` : `Break in Takt ${from + 1} bis ${to}: Kick und Nachbeben setzen aus, alles andere spielt nach der Spannung.`);
+  }
+
+  /**
+   * A click in the roster: turns around whether ring `ring` plays in the phrase around `bar`, and says which state
+   * that made, so that a stroke can go on with it.
+   */
+  flipRoster(ring: number, bar: number, gesture?: string): RosterState | null {
+    const piece = this.app.project.piece;
+    if (bar < 0 || bar >= barCount(piece) || ring < 0 || ring >= TRACK_COUNT) return null;
+    const state = flipped(piece, ring, bar);
+    this.layRoster(ring, bar, state, gesture);
+    return state;
+  }
+
+  /** Lays ring `ring` in or out for the phrase around `bar`, or gives it back to the tension there. */
+  layRoster(ring: number, bar: number, state: RosterState, gesture?: string): void {
+    const piece = this.app.project.piece;
+    if (bar < 0 || bar >= barCount(piece) || ring < 0 || ring >= TRACK_COUNT) return;
+    const { from, to } = phraseOf(piece, bar);
+    let there = true;
+    for (let at = from; at < to; at += 1) there &&= rosterOf(piece, ring, at) === state;
+    if (there) return;
+    this.app.store.edit((project) => setRoster(project.piece, ring, from, to, state), gesture, Infinity);
+  }
+
+  /** Every ring plays in the phrase around `bar`, or in the whole piece: the place to begin taking things away from. */
+  fillRoster(bar: number | null): void {
+    const piece = this.app.project.piece;
+    const { from, to } = bar === null ? { from: 0, to: barCount(piece) } : phraseOf(piece, bar);
+    this.app.store.edit((project) => fillRoster(project.piece, from, to));
+    if (bar === null) this.app.say("Alle Ringe spielen jetzt im ganzen Stück. Nimm weg, was nicht spielen soll.", this.app.takeBack);
+  }
+
+  /** The tension decides again who plays in the phrase around `bar`, or in the whole piece. A break there goes too. */
+  clearRoster(bar: number | null): void {
+    const piece = this.app.project.piece;
+    const { from, to } = bar === null ? { from: 0, to: barCount(piece) } : phraseOf(piece, bar);
+    const breaks = piece.noKick?.slice(from, to).some(Boolean) ?? false;
+    this.app.store.edit((project) => clearRoster(project.piece, from, to));
+    if (bar === null) this.app.say(`Im ganzen Stück entscheidet wieder die Spannung, wer spielt.${breaks ? " Auch die Breaks sind weg." : ""}`, this.app.takeBack);
+  }
+
+  /** What the roster holds for a ring in the phrase around `bar`, in words: for the status line and for whoever points there. */
+  describeRoster(ring: number, bar: number): string {
+    const piece = this.app.project.piece;
+    const { from, to } = phraseOf(piece, bar);
+    const state = rosterOf(piece, ring, bar);
+    const tension = reached(piece, ring, bar);
+    const does = state === ROSTER.plays ? (tension ? "spielt hier immer" : "spielt, obwohl die Spannung noch nicht reicht")
+      : state === ROSTER.rests ? (tension ? "pausiert, obwohl die Spannung reicht" : "pausiert")
+        : tension ? "spielt nach der Spannung" : "spielt nicht, die Spannung reicht noch nicht";
+    return `${trackInfo(ring).name} · Takt ${from + 1} bis ${to}: ${does}`;
+  }
+
+  /** The keyboard in the roster: from phrase to phrase along the piece, and from ring to ring. */
+  movePhrase(by: number): void {
+    const count = barCount(this.app.project.piece);
+    const phrases = Math.ceil(count / PHRASE);
+    const at = this.key === null ? (by > 0 ? -1 : 0) : Math.floor(this.key / PHRASE);
+    this.key = wrap(at + by, phrases) * PHRASE;
+    this.app.notify();
+  }
+
+  moveLane(by: number): void {
+    const lane = clamp(this.lane + by, 0, TRACK_COUNT - 1);
+    if (lane === this.lane) return;
+    this.lane = lane;
+    this.app.notify();
   }
 
   /** Switches one of the run-ups before a landing on or off. */

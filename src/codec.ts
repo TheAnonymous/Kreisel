@@ -97,14 +97,46 @@ export function unpackBild(value: unknown): Bild | null {
 /** What a piece does by itself, as bits of one number. */
 const MOVES = { roll: 1, kick: 2, hat: 4, vary: 8 } as const;
 
+/** The longest list of a roster a link may carry: two bits a bar for 256 bars, in base64. */
+const ROSTER_CHARS = 90;
+
+/** A roster as a list a ring, two bits a bar in base64, empty for a ring with nothing laid; rings after the last such one are left out. */
+function packRoster(piece: Piece): string[] | null {
+  if (!piece.roster) return null;
+  const lists = piece.roster.map((list) => {
+    if (list.length === 0) return "";
+    const bits = new Uint8Array(Math.ceil(piece.tension.length / 4));
+    list.forEach((state, bar) => { bits[bar >> 2] = (bits[bar >> 2] ?? 0) | ((state & 3) << ((bar & 3) * 2)); });
+    return toBase64Url(bits);
+  });
+  while (lists.length > 0 && lists[lists.length - 1] === "") lists.pop();
+  return lists.length > 0 ? lists : null;
+}
+
+/** What a link says of the roster, as far as it can be read: a list a ring of `bars` entries, or nothing. */
+function unpackRoster(value: unknown, bars: number): number[][] {
+  if (!Array.isArray(value) || value.length > TRACK_COUNT) return [];
+  return value.map((text) => {
+    if (typeof text !== "string" || text.length === 0 || text.length > ROSTER_CHARS) return [];
+    try {
+      const bits = fromBase64Url(text);
+      return Array.from({ length: bars }, (_, bar) => ((bits[bar >> 2] ?? 0) >> ((bar & 3) * 2)) & 3);
+    } catch {
+      // A list that cannot be read is no list.
+      return [];
+    }
+  });
+}
+
 /**
  * A piece as [on, one byte a bar (tension | scene << 5) in base64, the order of the rings as digits].
- * Only a piece that has them adds two more: its bars "ohne Kick" as one bit a bar in base64 (empty for none), and
- * what it does by itself as a number (see MOVES). A piece without any of that is packed as it always was.
+ * Only a piece that has them adds more: its bars "ohne Kick" as one bit a bar in base64 (empty for none), what it
+ * does by itself as a number (see MOVES, 0 for nothing), and its roster (see packRoster). A piece without any of
+ * that is packed as it always was, and each of the three is there only if it or one after it says something.
  */
-export function packPiece(piece: Piece): [number, string, string, string?, number?] {
+export function packPiece(piece: Piece): [number, string, string, string?, number?, string[]?] {
   const bytes = piece.tension.map((tension, bar) => (tension & 31) | (((piece.scenes[bar] ?? 0) & 7) << 5));
-  const packed: [number, string, string, string?, number?] = [piece.on ? 1 : 0, toBase64Url(Uint8Array.from(bytes)), piece.order.join("")];
+  const packed: [number, string, string, string?, number?, string[]?] = [piece.on ? 1 : 0, toBase64Url(Uint8Array.from(bytes)), piece.order.join("")];
   const moves = (piece.runUp?.roll ? MOVES.roll : 0) | (piece.runUp?.kick ? MOVES.kick : 0) | (piece.runUp?.hat ? MOVES.hat : 0) | (piece.vary ? MOVES.vary : 0);
   let marks = "";
   if (piece.noKick?.some(Boolean)) {
@@ -112,13 +144,15 @@ export function packPiece(piece: Piece): [number, string, string, string?, numbe
     piece.noKick.forEach((out, bar) => { if (out) bits[bar >> 3] = (bits[bar >> 3] ?? 0) | (1 << (bar & 7)); });
     marks = toBase64Url(bits);
   }
-  if (marks !== "" || moves > 0) packed.push(marks);
-  if (moves > 0) packed.push(moves);
+  const roster = packRoster(piece);
+  if (marks !== "" || moves > 0 || roster) packed.push(marks);
+  if (moves > 0 || roster) packed.push(moves);
+  if (roster) packed.push(roster);
   return packed;
 }
 
 export function unpackPiece(value: unknown, fallbackScene: number): Piece {
-  const [on, bars, order, marks, moves] = Array.isArray(value) ? value : [];
+  const [on, bars, order, marks, moves, lists] = Array.isArray(value) ? value : [];
   if (typeof bars !== "string" || bars.length === 0 || bars.length > 400) return firstPiece(fallbackScene);
   let bytes: Uint8Array;
   try {
@@ -136,7 +170,7 @@ export function unpackPiece(value: unknown, fallbackScene: number): Piece {
     }
   }
   const does = typeof moves === "number" && Number.isInteger(moves) ? moves : 0;
-  const extras = { noKick, runUp: { roll: (does & MOVES.roll) !== 0, kick: (does & MOVES.kick) !== 0, hat: (does & MOVES.hat) !== 0 }, vary: (does & MOVES.vary) !== 0 };
+  const extras = { noKick, roster: unpackRoster(lists, bytes.length), runUp: { roll: (does & MOVES.roll) !== 0, kick: (does & MOVES.kick) !== 0, hat: (does & MOVES.hat) !== 0 }, vary: (does & MOVES.vary) !== 0 };
   return soundPiece(on === 1, Array.from(bytes, (byte) => byte & 31), Array.from(bytes, (byte) => byte >> 5), typeof order === "string" ? Array.from(order, Number) : [], fallbackScene, extras);
 }
 
@@ -176,7 +210,7 @@ interface Packed {
   f?: string;
   /** Only in links from before the row: how often every filled scene played in turn. */
   n?: number;
-  z?: [number, string, string, string?, number?];
+  z?: [number, string, string, string?, number?, string[]?];
   /** Reihum: the rule, whether it is revealed, and the turns as [name, the project then]. */
   y?: { r: number; o: number; t: [string, unknown][] };
 }

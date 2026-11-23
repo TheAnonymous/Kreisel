@@ -256,6 +256,12 @@ class Keyboard {
   private onPiece({ event, code, shift, repeat, onSlider, enter, sign }: Press): boolean {
     const { piece } = this.app;
     if (!piece.focused || onSlider) return false;
+    // The piece's two tools are where the ring tools' first two keys are.
+    if (code === "KeyQ" || code === "KeyW") {
+      if (!repeat) piece.setTool(code === "KeyQ" ? "spannung" : "einsaetze");
+      return true;
+    }
+    if (piece.laying && this.onRoster(event, code, repeat, enter, sign)) return true;
     if (code === "ArrowLeft" || code === "ArrowRight") {
       event.preventDefault();
       const by = code === "ArrowLeft" ? -1 : 1;
@@ -297,6 +303,30 @@ class Keyboard {
       return true;
     }
     return false;
+  }
+
+  /** While the rings show the roster: the arrows go from phrase to phrase and from ring to ring, and Enter turns the phrase around. */
+  private onRoster(event: KeyboardEvent, code: string, repeat: boolean, enter: boolean, sign: number): boolean {
+    const { piece } = this.app;
+    if (code === "ArrowLeft" || code === "ArrowRight") {
+      if (event.shiftKey) return false;
+      event.preventDefault();
+      piece.movePhrase(code === "ArrowLeft" ? -1 : 1);
+      return true;
+    }
+    if (code === "ArrowUp" || code === "ArrowDown") {
+      // Outwards is up: the melody's lane is the outermost.
+      event.preventDefault();
+      piece.moveLane(code === "ArrowUp" ? 1 : -1);
+      return true;
+    }
+    if (enter) {
+      event.preventDefault();
+      if (!repeat && piece.key !== null) piece.flipRoster(piece.lane, piece.key);
+      return true;
+    }
+    // Plus and minus are the tension's, which is not what is being laid here.
+    return sign !== 0;
   }
 
   /** Arrows on a ring: sideways along it, up and down from ring to ring; with Shift they turn the ring and move the note by an octave. */

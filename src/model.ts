@@ -192,6 +192,13 @@ export interface Piece {
    * One entry a bar. A piece without such bars does not have the list at all, and is what a piece always was.
    */
   noKick?: boolean[];
+  /**
+   * The roster ("Einsätze"): who plays where, whatever the tension. A list a ring (the kick first), one entry a bar:
+   * 1 the ring plays there, 2 it rests there, 0 the tension decides. A ring with nothing laid has an empty list, and
+   * a piece with nothing laid does not have the field at all. The kick's rests are not here: they are the bars
+   * "ohne Kick" above, which came first and mean a break (see piece.ts).
+   */
+  roster?: number[][];
   /** What the piece does by itself in the bars before a landing. Absent while all of it is off. */
   runUp?: RunUp;
   /** "Abwechslung": small changes by themselves at the end of every eight bars. Absent while off. */

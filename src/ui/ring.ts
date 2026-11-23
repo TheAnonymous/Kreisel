@@ -5,7 +5,7 @@ import { drawMouth } from "./booth";
 import { WEATHER_COLORS, windDrift } from "../weather";
 import { Lights } from "./lights";
 import { approach, compare, DEAL, dealt, face, hop, MANY, POP, rest, SHRINK, SLIDE, SWELL, swell, unface } from "./motion";
-import { entry, PHRASE, planBar } from "../piece";
+import { entry, PHRASE, planBar, playsThere, reached, ROSTER, rosterOf } from "../piece";
 import { turnColor } from "../relay";
 import type { App } from "../app/app";
 import { type Spot, TAU, BRUSH, lerp } from "./ring-shape";
@@ -308,6 +308,18 @@ export class RingView {
     return { x: box.left + (geometry.center + Math.cos(angle) * radius) * scale, y: box.top + (geometry.center + Math.sin(angle) * radius) * scale };
   }
 
+  /** Where a bar of the piece is on the page in a ring's lane of the roster: for the browser tests. */
+  rosterPosition(ring: number, bar: number): { x: number; y: number } {
+    const geometry = this.geometry();
+    const band = geometry.rings[ring] ?? geometry.piece;
+    const count = this.app.project.piece.tension.length;
+    const angle = TOP + ((bar + 0.5) / count) * TAU;
+    const radius = (band.inner + band.outer) / 2;
+    const box = this.canvas.getBoundingClientRect();
+    const scale = box.width / Math.max(1, this.size);
+    return { x: box.left + (geometry.center + Math.cos(angle) * radius) * scale, y: box.top + (geometry.center + Math.sin(angle) * radius) * scale };
+  }
+
   // ---- drawing ----------------------------------------------------------------
 
   private frame(): void {
@@ -382,9 +394,16 @@ export class RingView {
     context.lineJoin = "round";
 
     this.drawShadow(geometry);
-    for (let track = 0; track < TRACK_COUNT; track += 1) this.drawRing(frame, track);
+    // While the roster is laid, the seven rings show the whole piece instead of the scene's steps.
+    const laying = app.piece.laying;
+    for (let track = 0; track < TRACK_COUNT; track += 1) {
+      if (laying) this.drawRoster(frame, track);
+      else this.drawRing(frame, track);
+    }
     this.drawChords(frame);
     this.drawHub(frame);
+    // Over the chords too: the bar numbers stand at their outer edge, where a chord that sounds lights up.
+    if (laying) this.drawRosterMarks(frame);
     this.drawPiece(geometry, playhead !== null);
     this.drawRim(frame);
     this.drawBrush();
@@ -475,6 +494,144 @@ export class RingView {
     this.drawFocusLine(center, lane);
     this.drawRunner(frame, lane);
     this.drawPointers(center, lane);
+  }
+
+  /**
+   * One ring as a lane of the roster: one turn is the whole piece, and the ring is filled where it plays. Where it is
+   * laid in against the tension it has a light edge, where it is laid out a dashed one (and is pale as far as the
+   * tension would let it play).
+   */
+  private drawRoster(frame: Frame, track: number): void {
+    const band = frame.geometry.rings[track];
+    if (!band) return;
+    if (this.app.relay.veiled(track)) {
+      this.drawRing(frame, track);
+      return;
+    }
+    const context = this.context;
+    const piece = this.app.project.piece;
+    const count = piece.tension.length;
+    const cell = TAU / count;
+    const { center } = frame.geometry;
+    const color = trackInfo(track).color;
+    const middle = (band.inner + band.outer) / 2;
+    const thickness = band.outer - band.inner;
+    const heard = this.heard[track] ?? (this.app.audible(track) ? 1 : 0);
+    const stroke = (radius: number, from: number, to: number, width: number, style: string, alpha: number, dash: number[] = []): void => {
+      context.beginPath();
+      context.setLineDash(dash);
+      context.lineWidth = width;
+      context.strokeStyle = style;
+      context.globalAlpha = alpha;
+      context.arc(center, center, radius, TOP + from * cell, TOP + to * cell);
+      context.stroke();
+      context.setLineDash([]);
+      context.globalAlpha = 1;
+    };
+    /** Draws one arc for every stretch of bars that `kind` gives the same answer for (0 draws nothing). */
+    const runs = (kind: (bar: number) => number, paint: (from: number, to: number, what: number) => void): void => {
+      let from = 0;
+      for (let bar = 1; bar <= count; bar += 1) {
+        if (bar < count && kind(bar) === kind(from)) continue;
+        if (kind(from) !== 0) paint(from, bar, kind(from));
+        from = bar;
+      }
+    };
+    context.lineCap = "butt";
+    stroke(middle, 0, count, thickness, color, 0.13);
+    // A muted ring is on the roster all the same, only fainter.
+    const loud = 0.4 + 0.6 * heard;
+    runs(
+      (bar) => (playsThere(piece, track, bar) ? 2 : rosterOf(piece, track, bar) === ROSTER.rests && reached(piece, track, bar) ? 1 : 0),
+      (from, to, what) => stroke(middle, from, to, thickness * 0.8, color, what === 2 ? loud : 0.26),
+    );
+    const edge = thickness / 2 - 1;
+    runs((bar) => rosterOf(piece, track, bar), (from, to, state) => {
+      const inset = Math.min(0.12, (to - from) / 4);
+      if (state === ROSTER.plays) stroke(middle + edge, from + inset, to - inset, 2, this.palette.ink, 1);
+      else for (const radius of [middle + edge, middle - edge]) stroke(radius, from + inset, to - inset, 1.5, color, 1, [4, 3]);
+    });
+    context.lineCap = "round";
+  }
+
+  /** What lies over all seven lanes of the roster: the phrases, which bar is where, where the piece is, and what points at a phrase. */
+  private drawRosterMarks(frame: Frame): void {
+    const context = this.context;
+    const app = this.app;
+    const piece = app.project.piece;
+    const count = piece.tension.length;
+    const cell = TAU / count;
+    const { center, rings } = frame.geometry;
+    const first = rings[0];
+    const last = rings[TRACK_COUNT - 1];
+    if (!first || !last) return;
+    const { bg, ink } = this.palette;
+    const spoke = (bar: number, from: number, to: number): void => {
+      const angle = TOP + bar * cell;
+      context.beginPath();
+      context.moveTo(center + Math.cos(angle) * from, center + Math.sin(angle) * from);
+      context.lineTo(center + Math.cos(angle) * to, center + Math.sin(angle) * to);
+      context.stroke();
+    };
+    // A cut every phrase, a stronger one every other phrase, as on the piece's own ring.
+    context.lineCap = "butt";
+    context.strokeStyle = bg;
+    for (let bar = 0; bar < count; bar += PHRASE) {
+      context.lineWidth = bar % (PHRASE * 2) === 0 ? 2.4 : 1.2;
+      spoke(bar, first.inner - 1, last.outer + 1);
+    }
+    // Which bar is where: a small number inside the innermost lane, on a patch of the table so that it can be read
+    // whatever lies under it (a chord that sounds is bright).
+    const every = count > 128 ? PHRASE * 4 : PHRASE * 2;
+    const height = Math.max(8, this.size * 0.015);
+    context.font = `700 ${height}px ${this.font}`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    const radius = first.inner - Math.max(7, this.size * 0.014);
+    for (let bar = 0; bar < count; bar += every) {
+      const angle = TOP + (bar + 0.5) * cell + (bar === 0 ? 0 : cell * 0.4);
+      const x = center + Math.cos(angle) * radius;
+      const y = center + Math.sin(angle) * radius;
+      const text = String(bar + 1);
+      context.fillStyle = bg;
+      context.globalAlpha = 0.82;
+      context.beginPath();
+      context.roundRect(x - context.measureText(text).width / 2 - 2.5, y - height / 2 - 1.5, context.measureText(text).width + 5, height + 3, 4);
+      context.fill();
+      context.fillStyle = ink;
+      context.globalAlpha = 0.75;
+      context.fillText(text, x, y + 0.5);
+    }
+    context.globalAlpha = 1;
+    // Where the piece is, or where it will start: one line through all seven lanes.
+    const at = app.piece.playhead();
+    const mark = at ?? (piece.on ? app.piece.start : null);
+    if (mark !== null) {
+      context.strokeStyle = ink;
+      context.lineWidth = 2;
+      context.globalAlpha = at === null ? 0.4 : 0.95;
+      spoke(mark % count, first.inner, last.outer);
+      context.globalAlpha = 1;
+    }
+    // The phrase the mouse points at, and the one the keyboard is on (dashed).
+    const hover = this.gestures.hover;
+    const pointed = hover?.kind === "roster" ? { ring: hover.ring, bar: hover.bar } : null;
+    const cursor = app.piece.key !== null ? { ring: app.piece.lane, bar: app.piece.key } : null;
+    for (const [spot, dashed] of [[pointed, false], [cursor, true]] as const) {
+      const band = spot ? rings[spot.ring] : undefined;
+      if (!spot || !band || spot.bar >= count) continue;
+      const from = Math.floor(spot.bar / PHRASE) * PHRASE;
+      const to = Math.min(count, from + PHRASE);
+      this.sector(band.inner - 0.5, band.outer + 0.5, TOP + from * cell, TOP + to * cell);
+      context.strokeStyle = ink;
+      context.lineWidth = 2;
+      context.globalAlpha = dashed ? 0.9 : 0.75;
+      if (dashed) context.setLineDash([4, 3]);
+      context.stroke();
+      context.setLineDash([]);
+      context.globalAlpha = 1;
+    }
+    context.lineCap = "round";
   }
 
   /** A ring is painted in its colour as far as it is heard and in ink as far as it is muted; in between it fades. */
@@ -1193,6 +1350,10 @@ export class RingView {
     for (let track = 0; track < TRACK_COUNT; track += 1) {
       const band = geometry.rings[track];
       if (band && distance >= band.inner - geometry.gap / 2 && distance <= band.outer + geometry.gap / 2) {
+        if (this.app.piece.laying) {
+          const count = this.app.project.piece.tension.length;
+          return { kind: "roster", ring: track, bar: Math.min(count - 1, Math.floor(this.turn(x, y) * count)) };
+        }
         return { kind: "ring", track, step: this.stepOf(track, x, y) };
       }
     }

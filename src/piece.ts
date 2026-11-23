@@ -27,6 +27,16 @@ import type { Random } from "./patterns";
  *   the kick left out for the last bar, the hi-hat left out for the last bar.
  * - "Abwechslung": every eighth bar ends with a kick more, every sixteenth
  *   with two strokes of the tuned drum as well.
+ *
+ * And who plays where, whatever the tension (the roster, "Einsätze"):
+ *
+ * - A ring can be laid in for a bar, and then plays there in full although
+ *   the tension has not reached it; or laid out, and then rests there
+ *   although it has. Everywhere else the tension decides, as it always did.
+ *   So the hi-hat can leave while the acid line comes, which one order of
+ *   coming in cannot give.
+ * - The kick laid out is a bar "ohne Kick": the break is the roster's oldest
+ *   part and stays where it was kept.
  */
 
 /** The rings these rules name. */
@@ -78,8 +88,40 @@ const share = (piece: Piece, bar: number): number => {
 /** Whether the kick stays out in a bar ("ohne Kick"). */
 export const kickOut = (piece: Piece, bar: number): boolean => piece.noKick?.[wrap(bar, barCount(piece))] === true;
 
-/** Whether the tension lets the kick play in a bar (a bar "ohne Kick" aside). */
-const kickIn = (piece: Piece, bar: number): boolean => share(piece, bar) >= entry(Math.max(0, piece.order.indexOf(KICK)));
+/** What the roster says of a ring in a bar. */
+export const ROSTER = { tension: 0, plays: 1, rests: 2 } as const;
+export type RosterState = (typeof ROSTER)[keyof typeof ROSTER];
+
+/** Whether the tension alone lets a ring play in a bar. */
+export const reached = (piece: Piece, ring: number, bar: number): boolean => share(piece, bar) >= entry(Math.max(0, piece.order.indexOf(ring)));
+
+/** What the roster says of ring `ring` in a bar. For the kick, a bar "ohne Kick" is a rest. */
+export function rosterOf(piece: Piece, ring: number, bar: number): RosterState {
+  const at = wrap(bar, barCount(piece));
+  if (ring === KICK && piece.noKick?.[at] === true) return ROSTER.rests;
+  const state = piece.roster?.[ring]?.[at];
+  return state === ROSTER.plays || (state === ROSTER.rests && ring !== KICK) ? state : ROSTER.tension;
+}
+
+/** Whether a ring plays in a bar: because it is laid in, or because the tension has reached it and it is not laid out. */
+export function playsThere(piece: Piece, ring: number, bar: number): boolean {
+  const state = rosterOf(piece, ring, bar);
+  return state === ROSTER.plays || (state === ROSTER.tension && reached(piece, ring, bar));
+}
+
+/**
+ * What a click on a ring's bar turns it to: the plainest state that changes whether the ring plays there. A ring
+ * that plays by the tension is laid out, one the tension has not reached is laid in, and whatever was laid against
+ * the tension is given back to it.
+ */
+export function flipped(piece: Piece, ring: number, bar: number): RosterState {
+  const byTension = reached(piece, ring, bar);
+  if (playsThere(piece, ring, bar)) return byTension ? ROSTER.rests : ROSTER.tension;
+  return byTension ? ROSTER.tension : ROSTER.plays;
+}
+
+/** Whether the kick can play in a bar (a bar "ohne Kick" aside): the tension has reached it, or it is laid in. */
+const kickIn = (piece: Piece, bar: number): boolean => rosterOf(piece, KICK, bar) === ROSTER.plays || reached(piece, KICK, bar);
 
 /** Whether the bar after `bar` is a landing: much higher, or the bar in which the kick comes back from a break. */
 function lands(piece: Piece, bar: number): boolean {
@@ -102,6 +144,14 @@ export function planBar(piece: Piece, bar: number): BarPlan {
     const above = now - entry(place);
     if (above >= 0) gates[ring] = clamp(0.15 + above / 0.25, 0.15, 1);
   });
+  // The roster has the last word on who plays: a ring laid in plays in full, a ring laid out is silent.
+  if (piece.roster) {
+    for (let ring = 0; ring < TRACK_COUNT; ring += 1) {
+      const state = rosterOf(piece, ring, bar);
+      if (state === ROSTER.plays) gates[ring] = 1;
+      else if (state === ROSTER.rests) gates[ring] = 0;
+    }
+  }
   const cutoff = cutoffFor(now);
   const count = barCount(piece);
   const at = wrap(bar, count);
@@ -118,7 +168,8 @@ export function planBar(piece: Piece, bar: number): BarPlan {
     rise,
     fall: falls(piece, bar),
     scene: piece.scenes[at] ?? 0,
-    roll: runUp?.roll ? [0, 2, 1][lead] ?? 0 : 0,
+    // The roll is the snare's ring playing: where that ring is laid out, there is none.
+    roll: runUp?.roll && rosterOf(piece, ROLL_RING, bar) !== ROSTER.rests ? [0, 2, 1][lead] ?? 0 : 0,
     // A bar that runs up to a landing has enough going on.
     vary: piece.vary && lead !== 1 && at % PHRASE === PHRASE - 1 ? (at % (PHRASE * 2) === PHRASE * 2 - 1 ? 2 : 1) : 0,
   };
@@ -156,16 +207,30 @@ export const gateLevel = (gate: number): number => 0.72 + 0.28 * gate;
 
 // ---- shaping the line ------------------------------------------------------------
 
+/** Whether an entry of the roster says something of ring `ring`. The kick has no rests there: those are its bars "ohne Kick". */
+const laid = (ring: number, state: unknown): state is 1 | 2 => state === ROSTER.plays || (state === ROSTER.rests && ring !== KICK);
+
 /**
  * Keeps a piece plain: the list of bars "ohne Kick" is as long as the piece
- * and is there only while a bar is marked; the run-ups and the Abwechslung are
- * there only while one of them is on. A piece with none of it is exactly what
- * a piece always was, in memory and in a link.
+ * and is there only while a bar is marked; the roster has a list as long as
+ * the piece for every ring that has something laid, and is there only while
+ * one has; the run-ups and the Abwechslung are there only while one of them
+ * is on. A piece with none of it is exactly what a piece always was, in
+ * memory and in a link.
  */
 export function tidyPiece(piece: Piece): void {
   const count = barCount(piece);
   if (piece.noKick?.some(Boolean)) piece.noKick = Array.from({ length: count }, (_, bar) => piece.noKick?.[bar] === true);
   else delete piece.noKick;
+  const roster = Array.from({ length: TRACK_COUNT }, (_, ring) => {
+    const list = piece.roster?.[ring];
+    // A bar "ohne Kick" is the kick's rest: nothing can be laid under it.
+    const state = (bar: number): number => (ring === KICK && piece.noKick?.[bar] === true ? 0 : laid(ring, list?.[bar]) ? (list?.[bar] as number) : 0);
+    const bars = Array.from({ length: count }, (_, bar) => state(bar));
+    return bars.some((entry) => entry !== 0) ? bars : [];
+  });
+  if (roster.some((list) => list.length > 0)) piece.roster = roster;
+  else delete piece.roster;
   if (piece.runUp && (piece.runUp.roll || piece.runUp.kick || piece.runUp.hat)) piece.runUp = { roll: piece.runUp.roll === true, kick: piece.runUp.kick === true, hat: piece.runUp.hat === true };
   else delete piece.runUp;
   if (piece.vary !== true) delete piece.vary;
@@ -184,6 +249,31 @@ export function setKick(piece: Piece, from: number, to: number, plays: boolean):
   for (let bar = Math.max(0, from); bar < Math.min(count, to); bar += 1) marks[bar] = !plays;
   piece.noKick = marks;
   tidyPiece(piece);
+}
+
+/**
+ * Lays ring `ring` in (plays) or out (rests) for the bars from `from` up to `to`, or gives it back to the tension
+ * there. The kick laid out is a break: those bars are "ohne Kick".
+ */
+export function setRoster(piece: Piece, ring: number, from: number, to: number, state: RosterState): void {
+  const count = barCount(piece);
+  if (!Number.isInteger(ring) || ring < 0 || ring >= TRACK_COUNT) return;
+  const roster = Array.from({ length: TRACK_COUNT }, (_, at) => Array.from({ length: count }, (_, bar) => piece.roster?.[at]?.[bar] ?? 0));
+  const list = roster[ring] as number[];
+  for (let bar = Math.max(0, from); bar < Math.min(count, to); bar += 1) list[bar] = ring === KICK && state === ROSTER.rests ? 0 : state;
+  piece.roster = roster;
+  if (ring === KICK) setKick(piece, from, to, state !== ROSTER.rests);
+  else tidyPiece(piece);
+}
+
+/** Lays every ring in for the bars from `from` up to `to`: all of them play there, whatever the tension. */
+export function fillRoster(piece: Piece, from: number, to: number): void {
+  for (let ring = 0; ring < TRACK_COUNT; ring += 1) setRoster(piece, ring, from, to, ROSTER.plays);
+}
+
+/** Gives every ring back to the tension for the bars from `from` up to `to`; a break there goes too. */
+export function clearRoster(piece: Piece, from: number, to: number): void {
+  for (let ring = 0; ring < TRACK_COUNT; ring += 1) setRoster(piece, ring, from, to, ROSTER.tension);
 }
 
 /** Switches one of the run-ups on or off. */
@@ -206,9 +296,11 @@ export function resizePiece(piece: Piece, bars: number): void {
   const tension = Array.from({ length: count }, (_, index) => piece.tension[at(index)] ?? 0);
   const scenes = Array.from({ length: count }, (_, index) => piece.scenes[at(index)] ?? 0);
   const noKick = Array.from({ length: count }, (_, index) => piece.noKick?.[at(index)] === true);
+  const roster = piece.roster?.map((list) => (list.length === 0 ? [] : Array.from({ length: count }, (_, index) => list[at(index)] ?? 0)));
   piece.tension = tension;
   piece.scenes = scenes;
   piece.noKick = noKick;
+  if (roster) piece.roster = roster;
   tidyPiece(piece);
 }
 
@@ -221,6 +313,7 @@ export function rotatePiece(piece: Piece, by: number): void {
   piece.tension = turn(piece.tension);
   piece.scenes = turn(piece.scenes);
   if (piece.noKick) piece.noKick = turn(Array.from({ length: count }, (_, bar) => piece.noKick?.[bar] === true));
+  if (piece.roster) piece.roster = piece.roster.map((list) => (list.length === 0 ? [] : turn(Array.from({ length: count }, (_, bar) => list[bar] ?? 0))));
 }
 
 /** Rounds the line off: every bar moves halfway towards the mean of its neighbours. Steep steps soften. */
@@ -326,10 +419,12 @@ function technoLine(count: number, random: Random): { tension: number[]; noKick:
  * last section. In techno it is a techno form (see `technoSections`), where
  * the piece is long enough for one; its breaks are "ohne Kick". The scenes
  * stay as they are, and so do the run-ups and the Abwechslung; bars that were
- * "ohne Kick" belonged to the old line and go with it.
+ * "ohne Kick", and whatever else the roster held, belonged to the old line
+ * and go with it.
  */
 export function dicePiece(piece: Piece, random: Random, style: StyleId = "frei"): void {
   const count = barCount(piece);
+  delete piece.roster;
   if (style === "techno" && count >= TECHNO_FORM_MIN) {
     const line = technoLine(count, random);
     piece.tension = line.tension;
@@ -385,17 +480,22 @@ export function describePiece(piece: Piece, bpm: number): string {
 /** What a piece can have beyond its line, scenes and order, as a link may claim it. */
 export interface PieceExtras {
   noKick?: readonly unknown[];
+  /** A list a ring, one entry a bar (see `Piece.roster`). */
+  roster?: readonly unknown[];
   runUp?: { roll?: unknown; kick?: unknown; hat?: unknown };
   vary?: unknown;
 }
 
 /**
  * Whatever a link claims, a piece is 4 to 256 bars with tensions and scenes in range and every ring once in its order.
- * Its bars "ohne Kick", its run-ups and its Abwechslung are there only as far as the link plainly says so.
+ * Its bars "ohne Kick", its roster, its run-ups and its Abwechslung are there only as far as the link plainly says so.
+ * A kick that a link lays out is a break.
  */
 export function soundPiece(on: boolean, tension: readonly number[], scenes: readonly number[], order: readonly number[], fallbackScene: number, extras: PieceExtras = {}): Piece {
   const count = clamp(tension.length, MIN_BARS, MAX_BARS);
   const rings = order.filter((ring, index) => Number.isInteger(ring) && ring >= 0 && ring < TRACK_COUNT && order.indexOf(ring) === index);
+  // A kick that a link lays out is a break.
+  const kicks = Array.isArray(extras.roster?.[KICK]) ? (extras.roster[KICK] as unknown[]) : [];
   const piece: Piece = {
     on,
     tension: Array.from({ length: count }, (_, index) => clamp(Math.round(tension[index] ?? 0), 0, TENSION_MAX)),
@@ -404,7 +504,11 @@ export function soundPiece(on: boolean, tension: readonly number[], scenes: read
       return scene >= 0 && scene < SCENE_COUNT ? scene : fallbackScene;
     }),
     order: rings.length === TRACK_COUNT ? rings : [...FIRST_ORDER],
-    noKick: Array.from({ length: count }, (_, bar) => extras.noKick?.[bar] === true),
+    noKick: Array.from({ length: count }, (_, bar) => extras.noKick?.[bar] === true || kicks[bar] === ROSTER.rests),
+    roster: Array.from({ length: TRACK_COUNT }, (_, ring) => {
+      const list = extras.roster?.[ring];
+      return Array.isArray(list) ? Array.from({ length: count }, (_, bar) => (laid(ring, list[bar]) ? (list[bar] as number) : 0)) : [];
+    }),
     runUp: { roll: extras.runUp?.roll === true, kick: extras.runUp?.kick === true, hat: extras.runUp?.hat === true },
     vary: extras.vary === true,
   };

@@ -53,6 +53,11 @@ app.subscribe(() => menu.refresh());
 bindKeys(app, panels, () => {
   if (app.piece.focused) {
     const bar = app.piece.key ?? app.piece.start;
+    if (app.piece.laying) {
+      const at = ring.rosterPosition(app.piece.lane, bar);
+      app.openContext({ kind: "roster", bar }, at.x, at.y, true);
+      return;
+    }
     const at = ring.barPosition(bar, 0.5);
     app.openContext({ kind: "piece", bar }, at.x, at.y, true);
   } else {
@@ -83,6 +88,8 @@ declare global {
       sheet(t: number, y: number): { x: number; y: number };
       /** Where a bar of the piece's ring is on the page, at a tension of 0..1. */
       bar(bar: number, height: number): { x: number; y: number };
+      /** Where a bar of the piece is in a ring's lane while the rings show the roster. */
+      lane(track: number, bar: number): { x: number; y: number };
       /** Where a chord field is on the page. */
       slot(slot: number): { x: number; y: number };
       /** Where a place on the body on the workbench is on the page (0 its middle, 1 its edge), and where its two grips are. */
@@ -111,6 +118,7 @@ window.kreisel = {
   where: (track, step) => ring.stepPosition(track, step),
   sheet: (t, y) => easel.position(t, y),
   bar: (bar, height) => ring.barPosition(bar, height),
+  lane: (track, bar) => ring.rosterPosition(track, bar),
   slot: (slot) => ring.slotPosition(slot),
   knock: (where) => bench.position(where),
   grip: (what) => bench.grip(what),

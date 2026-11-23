@@ -588,6 +588,49 @@ The rules are in `src/order.ts` (plain functions on the list of rounds, with
 are `src/ui/scenes-box.ts` and `src/ui/row-band.ts`; `src/ui/carry.ts` carries
 a thing across the page with the mouse.
 
+## The roster
+
+Who plays where in the piece can be seen, and laid by hand ("Einsätze").
+
+Until now the piece's tension decided who plays, through one order of coming
+in: the first ring plays from a tension of 4 percent, each further one 13
+percent higher. Only the kick had an exception, the break. So the hi-hat could
+not leave while the acid line came, and a drop could not begin with kick and
+bass alone.
+
+- **Two tools for the piece** stand beside the wheel while its ring is in
+  focus: "Spannung" paints the line as before, "Einsätze" shows the roster
+  (keys Q and W).
+- **The seven rings show the whole piece** in that view: one turn is the piece,
+  from bar 1 at twelve o'clock, and a ring is filled where it plays. The
+  piece's own ring outside still shows the tension.
+- **A click turns a phrase around:** whether the ring plays in those eight
+  bars. A stroke carries the same on. The plainest state that does it is
+  chosen: a ring that plays by the tension is laid out, one the tension has not
+  reached is laid in, and whatever was laid against the tension is given back
+  to it. A light edge marks "plays here whatever the tension", a dashed one
+  "rests here" (pale as far as the tension would let it play).
+- **The right button** (or a resting finger, or the menu key) lists all seven
+  rings of the phrase with their three states: by the tension, plays, rests.
+- **A ring laid in plays in full**, not at the lower level of a ring that has
+  only just come in. The tension still colours the whole sound, though: at a
+  low tension the sum is duller (the lowpass sits at 900 Hz at the bottom and
+  is open from 62 percent), so a hi-hat laid in far down the line is heard
+  through that.
+- **The snare's roll before a drop** is the snare's ring playing: where that
+  ring is laid out, there is no roll. Fills go by who plays, as they did.
+- **The break is the roster's oldest part:** the kick laid out is a bar "ohne
+  Kick", kept where it always was, with its run-up when the kick comes back.
+- **In the link** the roster is the sixth part of the piece: a list a ring,
+  two bits a bar, only for rings that have something laid. A piece without a
+  roster is packed as it always was. The roster stretches and turns with the
+  piece and goes with a line that is diced anew; the dice do not lay one yet.
+
+The rules are in `src/piece.ts` (`rosterOf`, `playsThere`, `flipped`,
+`setRoster`; `planBar` gives the roster the last word on who plays), with
+`tests/roster.test.ts`. The wheel draws the lanes in `src/ui/ring.ts`
+(`drawRoster`), and what a pointer does there is in `src/ui/ring-gestures.ts`.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the
@@ -638,7 +681,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/menu.ts`, `menus.ts`, `bar-menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the same menu under the bar's buttons; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
 | `scripts/level-sounds.mjs` | `npm run level`: measures every ready-made sound and writes `src/sounds/trims.ts` |
-| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`, `kick`, `bar`, `scenes`, `techno-sounds`, `arrange`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
+| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`, `kick`, `bar`, `scenes`, `roster`, `techno-sounds`, `arrange`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
 
 ## License
 

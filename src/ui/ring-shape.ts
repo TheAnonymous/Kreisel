@@ -9,7 +9,9 @@ export type Spot =
   | { kind: "chord"; index: number }
   | { kind: "ring"; track: number; step: number }
   /** The piece's ring: the bar, how high in its band (0..1), and whether on the strip of scenes at its inner edge. */
-  | { kind: "piece"; bar: number; height: number; lane: boolean };
+  | { kind: "piece"; bar: number; height: number; lane: boolean }
+  /** One of the seven rings while they show the roster: the ring, and the bar of the piece at that angle. */
+  | { kind: "roster"; ring: number; bar: number };
 
 /** A full turn. */
 export const TAU = Math.PI * 2;

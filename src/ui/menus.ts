@@ -1,12 +1,12 @@
 import type { App, ContextTarget } from "../app/app";
 import { nextHit } from "../acid";
-import { ACID_SOUND, BODY_SOUND, VOICE_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, trackInfo, trackOf } from "../model";
+import { ACID_SOUND, BODY_SOUND, VOICE_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, trackInfo, trackOf } from "../model";
 import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
 import { hasWeather, WEATHER_NAMES, windName } from "../weather";
 import { MAX_ROUNDS } from "../order";
-import { barCount, kickOut, phraseOf } from "../piece";
+import { barCount, kickOut, phraseOf, ROSTER, rosterOf } from "../piece";
 import { SOUND_COUNT } from "../sounds/index";
 import type { MenuRow, MenuSpec } from "./menu";
 import { soundLabel } from "./sound-palette";
@@ -228,6 +228,34 @@ function pieceMenu(app: App, bar: number | null): MenuSpec {
   return { title: at === null ? "Stück" : `Stück · Takt ${at + 1}`, rows };
 }
 
+/** The roster of one phrase: every ring, and whether it goes by the tension, plays or rests there. */
+function rosterMenu(app: App, bar: number): MenuSpec | null {
+  const piece = app.project.piece;
+  if (bar < 0 || bar >= barCount(piece)) return null;
+  const { from, to } = phraseOf(piece, bar);
+  const rows: MenuRow[] = [{ kind: "heading", label: "Einsätze in diesen Takten" }];
+  // The melody first, as in the list of rings.
+  for (let ring = TRACK_COUNT - 1; ring >= 0; ring -= 1) {
+    const name = trackInfo(ring).name;
+    const state = rosterOf(piece, ring, bar);
+    rows.push({
+      kind: "choice",
+      label: name,
+      options: [
+        { label: "Spannung", title: `${name}: Die Spannung entscheidet in diesen Takten`, active: state === ROSTER.tension, run: () => app.piece.layRoster(ring, bar, ROSTER.tension) },
+        { label: "spielt", title: `${name}: spielt in diesen Takten, was auch die Spannung sagt`, active: state === ROSTER.plays, run: () => app.piece.layRoster(ring, bar, ROSTER.plays) },
+        { label: "pausiert", title: `${name}: pausiert in diesen Takten`, active: state === ROSTER.rests, run: () => app.piece.layRoster(ring, bar, ROSTER.rests) },
+      ],
+    });
+  }
+  rows.push(
+    { kind: "action", label: "Alle spielen in diesen Takten", keep: true, run: () => app.piece.fillRoster(bar) },
+    { kind: "action", label: "Alle nach der Spannung", keep: true, run: () => app.piece.clearRoster(bar) },
+    { kind: "action", label: "Ab hier spielen", run: () => app.piece.playFrom(from) },
+  );
+  return { title: `Stück · Takt ${from + 1} bis ${to}`, rows };
+}
+
 function chordMenu(app: App, slot: number): MenuSpec | null {
   const project = app.project;
   const chords = currentScene(project).chords;
@@ -330,6 +358,7 @@ function weatherMenu(app: App): MenuSpec {
 export function buildMenu(app: App, target: ContextTarget, doors: MenuDoors): MenuSpec | null {
   if (target.kind === "ring") return ringMenu(app, target.track, target.step);
   if (target.kind === "piece") return pieceMenu(app, target.bar);
+  if (target.kind === "roster") return rosterMenu(app, target.bar);
   if (target.kind === "chord") return chordMenu(app, target.slot);
   if (target.kind === "scene") return sceneMenu(app, target.index);
   if (target.kind === "round") return roundMenu(app, target.round);

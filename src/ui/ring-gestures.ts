@@ -4,6 +4,7 @@ import { shakes } from "../rumble";
 import { WEATHER_NAMES, windDrift } from "../weather";
 import { LONG_PRESS_MS, LONG_PRESS_SLACK } from "./menu";
 import type { App, Tool } from "../app/app";
+import type { RosterState } from "../piece";
 import { capture } from "./dom";
 import { type Spot, TAU, BRUSH, lerp } from "./ring-shape";
 import type { RingView } from "./ring";
@@ -52,7 +53,7 @@ interface Press {
   pointer: number;
   x: number;
   y: number;
-  target: { kind: "ring"; track: number; step: number } | { kind: "piece"; bar: number };
+  target: { kind: "ring"; track: number; step: number } | { kind: "piece"; bar: number } | { kind: "roster"; bar: number };
 }
 
 /*
@@ -66,6 +67,8 @@ export class RingGestures {
   private pieceDrag: PieceDrag | null = null;
   private drag: Drag | null = null;
   private shake: Shake | null = null;
+  /** A stroke in the roster: every phrase it comes over gets the state its first click made. */
+  private rosterDrag: { pointer: number; state: RosterState; gesture: string } | null = null;
   private press: Press | null = null;
   /** A stroke of the weather brush: the cells it has already been over get no more from it. */
   private gust: { pointer: number; erase: boolean; gesture: string; done: Set<string> } | null = null;
@@ -129,8 +132,28 @@ export class RingGestures {
       // A finger has no right button: resting on a ring does the same.
       if (event.pointerType !== "mouse" && !context) this.arm(event, spot);
       if (spot.kind === "piece") this.downOnPiece(event, spot);
+      else if (spot.kind === "roster") this.downOnRoster(event, spot);
       else this.downOnRing(event, spot, x, y);
     }
+  }
+
+  /**
+   * On a ring while the rings show the roster: a click turns around whether the ring plays in that phrase, a stroke
+   * carries the same on to every phrase it comes over, and the right button shows all seven rings of the phrase.
+   */
+  private downOnRoster(event: PointerEvent, spot: Spot & { kind: "roster" }): void {
+    this.hideTip();
+    if (event.button === 2) {
+      this.app.openContext({ kind: "roster", bar: spot.bar }, event.clientX, event.clientY);
+      return;
+    }
+    event.preventDefault();
+    capture(this.canvas, event);
+    this.strokes += 1;
+    const gesture = `einsatz${this.strokes}`;
+    const state = this.app.piece.flipRoster(spot.ring, spot.bar, gesture);
+    if (state !== null) this.rosterDrag = { pointer: event.pointerId, state, gesture };
+    this.view.redraw();
   }
 
   /** Under the weather brush the wheel is one sheet: every ring the brush reaches gets its weather (or, with the right button, loses it). */
@@ -264,8 +287,8 @@ export class RingGestures {
   }
 
   /** Starts waiting for a finger to rest long enough to mean "what can I do here?". */
-  private arm(event: PointerEvent, spot: Spot & { kind: "ring" | "piece" }): void {
-    const target = spot.kind === "ring" ? { kind: "ring" as const, track: spot.track, step: spot.step } : { kind: "piece" as const, bar: spot.bar };
+  private arm(event: PointerEvent, spot: Spot & { kind: "ring" | "piece" | "roster" }): void {
+    const target = spot.kind === "ring" ? { kind: "ring" as const, track: spot.track, step: spot.step } : { kind: spot.kind, bar: spot.bar };
     this.press = { timer: setTimeout(() => this.rested(), LONG_PRESS_MS), pointer: event.pointerId, x: event.clientX, y: event.clientY, target };
   }
 
@@ -291,6 +314,10 @@ export class RingGestures {
       this.app.cancelGesture(this.shake.gesture);
       this.shake = null;
     }
+    if (this.rosterDrag?.pointer === press.pointer) {
+      this.app.cancelGesture(this.rosterDrag.gesture);
+      this.rosterDrag = null;
+    }
     this.app.endGesture();
     this.view.redraw();
     if (press.target.kind === "ring" && this.app.relay.veiled(press.target.track)) return;
@@ -302,6 +329,12 @@ export class RingGestures {
     if (this.press?.pointer === event.pointerId && Math.hypot(event.clientX - this.press.x, event.clientY - this.press.y) > LONG_PRESS_SLACK) this.disarm();
     if (this.pieceDrag?.pointer === event.pointerId) {
       this.movePieceStroke(this.pieceDrag, x, y);
+      return;
+    }
+    if (this.rosterDrag?.pointer === event.pointerId) {
+      const spot = this.view.locate(x, y);
+      if (spot?.kind === "roster") this.app.piece.layRoster(spot.ring, spot.bar, this.rosterDrag.state, this.rosterDrag.gesture);
+      this.view.redraw();
       return;
     }
     if (this.app.weather.focused) {
@@ -415,6 +448,12 @@ export class RingGestures {
       this.view.redraw();
       return;
     }
+    if (this.rosterDrag?.pointer === event.pointerId) {
+      this.rosterDrag = null;
+      this.app.endGesture();
+      this.view.redraw();
+      return;
+    }
     if (this.shake?.pointer === event.pointerId) {
       const shake = this.shake;
       this.shake = null;
@@ -487,6 +526,8 @@ export class RingGestures {
       text = spot.lane && this.app.piece.focused
         ? `Szene ${SCENE_NAMES[project.scene]} hierher malen · Takt ${spot.bar + 1}`
         : `Stück · Takt ${spot.bar + 1} von ${piece.tension.length} · ${tension} % Spannung · Szene ${SCENE_NAMES[piece.scenes[spot.bar] ?? 0]} · Rechtsklick: ab hier spielen und mehr`;
+    } else if (spot.kind === "roster") {
+      text = this.app.piece.describeRoster(spot.ring, spot.bar);
     } else {
       const pattern = scene.patterns[spot.track];
       const note = pattern ? stepAt(pattern, spot.step) : null;
