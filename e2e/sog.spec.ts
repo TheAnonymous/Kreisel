@@ -95,7 +95,8 @@ test.describe("am Laptop", () => {
   test("sagt, wann ungleich lange Ringe wieder zusammenfallen und wie weit ein Ring hinter der Kick liegt, und richtet alle acht Takte neu aus", async ({ page }) => {
     test.setTimeout(120_000);
     const problems = await open(page);
-    // The Werks-Kreisel has a ring of twelve steps among its sixteens: together again every three bars.
+    // The Werks-Kreisel has a ring of twelve steps among its sixteens: together again every three bars. The kick's line says so.
+    await page.evaluate(() => window.kreisel.app.select(0));
     await expect(status(page)).toContainText("Gleichstand alle 3 Takte");
     // A hi-hat on the off-beats lies two steps behind a kick on every beat; a ring of five steps meets the others only after fifteen bars.
     await page.evaluate(() => {
@@ -105,7 +106,11 @@ test.describe("am Laptop", () => {
       app.select(2);
     });
     await expect(status(page)).toContainText("2 Schritte hinter der Kick");
+    await expect(status(page)).not.toContainText("trifft die Kick");
+    // The ring that runs askew says when it meets the kick again; the kick says when all of them do.
     await page.evaluate(() => { window.kreisel.app.rings.resize(2, 5); });
+    await expect(status(page)).toContainText("trifft die Kick alle 5 Takte wieder");
+    await page.evaluate(() => window.kreisel.app.select(0));
     await expect(status(page)).toContainText("Gleichstand alle 15 Takte");
     await page.evaluate(() => { window.kreisel.app.rings.resize(2, 16); });
 

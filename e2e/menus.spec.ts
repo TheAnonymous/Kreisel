@@ -71,7 +71,7 @@ test.describe("am Laptop", () => {
     await page.mouse.click(spot.x, spot.y, { button: "right" });
     await expect(menu.locator("header")).toHaveText("Snare · Schritt 6");
     await menu.getByRole("menuitem", { name: "Das Muster von Kick hierher legen" }).click();
-    await expect(status(page)).toHaveText("Snare: 4 Schläge auf 1, 5, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Snare: 4 Schläge auf 1, 5, 9, 13 von 16 · mit der Kick");
     // A press beside the menu puts it away, too.
     await page.mouse.click(4, 400);
     await expect(menu).toBeHidden();
@@ -277,7 +277,7 @@ test.describe("am Handy", () => {
     expect(await page.evaluate(() => window.kreisel.app.store.canUndo)).toBe(false);
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
     await menu.getByRole("menuitem", { name: "Schlag setzen" }).tap();
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
     await menu.getByRole("menuitemradio", { name: "laut" }).tap();
     expect(await page.evaluate(() => window.kreisel.app.project.scenes[0]!.patterns[0]!.steps[2]!.vel)).toBe(2);
     // A touch beside the menu puts it away.
@@ -288,7 +288,7 @@ test.describe("am Handy", () => {
     spot = await where(page, 0, 2);
     await rest("#kreisel", spot.x, spot.y, 120);
     await expect(menu).toBeHidden();
-    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
 
     // Resting on the piece's ring does not paint: it asks what to do with the bar.
     await focusPiece(page);

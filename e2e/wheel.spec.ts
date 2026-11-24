@@ -16,11 +16,11 @@ test.describe("am Laptop", () => {
     // A click on another ring picks it and paints at once.
     let spot = await where(page, 0, 2);
     await page.mouse.click(spot.x, spot.y);
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
     await focus(page, 0);
     spot = await where(page, 0, 2);
     await page.mouse.click(spot.x, spot.y);
-    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
 
     // A stroke along the ring paints every step it crosses, as one step back.
     const from = await where(page, 0, 5);
@@ -31,9 +31,9 @@ test.describe("am Laptop", () => {
     await page.mouse.move(over.x, over.y, { steps: 5 });
     await page.mouse.move(to.x, to.y, { steps: 5 });
     await page.mouse.up();
-    await expect(status(page)).toHaveText("Kick: 7 Schläge auf 1, 5, 6, 7, 8, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Kick: 7 Schläge auf 1, 5, 6, 7, 8, 9, 13 von 16 · Gleichstand alle 3 Takte");
     await page.keyboard.press("Control+z");
-    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
     await page.keyboard.press("Control+Shift+z");
     await expect(status(page)).toContainText("7 Schläge");
 
@@ -43,7 +43,7 @@ test.describe("am Laptop", () => {
     await page.mouse.down({ button: "right" });
     await page.mouse.move(over.x, over.y, { steps: 5 });
     await page.mouse.up({ button: "right" });
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 5, 6, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 5, 6, 9, 13 von 16 · Gleichstand alle 3 Takte");
     await expect(page.locator("#context")).toBeHidden();
     await page.keyboard.press("Control+z");
     await expect(status(page)).toContainText("7 Schläge");
@@ -52,7 +52,7 @@ test.describe("am Laptop", () => {
     // The wheel turns the ring.
     await page.mouse.move(to.x, to.y);
     await page.mouse.wheel(0, 50);
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 2, 6, 7, 10, 14 von 16");
+    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 2, 6, 7, 10, 14 von 16 · Gleichstand alle 3 Takte");
     expect(problems).toEqual([]);
   });
 
@@ -126,11 +126,11 @@ test.describe("am Laptop", () => {
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("Enter");
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
     await page.keyboard.press("Shift+ArrowRight");
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 2, 4, 6, 10, 14 von 16");
+    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 2, 4, 6, 10, 14 von 16 · Gleichstand alle 3 Takte");
     await page.keyboard.press("Shift+Delete");
-    await expect(status(page)).toHaveText("Kick: leer, 16 Schritte");
+    await expect(status(page)).toHaveText("Kick: leer, 16 Schritte · Gleichstand alle 3 Takte");
 
     // Live: what is played on the home row lands in the turning ring.
     await page.keyboard.press("l");
@@ -213,11 +213,11 @@ test.describe("am Handy", () => {
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
     let spot = await where(page, 0, 2);
     await page.touchscreen.tap(spot.x, spot.y);
-    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
     await focus(page, 0);
     spot = await where(page, 0, 2);
     await page.touchscreen.tap(spot.x, spot.y);
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
 
     const box = (await page.locator("#kreisel").boundingBox())!;
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);

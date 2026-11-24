@@ -232,19 +232,28 @@ export class Panels {
   }
 
   /**
-   * What the status line says of the pull between the rings: how far the ring in focus lies behind the kick, and after
-   * how many bars rings of unequal length are together again.
+   * What the status line says of the pull between the rings. For the kick, the anchor of them all: after how many
+   * bars rings of unequal length are together again. For any other ring: how far it lies behind the kick, and, where
+   * its length does not go with the kick's, after how many bars the two meet again.
    */
   private pull(selected: number): string {
     const project = this.app.project;
     const patterns = currentScene(project).patterns;
     const kick = patterns[0];
     const own = patterns[selected];
-    const behind = selected === 0 || !kick || !own ? null : behindKick(kick, own);
-    const steps = meeting(patterns);
-    const bars = steps === null ? null : steps / BAR;
-    return `${behind === null ? "" : behind === 0 ? " · mit der Kick" : ` · ${behind} ${behind === 1 ? "Schritt" : "Schritte"} hinter der Kick`}${
-      bars === null ? "" : ` · Gleichstand alle ${Number.isInteger(bars) ? bars : bars.toFixed(1).replace(".", ",")} Takte${project.align ? ", alle 8 neu ausgerichtet" : ""}`}`;
+    const count = (steps: number | null): string | null => {
+      if (steps === null) return null;
+      const bars = steps / BAR;
+      return `${Number.isInteger(bars) ? bars : bars.toFixed(1).replace(".", ",")} Takte`;
+    };
+    const lined = project.align ? ", alle 8 neu ausgerichtet" : "";
+    if (selected === 0 || !kick || !own) {
+      const all = count(meeting(patterns));
+      return all === null ? "" : ` · Gleichstand alle ${all}${lined}`;
+    }
+    const behind = behindKick(kick, own);
+    const meets = count(meeting([kick, own]));
+    return `${behind === null ? "" : behind === 0 ? " · mit der Kick" : ` · ${behind} ${behind === 1 ? "Schritt" : "Schritte"} hinter der Kick`}${meets === null ? "" : ` · trifft die Kick alle ${meets} wieder${lined}`}`;
   }
 
   keyLabel(code: string): string {

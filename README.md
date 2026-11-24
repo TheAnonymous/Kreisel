@@ -843,9 +843,11 @@ rub against one another ("Sog").
   automation in a length of its own without a curve to draw. On the wheel
   the weather fades and returns with its tide while the Kreisel plays.
 - **Gleichstand.** Where rings with hits have lengths that do not go into
-  one another, the status line says after how many bars they are together
-  again (16 and 12 steps: every 3 bars; 16 and 5: every 5). Both Kreisels one
-  can start with have such a ring.
+  one another, the status line of the kick, the anchor of them all, says
+  after how many bars they are together again (16 and 12 steps: every 3
+  bars), and the line of a ring that runs askew says when it meets the kick
+  again (16 and 5: every 5 bars). Both Kreisels one can start with have such
+  a ring.
 - **Ausrichten.** The right button on the hub has a switch "Alle acht Takte
   neu ausrichten": then every ring begins again with every phrase, so that
   unequal rings rub within the phrase and are resolved where the next
