@@ -73,6 +73,8 @@ export class WeatherPanel {
         app.weather.setWind(kind, 0);
       });
       input.addEventListener("contextmenu", (event) => event.preventDefault());
+      // What a screen reader says for the value: the wind in words, as it stands beside the slider.
+      input.setAttribute("aria-valuetext", windName(0));
       const speed = el("output");
       const tide = el("select", "tide");
       tide.title = `Tides: over so many bars ${name} swells and ebbs again. Odd lengths like 12 or 20 run against the phrases`;
@@ -128,6 +130,7 @@ export class WeatherPanel {
       const index = WINDS.indexOf(wind as (typeof WINDS)[number]);
       if (document.activeElement !== input || index >= 0) input.value = String(index >= 0 ? index : WINDS.findIndex((value) => value >= wind));
       this.windNames[kind]!.textContent = windName(wind);
+      input.setAttribute("aria-valuetext", windName(wind));
     });
     this.tides.forEach((select, kind) => {
       const bars = String(scene.tide?.[kind] ?? 0);

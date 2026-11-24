@@ -1,0 +1,199 @@
+/* ---- the pedalboard: the second side of a ring's panel -------------------------- */
+
+/* The ring's Drive and the button to its pedals share a row; the slider stays in line with the one above it. */
+.driving {
+  align-items: center;
+  gap: 8px;
+}
+
+.driving .line .label {
+  width: 76px;
+}
+
+.pedals-open {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* A small lamp: hollow while the ring wears nothing, filled while it is driven or has a pedal on (what it wears is the button's description). */
+.pedals-open::before {
+  width: 8px;
+  height: 8px;
+  border: 2px solid currentcolor;
+  border-radius: 50%;
+  content: "";
+}
+
+.pedals-open.on::before {
+  background: currentcolor;
+  box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--c);
+}
+
+/* The board has more on it than a ring's own side of the panel: it stands a little closer together, so that it fits a laptop's screen without rolling. */
+.panel-pedals {
+  gap: 6px;
+}
+
+.panel-pedals .group {
+  gap: 4px;
+  padding-top: 7px;
+}
+
+.panel-pedals .line {
+  min-height: 28px;
+}
+
+.panel-pedals .panel-head h2 {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 1.02rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The chain: one station for everything that is turned up, in the order the sound passes it. */
+.pedal-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0;
+  min-height: 26px;
+  font-size: 0.7rem;
+}
+
+.pedal-chain .label {
+  flex: none;
+  width: 52px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.station {
+  position: relative;
+  padding: 1px 6px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: var(--paper);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.station + .station {
+  margin-left: 15px;
+}
+
+.station + .station::before {
+  position: absolute;
+  top: 50%;
+  left: -14px;
+  translate: 0 -55%;
+  color: var(--soft);
+  font-weight: 800;
+  content: "→";
+}
+
+/* The drive is the station everything else is before or after. */
+.station.drive {
+  border-width: 2px 2px 4px;
+  border-color: var(--ink);
+  background: color-mix(in srgb, var(--c) 30%, var(--paper));
+}
+
+.station.none {
+  border-style: dashed;
+  border-color: var(--hair);
+  color: var(--soft);
+  font-weight: 600;
+}
+
+.pedal-chains,
+.pedal-choice {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pedal-chains {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pedal-choice {
+  flex: 1;
+}
+
+.pedal-choice.tones {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pedal-choice.mods {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.pedal-choice.spans {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.pedal-choice.orders {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Nothing on the board is smaller than a finger or a shaky pointer needs. */
+.panel-pedals .chip {
+  min-height: 26px;
+  padding-block: 3px;
+}
+
+.panel-pedals .chip[aria-checked="true"],
+.panel-pedals .chip[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* What is taken is also marked without its colours: a dot in its corner (it takes no room from the name). */
+.panel-pedals .chip[role="radio"] {
+  position: relative;
+}
+
+.panel-pedals .chip[aria-checked="true"]::after {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--bg);
+  content: "";
+}
+
+.pedal-choice.spans .chip[aria-checked="true"]::after {
+  top: 2px;
+  right: 3px;
+  width: 4px;
+  height: 4px;
+}
+
+.panel-pedals .line .after {
+  flex: none;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.panel-pedals .line output {
+  min-width: 54px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.panel-pedals #pedal-crest-row output {
+  min-width: 46px;
+}

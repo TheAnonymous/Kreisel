@@ -341,6 +341,10 @@ export class ContextMenu {
         input.max = "100";
         input.step = "1";
         input.value = String(Math.round(row.value * 100));
+        // What a screen reader says for the value.
+        const say = (): void => input.setAttribute("aria-valuetext", `${input.value} %`);
+        say();
+        input.addEventListener("input", say);
         if (row.id) input.id = row.id;
         input.title = [row.title, row.reset ? "Right click resets" : ""].filter(Boolean).join(" · ");
         input.addEventListener("input", () => row.set(Number(input.value) / 100));

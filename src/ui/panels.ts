@@ -25,6 +25,7 @@ import { ChordMenu } from "./chord-menu";
 import { ToastView } from "./toast";
 import { PiecePanel } from "./piece-panel";
 import { AcidPanel } from "./acid-panel";
+import { PedalBoard } from "./pedal-board";
 import { WeatherPanel } from "./weather-panel";
 import { EaselWindow } from "./easel-window";
 import { BoothWindow } from "./booth-window";
@@ -55,14 +56,19 @@ const TOOL_ICONS: Record<Tool, string> = {
 };
 
 /** A labelled slider that edits with `change` and shows `read`. */
+/** What stands on the keys that have no letter in their code, on a keyboard laid out the American way. */
+const OTHER_KEYS: Record<string, string> = { IntlBackslash: "<", Semicolon: ";", Quote: "'", BracketLeft: "[" };
+
 interface Slider {
   input: HTMLInputElement;
   read(): number;
+  /** The value in words, for whoever has it read out; without it, a percentage. */
+  say?: ((value: number) => string) | undefined;
 }
 
 export class Panels {
   /** What stands on each key on this keyboard (QWERTZ until the browser says otherwise). */
-  private labels = new Map<string, string>([["KeyZ", "Y"], ["KeyY", "Z"], ["IntlBackslash", "<"]]);
+  private labels = new Map<string, string>([["KeyZ", "Y"], ["KeyY", "Z"], ["IntlBackslash", "<"], ["Semicolon", "Ö"], ["Quote", "Ä"], ["BracketLeft", "Ü"]]);
   private readonly sliders: Slider[] = [];
   /** Opens the menu that hangs under one of the bar's buttons (set by whoever holds the menu). */
   onBarMenu: (opener: HTMLElement, which: BarMenu, byKeyboard: boolean) => void = () => undefined;
@@ -103,6 +109,9 @@ export class Panels {
   private readonly piecePanel: PiecePanel;
   private readonly weatherPanel: WeatherPanel;
   private readonly acidPanel: AcidPanel;
+  private readonly pedalBoard: PedalBoard;
+  /** The ring's Zerre and the button to its pedals, side by side. */
+  private readonly driving = el("div", "lines driving");
   private readonly easelWindow: EaselWindow;
   private readonly boothWindow: BoothWindow;
   private readonly benchWindow: BenchWindow;
@@ -119,6 +128,7 @@ export class Panels {
     this.piecePanel = new PiecePanel(this, app);
     this.weatherPanel = new WeatherPanel(this, app);
     this.acidPanel = new AcidPanel(this, app);
+    this.pedalBoard = new PedalBoard(this, app);
     this.easelWindow = new EaselWindow(this, app, easel);
     this.boothWindow = new BoothWindow(this, app, mouth);
     this.benchWindow = new BenchWindow(this, app, bench);
@@ -258,7 +268,7 @@ export class Panels {
 
   keyLabel(code: string): string {
     // The key between Shift and Y has no letter in its code: it carries "<" on most keyboards that have it.
-    return this.labels.get(code) ?? (code === "IntlBackslash" ? "<" : code.replace(/^Key|^Digit/, ""));
+    return this.labels.get(code) ?? OTHER_KEYS[code] ?? code.replace(/^Key|^Digit/, "");
   }
 
   private async readKeyboard(): Promise<void> {
@@ -299,7 +309,8 @@ export class Panels {
 
   // ---- building ---------------------------------------------------------------
 
-  slider(input: HTMLInputElement, read: () => number, write: (value: number) => void, reset?: () => void): void {
+  /** A slider from nothing to all of it. `say` gives its value in words to whoever has it read out (a percentage without it). */
+  slider(input: HTMLInputElement, read: () => number, write: (value: number) => void, reset?: () => void, say?: (value: number) => string): void {
     input.addEventListener("input", () => write(Number(input.value) / 100));
     input.addEventListener("change", () => this.app.store.settle());
     if (reset) {
@@ -312,7 +323,7 @@ export class Panels {
       input.addEventListener("contextmenu", (event) => event.preventDefault());
       input.title = input.title ? `${input.title} · right click resets` : "Right click resets";
     }
-    this.sliders.push({ input, read });
+    this.sliders.push({ input, read, say });
   }
 
   private buildBar(): void {
@@ -452,7 +463,7 @@ export class Panels {
   private buildFx(): void {
     const holder = byId("fx");
     for (const fx of FX) {
-      const pad = button("pad-fx", "", `${fx.hint} (hold · right click latches)`);
+      const pad = button("pad-fx", "", `${fx.hint} (hold · right click or Shift latches)`);
       // Each effect's name shows what it does while it is held (see "motion" in the style sheet).
       pad.dataset.fx = fx.id;
       pad.append(el("span", "name", fx.name), el("kbd", "key"));
@@ -471,13 +482,29 @@ export class Panels {
       pad.addEventListener("pointerup", release);
       pad.addEventListener("pointercancel", release);
       pad.addEventListener("lostpointercapture", release);
+      // A click that no pointer and no key of ours made comes from a screen reader, a switch or a voice command: nobody can hold with those, so it latches.
+      let keyed = false;
+      pad.addEventListener("click", (event) => {
+        if (event.detail === 0 && !keyed) this.app.latchFx(fx.id);
+      });
       pad.addEventListener("keydown", (event) => {
-        if ((event.key === "Enter" || event.key === " ") && !event.repeat) this.app.setFx(fx.id, true);
+        if (event.key !== "Enter" && event.key !== " ") return;
+        keyed = true;
+        if (event.repeat) return;
+        // With Shift the effect latches, as it does under its own key: nobody has to hold a key down. Any press on a latched one lets it go again.
+        if (event.shiftKey || this.app.latched.has(fx.id)) this.app.latchFx(fx.id);
+        else this.app.setFx(fx.id, true);
       });
       pad.addEventListener("keyup", (event) => {
-        if (event.key === "Enter" || event.key === " ") release();
+        if (event.key !== "Enter" && event.key !== " ") return;
+        release();
+        // The space bar's own click comes with this key going up: it is still ours.
+        setTimeout(() => { keyed = false; }, 0);
       });
-      pad.addEventListener("blur", release);
+      pad.addEventListener("blur", () => {
+        keyed = false;
+        release();
+      });
       holder.append(pad);
       this.fxButtons.set(fx.id, pad);
     }
@@ -492,7 +519,7 @@ export class Panels {
       el("p", "veil-text", "Telephone: this ring is covered. Someone has already built here, but you hear and see only the ring of the person before you. Add your own: take a ring that is still empty. When everyone is done, you reveal it in the pass-around window."),
     );
     this.veilBox.querySelector("header")!.append(el("span", "dot"), el("h2"));
-    byId("panel").append(this.ringBox, this.pieceBox, this.veilBox);
+    byId("panel").append(this.ringBox, this.pedalBoard.build(), this.pieceBox, this.veilBox);
   }
 
   /** What can be done to the ring's whole pattern: dice, a small change, all away. */
@@ -703,8 +730,10 @@ export class Panels {
     mixSlider("Reverb", "hall", "", sends);
     mixSlider("Echo", "echo", "", sends);
     mix.append(sends);
-    this.driveRow = mixSlider("Drive", "drive", "Pushes the ring into distortion. Sparks from the weather come on top.");
+    this.driveRow = mixSlider("Drive", "drive", "Pushes the ring into distortion. Sparks from the weather come on top.", this.driving);
     this.driveRow.id = "drive-row";
+    this.driving.append(...this.pedalBoard.buildOpener());
+    mix.append(this.driving);
     return mix;
   }
 
@@ -740,6 +769,7 @@ export class Panels {
     this.syncStatus();
     this.boothWindow.sync();
     this.weatherPanel.sync();
+    this.pedalBoard.sync();
     this.acidPanel.sync();
     this.chordMenu.sync();
     this.palette.sync();
@@ -805,8 +835,12 @@ export class Panels {
     byId<HTMLButtonElement>("undo").disabled = !app.store.canUndo;
     byId<HTMLButtonElement>("redo").disabled = !app.store.canRedo;
     for (const slider of this.sliders) {
-      const value = String(Math.round(slider.read() * 100));
+      const amount = slider.read();
+      const value = String(Math.round(amount * 100));
       if (slider.input.value !== value) slider.input.value = value;
+      // What a screen reader says for the value: a word where there is one, a percentage otherwise.
+      const said = slider.say ? slider.say(amount) : `${value} %`;
+      if (slider.input.getAttribute("aria-valuetext") !== said) slider.input.setAttribute("aria-valuetext", said);
     }
 
     const record = byId("record");
@@ -860,6 +894,7 @@ export class Panels {
     }
     this.quake.hidden = selected !== 0;
     if (this.driveRow) this.driveRow.hidden = selected === 0;
+    this.driving.hidden = selected === 0;
   }
 
   /** "Play in" and the effect keys: held, latched, or let go. */
@@ -901,6 +936,7 @@ export class Panels {
     parts.spread.max = String(pattern.len);
     if (document.activeElement !== parts.spread || Number(parts.spread.value) !== hits) parts.spread.value = String(hits);
     parts.spreadValue.textContent = String(hits);
+    parts.spread.setAttribute("aria-valuetext", hits === 1 ? "1 hit" : `${hits} hits`);
     this.moved(parts.spreadValue, hits, "tick", undefined, !sameRing);
     for (const node of byId("panel").querySelectorAll<HTMLButtonElement>(".line .button")) {
       if (node.textContent === "−") node.disabled = pattern.len <= MIN_STEPS;

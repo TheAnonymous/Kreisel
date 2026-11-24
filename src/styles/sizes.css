@@ -131,8 +131,14 @@
     margin-top: 0;
   }
 
+  /* Nine effects are two rows on a phone: five and four. */
+  .fx {
+    flex-wrap: wrap;
+  }
+
   .pad-fx {
-    min-height: 50px;
+    flex: 1 1 calc(20% - 5px);
+    min-height: 46px;
     font-size: 0.72rem;
   }
 

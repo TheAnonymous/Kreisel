@@ -36,6 +36,12 @@
   gap: 7px;
 }
 
+/* Nine effects stand beside the wheel: where the window is low they get flatter instead of running out of it. */
+.fx {
+  min-height: 0;
+  gap: 6px;
+}
+
 .tools {
   grid-area: tools;
 }
@@ -98,7 +104,9 @@
 }
 
 .pad-fx {
-  min-height: 58px;
+  flex: 0 1 58px;
+  min-height: 36px;
+  padding-block: 3px;
   box-shadow: 0 3px 0 var(--ink);
   font-size: 0.8rem;
   touch-action: none;

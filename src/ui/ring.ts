@@ -1,8 +1,9 @@
 import { nextHit, slidesInto } from "../acid";
-import { ACID_SOUND, BAR, currentScene, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, WEATHER_MAX, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Pattern, type Scene, type Step, wrap } from "../model";
+import { ACID_SOUND, BAR, currentScene, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, WEATHER_MAX, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, trackOf, type Pattern, type Scene, type Step, wrap } from "../model";
 import { chordAt, chordName } from "../music";
 import { drawMouth } from "./booth";
 import { tideShare, WEATHER_COLORS, windDrift } from "../weather";
+import { crestSteps, sweepAt, sweeps, takesPedals } from "../pedals";
 import { Lights } from "./lights";
 import { approach, compare, DEAL, dealt, face, hop, MANY, POP, rest, SHRINK, SLIDE, SWELL, swell, unface } from "./motion";
 import { buildFor, buildReach, dropsOf, entry, gapSteps, PHRASE, planBar, playsThere, reached, ROSTER, rosterOf } from "../piece";
@@ -522,8 +523,49 @@ export class RingView {
     if (slide !== 0) context.restore();
 
     this.drawFocusLine(center, lane);
+    this.drawCrest(frame, lane);
     this.drawRunner(frame, lane);
     this.drawPointers(center, lane);
+  }
+
+  /**
+   * The crest of a ring's sweep: a small peak at the ring's outer edge, on the step where its phaser or flanger is at
+   * its top (two of them for a sweep that goes twice a round). While the Kreisel plays, the peak fills as the sweep
+   * comes up to it; where less motion is wanted it simply stands there.
+   */
+  private drawCrest(frame: Frame, lane: Lane): void {
+    const pedals = trackOf(this.app.project, lane.track).pedals;
+    if (!pedals || !takesPedals(lane.track) || !sweeps(pedals.mod) || pedals.depth <= 0) return;
+    const context = this.context;
+    const { center } = frame.geometry;
+    const { band, cell, pattern, thickness } = lane;
+    const up = frame.playhead === null || frame.calm ? 1 : sweepAt(frame.playhead, pattern.len, pedals.crest, pedals.span);
+    const reach = Math.min(thickness * 0.45, 12);
+    const half = Math.min(cell * 0.3, 0.085);
+    for (const step of crestSteps(pattern.len, pedals.crest, pedals.span)) {
+      const angle = TOP + step * cell;
+      const at = (radius: number, turn: number): [number, number] => [center + Math.cos(angle + turn) * radius, center + Math.sin(angle + turn) * radius];
+      context.beginPath();
+      context.moveTo(...at(band.outer - 1, -half));
+      context.lineTo(...at(band.outer - 1 - reach, 0));
+      context.lineTo(...at(band.outer - 1, half));
+      context.closePath();
+      // A rim in the page's own colour sets the mark off from whatever lies under it: a hit in the ring's colour, in the light or in the dark.
+      context.strokeStyle = this.palette.bg;
+      context.lineWidth = 4.5;
+      context.lineJoin = "round";
+      context.stroke();
+      context.fillStyle = this.palette.paper;
+      context.fill();
+      context.globalAlpha = 0.25 + 0.75 * up;
+      context.fillStyle = this.palette.ink;
+      context.fill();
+      context.globalAlpha = 1;
+      context.strokeStyle = this.palette.ink;
+      context.lineWidth = 1.5;
+      context.lineJoin = "round";
+      context.stroke();
+    }
   }
 
   /**

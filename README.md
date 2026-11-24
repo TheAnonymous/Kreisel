@@ -65,9 +65,10 @@ and no knobs. So Kreisel has no knobs either:
   one becomes a copy of the current one when clicked. Scenes change on the
   bar line, and the row ("Row") under the wheel plays them in the order
   they were laid (see "Scenes and the row").
-- **Play it.** The bottom row of the keyboard holds five effects (lowpass,
-  highpass, stutter, echo throw, pause with a crash on release), the home row
-  plays the ring in focus, and "Play in" writes what is played into the
+- **Play it.** The bottom row of the keyboard holds effects (lowpass,
+  highpass, stutter, echo throw, pause with a crash on release, and a
+  build-up; three more from a DJ's mixer came later, see "Pedals"), the home
+  row plays the ring in focus, and "Play in" writes what is played into the
   turning ring.
 - **The web's own tricks.** The whole Kreisel fits in a link (no upload: the
   link *is* the project), it starts offline, records what is heard and
@@ -959,6 +960,100 @@ reason, and none of them everywhere. It is `masterPiece` in `src/model.ts`.
 `tests/master.test.ts` holds the arc bar by bar; `e2e/master.spec.ts` looks at
 what the page shows of it and measures the stretch from the cool-down to the
 top.
+
+## Pedals
+
+Acid and hard techno are made with a handful of boxes on the floor and the
+order they stand in. What the makers of these tracks say they use (about 220
+sources were read for this, see below) comes down to four things a Kreisel
+did not have: a distortion with a character behind the acid line (and the
+trick that keeps its resonance alive: thin the lows before the clipper, give
+them back after it), a crusher on the drums, a flanger or phaser on the
+hi-hats, and above all the order: a reverb that runs **into** the distortion
+instead of out of it is what makes a rumble, a wash, a wall, a screech.
+
+So every ring but the kick (which has its own chain: Hardness, Rumble) has
+pedals. The button "Pedals" beside a ring's Drive (key Y on an American
+keyboard, Z on a German one) turns the ring's panel over, and the wheel stays
+in view beside it. On the board, from top to bottom:
+
+- **The chain**, as stations in the order the sound passes them: "Echo →
+  Distortion → Crush → Phaser → Reverb". Only what is turned up is named. A
+  screen reader hears it as one sentence.
+- **Chains**: five ready boards for each ring, named for what they are in the
+  genre ("Acid classic", "Screech", "Jet hats", "Warehouse clap" ...). One
+  click sets the ring's drive, reverb, echo and pedals; "Dice" (or a right
+  click on "Pedals") takes another one; "None" takes everything off.
+- **Drive and its character**: Warm (the soft saturation a ring always had),
+  Distortion (a hard knee; the lows are cut before the shaper and pass clean
+  beside it), Fuzz (lopsided, with a dead stretch that swallows what is
+  quiet), Clip (flat tops) and Scream (a ringing peak pushed into a clipper,
+  the lows cut away after it; the drive's amount moves the peak, so the
+  sparks of the weather sweep it).
+- **Crush**: fewer levels and fewer samples a second. Its slider says where
+  it stands in a word (light, grainy, 8-bit, crunchy, broken).
+- **Modulation**: phaser, flanger or chorus. A phaser's or a flanger's sweep
+  is not left to a clock of its own: its top is a **place on the ring**. A
+  small peak at the ring's rim marks the step on which the sweep is all the
+  way up; "Peak" moves it, and so does "Sweep peaks here" in a step's menu.
+  So the sweep is in time and the same in every round, and turning the crest
+  against the pattern is how it is played. "Rounds" says how long one sweep
+  takes: half a round, one, two, four or eight.
+- **Order**: "Clean space" (drive first, then echo and reverb, as it always
+  was), "Reverb into drive", "Echo into drive", "Both into drive". Four
+  names instead of cables. On a ring whose reverb comes first, the clouds of
+  the weather go that way too.
+
+Three **held effects** came with them, the ones on a DJ's mixer: "Wash"
+(everything swells into a reverb of its own while the dry sum sinks; let go,
+the dry sum is back at once and the reverb rings out over it), "Jet" (a
+flanger over the sum, at its top on the one of every other bar) and "Crush".
+They have the three keys to the right of L and P (the umlauts on a German
+keyboard) and latch with Shift like the others. On an effect's button
+Shift+Enter latches it too, so that no effect needs a key held down.
+
+How it is made:
+
+- `src/pedals.ts` holds the rules: the characters' curves and filters, how
+  far the crusher goes, where a sweep stands after so many steps, the orders,
+  the chain in words, and the 30 chains. `src/audio/pedals.ts` makes them
+  sound, `src/app/pedals.ts` is the desk, `src/ui/pedal-board.ts` the page.
+- Between a ring's weather filters and its bus stand the drive, the crusher
+  and the modulation, in that order. Only the drive is always there (it is the
+  shaper every ring always had); everything else is built when a ring first
+  asks for it, and between the parts stand gains of exactly 1. A Kreisel
+  without pedals plays through the same sums as before.
+- The crusher needs no worklet, so it renders offline like everything else:
+  the sound is multiplied by pulses an eighth of a sample's time long (which
+  is what sampling is, mirror images included), three small delays lay each
+  pulse out eight times side by side so that it is held until the next look,
+  and what comes out is pushed through a staircase.
+- The sweep is led by the player, step by step, from the step the ring's
+  runner is on (`sweepAt`); that is why it lands where the mark says, live
+  and in a rendered file alike, also where the rings are realigned every
+  eight bars.
+- For "reverb into drive" a ring gets a small room of its own in front of its
+  shaper (one short impulse shared by all rings), for "echo into drive" a
+  dotted-eighth echo; the ring's sends to the shared hall and echo are closed
+  meanwhile.
+- A ring's pedals are seven small numbers in place 12 of its list in the link
+  (`tone.crush.mod.depth.crest.span.first`); a ring without pedals is packed
+  as before, and an older page reads a newer link without them.
+- Levels are measured, not guessed: `node scripts/level-pedals.mjs` renders
+  the plain techno Kreisel one ring at a time and prints what every character,
+  the crusher, the modulations and the orders do to its loudness. The trims
+  in `src/pedals.ts` come from that table: on average over the six rings a
+  character is as loud as the warm one at the same drive, and the crusher as
+  loud as the clean ring. Nobody has judged them by ear yet.
+- Every slider of the panel says its value to a screen reader
+  (`aria-valuetext`: a word where there is one, a percentage otherwise), every
+  group of choices on the board is a radio group with one tab stop whose arrow
+  keys take what they land on, and the mark on the wheel is mirrored by the
+  "Peak" slider.
+
+The research (which effects and chains acid and hard techno are made with,
+and how instruments make effects quick to play and usable without sight) is
+not part of the repository; the plan it led to names the notes.
 
 ## Build
 

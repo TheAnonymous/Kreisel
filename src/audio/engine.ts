@@ -33,8 +33,10 @@ import { buildDrive, buildGroup, shadeDrive, shadeGroup, type KickDrive, type Ki
 import { playVoice } from "./voice";
 import { buildRumble, hitRumble, shadeRumble, stepRumble, stillRumble, type Rumble } from "./rumble";
 import { buildPress, shadePress, type Press } from "./press";
-import { buildChain, clearChain, driveChain, stepChain, type Chain } from "./weather";
+import { buildChain, clearChain, stepChain, wearChain, type Chain } from "./weather";
 import { brightness, shaded, shadesSound, weatherOver } from "../weather";
+import { echoFirst, FLANGER, reverbFirst, sweepAt, takesPedals } from "../pedals";
+import { buildBoard, crushBoard, modBoard, restBoard, sweepBoard, type Board } from "./pedals";
 import { hitNumber } from "../voice";
 import { firstRound, nextRound, orderBars, roundAfter } from "../order";
 import { soundFile, type SoundFile } from "./opus";
@@ -59,6 +61,11 @@ export interface Graph {
   mix: GainNode;
   /** The dry sum on its way to the press: the gap before a drop closes it, and hall and echo ring out. */
   dry: GainNode;
+  /** Pedals for the sum, between the dry sum and the press: the held effects "Jet" and "Crush" step on them. */
+  sum: Board;
+  /** The dry sum behind those: the held effect "Wash" lets it sink while everything goes into a reverb of its own (built when it is first held). */
+  washDry: GainNode;
+  wash: { send: GainNode } | null;
   /** What the listener hears, after the master has done its work: a build-up that gets quieter lets it sink. */
   tail: GainNode;
   /** The hall's impulse, and the hall of its own that a build-up's cloud rings in (built when the first one asks for it). */
@@ -117,7 +124,11 @@ export function buildGraph(context: BaseAudioContext): Graph {
   const press = buildPress(kit, master.input);
   const mix = kit.gain(1);
   const dry = kit.gain(1);
-  mix.connect(dry).connect(press.input);
+  // Between the dry sum and the press stand the sum's own pedals and a gain, all of them at 1 until a held effect moves them.
+  const washDry = kit.gain(1);
+  mix.connect(dry);
+  const sum = buildBoard(kit, dry, washDry, false);
+  washDry.connect(press.input);
   const impulse = hallImpulse(context, 2.4, { decay: 4.5 });
   const hall = createReverb(kit, impulse, { to: press.input, level: 0.8 });
   const echo = createPingPong(kit, { feedback: 0.42, tone: 3400, to: press.input, level: 0.7 });
@@ -126,7 +137,10 @@ export function buildGraph(context: BaseAudioContext): Graph {
   const group = buildGroup(kit, mix);
   const buses = TRACK_KINDS.map((_, index) => createBus(context, { level: 0, to: index === 0 ? group.input : mix, sends: { hall: hall.input, echo: echo.input } }));
   const rumble = buildRumble(kit, group.input);
-  const chains = buses.map((bus) => buildChain(kit, bus.input, bus.output, hall.input, echo.input));
+  // The room that rings in front of a drive (see "Order" in src/pedals.ts): shorter than the hall, and made only when a ring asks for it.
+  let frontRoom: AudioBuffer | null = null;
+  const room = (): AudioBuffer => (frontRoom ??= hallImpulse(context, 1.3, { decay: 3.2, predelay: 0.004, seed: 2_345_671 }));
+  const chains = buses.map((bus) => buildChain(kit, bus.input, bus.output, hall.input, echo.input, room));
   // The kick is driven first; as hard as it comes out, it goes on to its bus and down into the cellar.
   const drive = buildDrive(kit);
   if (chains[0]) drive.output.connect(chains[0].input);
@@ -142,7 +156,7 @@ export function buildGraph(context: BaseAudioContext): Graph {
     analyser.fftSize = 1024;
     tail.connect(analyser);
   }
-  return { context, kit, master, press, mix, dry, tail, impulse, cloud: null, sway: { drive: TRACK_KINDS.map(() => 0), hall: TRACK_KINDS.map(() => 0), kick: 0 }, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, drive, rumble, group, chains };
+  return { context, kit, master, press, mix, dry, sum, washDry, wash: null, tail, impulse, cloud: null, sway: { drive: TRACK_KINDS.map(() => 0), hall: TRACK_KINDS.map(() => 0), kick: 0 }, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, drive, rumble, group, chains };
 }
 
 export const stepSeconds = (project: Project): number => 15 / project.bpm;
@@ -150,24 +164,27 @@ export const stepSeconds = (project: Project): number => 15 / project.bpm;
 /** Levels, sends, the echo's time and the volume, as the project has them now. */
 export function applyMix(graph: Graph, project: Project, audible: (track: number) => boolean, time: number, glideTime = 0.015): void {
   const small = 1 - 0.5 * graph.sway.kick;
+  // A dotted eighth: the echo answers between the beats.
+  const echoTime = Math.min(1.9, 3 * stepSeconds(project));
   graph.buses.forEach((bus, index) => {
     const track = project.tracks[index];
     if (!track) return;
     // Where the tension lets the kick grow, it is smaller further down the line: behind what makes it hard, so that it is not filled up again.
     const level = audible(index) ? track.level ** 1.5 * (TRIM[index] ?? 1) * (index === 0 ? small : 1) : 0;
     bus.output.gain.setTargetAtTime(level, time, glideTime);
-    bus.sends.hall.gain.setTargetAtTime(Math.min(1, track.hall + (graph.sway.hall[index] ?? 0)), time, glideTime);
-    bus.sends.echo.gain.setTargetAtTime(track.echo, time, glideTime);
+    // A ring's pedals can put its reverb or its echo in front of its drive: then the chain has them, not the bus.
+    const pedals = takesPedals(index) ? track.pedals : undefined;
+    const hall = Math.min(1, track.hall + (graph.sway.hall[index] ?? 0));
+    bus.sends.hall.gain.setTargetAtTime(reverbFirst(pedals) ? 0 : hall, time, glideTime);
+    bus.sends.echo.gain.setTargetAtTime(echoFirst(pedals) ? 0 : track.echo, time, glideTime);
     const chain = graph.chains[index];
-    if (chain) driveChain(chain, Math.min(1, track.drive + (graph.sway.drive[index] ?? 0)), time);
+    if (chain) wearChain(chain, { drive: Math.min(1, track.drive + (graph.sway.drive[index] ?? 0)), pedals, hall, echo: track.echo, echoSeconds: echoTime }, time);
   });
   shadeDrive(graph.drive, project.hard, time, glideTime);
   shadePress(graph.press, project.pressure, time, glideTime);
   // The Nachbeben is as loud as the kick's ring is set, and silent with it.
   const kick = project.tracks[0];
   shadeRumble(graph.rumble, project.dirt, project.roll, kick && audible(0) ? kick.level ** 1.5 * (TRIM[0] ?? 1) * small : 0, time, glideTime);
-  // A dotted eighth: the echo answers between the beats.
-  const echoTime = Math.min(1.9, 3 * stepSeconds(project));
   graph.echo.left.delayTime.setTargetAtTime(echoTime, time, 0.05);
   graph.echo.right.delayTime.setTargetAtTime(echoTime, time, 0.05);
   graph.master.setVolume(project.volume, time);
@@ -325,6 +342,8 @@ export class Player {
   chord = 0;
   /** The bar the piece jumps to at the next bar line. */
   seek: number | null = null;
+  /** The held effect "Jet" is on: the flanger over the sum is led step by step. */
+  jet = false;
   /** An effect key holds the master lowpass: the piece leaves it alone meanwhile. */
   filterHeld = false;
   /** An effect key holds the low cut: a build-up leaves it alone meanwhile. */
@@ -609,13 +628,14 @@ export class Player {
     this.handStep(project, this.plan ? inBar : this.local % BAR, time, duration);
     // A roll before a drop takes the snare's ring over: what the ring would play itself waits for the drop.
     const rolling = this.hand !== null || (this.plan !== null && this.plan.roll);
+    if (this.jet) sweepBoard(this.graph.sum, sweepAt(this.local, JET.steps, 0, 1), sweepAt(this.local + 1, JET.steps, 0, 1), time, time + duration);
     for (let track = 0; track < TRACK_COUNT; track += 1) {
       const pattern = scene.patterns[track];
       if (!pattern) continue;
       // The weather over this ring at this step; the wind has carried it on by as far as the Kreisel has played.
       const over = weatherOver(scene, track, position % pattern.len, this.local);
       const chain = this.graph.chains[track];
-      if (chain) stepChain(chain, over, time, duration);
+      if (chain) stepChain(chain, over, time, duration, position, pattern.len);
       if (rolling && track === ROLL_RING) continue;
       const step = stepAt(pattern, position % pattern.len);
       if (!step.on) continue;
@@ -726,8 +746,26 @@ export class Player {
   }
 }
 
-export type FxName = "dumpf" | "duenn" | "stotter" | "wurf" | "pause" | "aufbau";
-const FX_NAMES: readonly FxName[] = ["dumpf", "duenn", "stotter", "wurf", "pause", "aufbau"];
+export type FxName = "dumpf" | "duenn" | "stotter" | "wurf" | "pause" | "aufbau" | "wash" | "jet" | "crush";
+const FX_NAMES: readonly FxName[] = ["dumpf", "duenn", "stotter", "wurf", "pause", "aufbau", "wash", "jet", "crush"];
+
+/** "Wash": how much of everything goes into its reverb while it is held, and what is left of the dry sum by then. */
+const WASH = { send: 0.8, dry: 0.3, level: 0.9 } as const;
+/** "Jet": how deep the flanger over the sum goes, and how many steps one of its sweeps takes (it is at its top on the one of every other bar). */
+const JET = { depth: 0.7, steps: 2 * BAR } as const;
+/** "Crush": how far the sum is crushed while it is held. */
+const CRUSH_HELD = 0.55;
+
+/** The reverb the wash rings in: one of its own, so that it can take everything while hall and echo stay as they are. */
+function washOf(graph: Graph): { send: GainNode } {
+  if (!graph.wash) {
+    const send = graph.kit.gain(0);
+    const reverb = createReverb(graph.kit, graph.impulse, { to: graph.press.input, level: WASH.level });
+    graph.mix.connect(send).connect(reverb.input);
+    graph.wash = { send };
+  }
+  return graph.wash;
+}
 
 export interface EngineView {
   /** Whether a ring is heard (not muted, not silenced by another ring's solo). */
@@ -759,7 +797,7 @@ export class Engine {
   readonly struck: number[] = Array.from({ length: TRACK_COUNT }, () => -10);
   /** Which hit of its line each ring last played (a voice sings a syllable a hit). */
   readonly sung: number[] = Array.from({ length: TRACK_COUNT }, () => 0);
-  readonly fx: Record<FxName, boolean> = { dumpf: false, duenn: false, stotter: false, wurf: false, pause: false, aufbau: false };
+  readonly fx: Record<FxName, boolean> = { dumpf: false, duenn: false, stotter: false, wurf: false, pause: false, aufbau: false, wash: false, jet: false, crush: false };
 
   private readonly host = new AudioHost<Graph>((context) => buildGraph(context), { latencyHint: "interactive" });
   private readonly cues = new Cues(() => this.host.visualTime());
@@ -977,6 +1015,20 @@ export class Engine {
     } else if (name === "aufbau") {
       // A build-up for as long as the key is held; let go, its drop lands on the next one.
       this.player?.holdBuild(on && this.playing);
+    } else if (name === "wash") {
+      // Everything swells into a reverb while the dry sum sinks; let go, the dry sum is back at once and the reverb rings out over it.
+      const wash = washOf(graph);
+      wash.send.gain.cancelScheduledValues(now);
+      wash.send.gain.setTargetAtTime(on ? WASH.send : 0, now, on ? 0.15 : 0.04);
+      graph.washDry.gain.cancelScheduledValues(now);
+      graph.washDry.gain.setTargetAtTime(on ? WASH.dry : 1, now, on ? 0.9 : 0.012);
+    } else if (name === "jet") {
+      // A flanger over the sum; while the Kreisel plays, the player leads its sweep (it is at its top on the one of every other bar).
+      modBoard(graph.sum, on ? FLANGER : 0, on ? JET.depth : 0, now);
+      if (this.player) this.player.jet = on;
+      if (!on) restBoard(graph.sum, now);
+    } else if (name === "crush") {
+      crushBoard(graph.sum, on ? CRUSH_HELD : 0, now);
     } else if (this.player) {
       this.player.pause = on && this.playing;
       if (on && this.playing) {

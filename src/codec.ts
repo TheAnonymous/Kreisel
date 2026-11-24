@@ -1,4 +1,5 @@
 import { cleanAcid, takesAcid } from "./acid";
+import { packPedals, takesPedals, unpackPedals } from "./pedals";
 import { cleanBody } from "./body";
 import { cleanVoice } from "./voice";
 import { cleanRumble } from "./rumble";
@@ -280,6 +281,8 @@ interface PackedScene {
 const DRIVE_AT = 10;
 /** And where its acid machine stands, after that. */
 const ACID_AT = 11;
+/** And its pedals, after that. */
+const PEDALS_AT = 12;
 
 interface Packed {
   v: 1;
@@ -341,6 +344,11 @@ export function packState(project: Project): Packed {
       if (track.acid) {
         while (packed.length < ACID_AT) packed.push(0);
         packed.push(`${Math.round(track.acid.bite * 100)}.${Math.round(track.acid.decay * 100)}.${track.acid.square ? 1 : 0}`);
+      }
+      // Pedals are seven small numbers, after everything else; a ring without them ends before.
+      if (track.pedals) {
+        while (packed.length < PEDALS_AT) packed.push(0);
+        packed.push(packPedals(track.pedals));
       }
       return packed;
     }),
@@ -466,6 +474,7 @@ function unpackTrack(value: unknown, index: number): Track {
   const voice = unpackVoice(list[9]);
   // Only the bass and the melody can have an acid machine.
   const acid = takesAcid(index) ? unpackAcid(list[ACID_AT]) : null;
+  const pedals = unpackPedals(list[PEDALS_AT]);
   // A number that is no sound (a damaged link, or one from a later Kreisel that has more sounds) is read as the ring's first.
   const stored = integer(list[0], -1, ACID_SOUND + 1, 0);
   const sound = stored < 0 || (stored > LAST_SOUND && stored !== ACID_SOUND) ? 0 : stored;
@@ -483,6 +492,8 @@ function unpackTrack(value: unknown, index: number): Track {
     body,
     voice,
     acid,
+    // The kick has a chain of its own; any other ring's pedals are there only where they say something.
+    ...(takesPedals(index) && pedals ? { pedals } : {}),
   };
 }
 

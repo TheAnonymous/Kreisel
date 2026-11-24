@@ -4,6 +4,7 @@ import { ACID_SOUND, BODY_SOUND, BUILD_SIZES, VOICE_SOUND, currentScene, MARK_NA
 import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
+import { describeChain, takesPedals } from "../pedals";
 import { hasWeather, WEATHER_NAMES, windName } from "../weather";
 import { MAX_ROUNDS } from "../order";
 import { barCount, buildReach, kickOut, phraseOf, ROSTER, rosterOf, SHAPE_HINTS, SHAPE_NAMES, SHAPES, sizeName, sizeOf } from "../piece";
@@ -141,6 +142,20 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
           options: [
             ...RUMBLE_SHAPES.map((label, shape) => ({ label, active: shapeOf(pattern, currentScene(project).rumble) === shape, title: `Lay rumble in the shape “${label}” around the kicks`, run: () => app.rumble.shape(shape) })),
             { label: "Off", active: !hasRumble(currentScene(project), pattern.len), title: "Take the rumble away", run: () => app.rumble.shape(-1) },
+          ],
+        }]
+      : []),
+    ...(takesPedals(track)
+      ? [{
+          kind: "choice" as const,
+          label: "Pedals",
+          options: [
+            { label: "Open …", title: `Open this ring's pedals (${describeChain(settings)})`, close: true, run: () => { app.select(track); if (!app.pedals.open) app.pedals.toggle(); } },
+            { label: "Dice", title: "Put another of this ring's chains on it", run: () => app.pedals.dice(track) },
+            // On a step of a ring whose phaser or flanger sweeps: the sweep's top can be put right here.
+            ...(at !== null && app.pedals.sweeps(track)
+              ? [{ label: "Sweep peaks here", title: `Put the top of this ring's sweep on step ${at + 1}: it is in time, and the same in every round`, active: (settings.pedals?.crest ?? 0) % pattern.len === at, run: () => app.pedals.crestAt(track, at) }]
+              : []),
           ],
         }]
       : []),

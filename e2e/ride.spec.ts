@@ -25,9 +25,9 @@ test.describe("on a laptop", () => {
     const pad = page.locator('#fx [data-fx="aufbau"]');
     await expect(pad).toContainText("Build-up");
     await expect(pad).not.toHaveClass(/held/);
-    // Six effect keys stand beside the wheel, and all of them are on the page.
+    // Nine effect keys stand beside the wheel, and all of them are on the page.
     expect(await page.evaluate(() => [...document.querySelectorAll("#fx .pad-fx")].every((node) => { const box = node.getBoundingClientRect(); return box.top >= 0 && box.bottom <= window.innerHeight; }))).toBe(true);
-    await expect(page.locator("#fx .pad-fx")).toHaveCount(6);
+    await expect(page.locator("#fx .pad-fx")).toHaveCount(9);
 
     // Without anything playing the key does nothing.
     await buildKey(page, true);
@@ -142,9 +142,9 @@ test.describe("on a laptop", () => {
 test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("has six effect keys on a phone, and nothing is wider than the screen", async ({ page }) => {
+  test("has nine effect keys on a phone, and nothing is wider than the screen", async ({ page }) => {
     const problems = await open(page);
-    await expect(page.locator("#fx .pad-fx")).toHaveCount(6);
+    await expect(page.locator("#fx .pad-fx")).toHaveCount(9);
     await expect(page.locator('#fx [data-fx="aufbau"]')).toBeVisible();
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
     expect(await page.evaluate(() => [...document.querySelectorAll("#fx .pad-fx")].every((node) => { const box = node.getBoundingClientRect(); return box.left >= 0 && box.right <= window.innerWidth; }))).toBe(true);

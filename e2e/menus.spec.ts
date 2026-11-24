@@ -248,7 +248,7 @@ test.describe("on a laptop", () => {
     await expect(thin).toHaveClass(/latched/);
     await page.keyboard.press("Space");
     await expect(page.locator(".pad-fx.latched")).toHaveCount(0);
-    expect(await fx()).toEqual({ dumpf: false, duenn: false, stotter: false, wurf: false, pause: false, aufbau: false });
+    expect(await fx()).toEqual({ dumpf: false, duenn: false, stotter: false, wurf: false, pause: false, aufbau: false, wash: false, jet: false, crush: false });
     expect(problems).toEqual([]);
   });
 });

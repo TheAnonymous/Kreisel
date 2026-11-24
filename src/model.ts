@@ -143,6 +143,30 @@ export interface Track {
   voice: Voice | null;
   /** The ring's acid machine, once it was switched on (bass and melody). */
   acid: Acid | null;
+  /** The ring's pedals, where they say something: without them a ring sounds as it always did. */
+  pedals?: Pedals;
+}
+
+/**
+ * A ring's pedals ("Pedals"): what its sound passes beside its Drive. The drive's character, a crusher, a modulation
+ * whose sweep has its top at a place on the ring, and whether the ring's reverb and echo come before the drive
+ * instead of after it. The rules are in src/pedals.ts.
+ */
+export interface Pedals {
+  /** The drive's character: which of the tones (0 is "Warm", the drive a Kreisel always had). */
+  tone: number;
+  /** How far the sound is crushed, 0..1: fewer levels, and fewer samples a second. */
+  crush: number;
+  /** The modulation: 0 for none, 1 phaser, 2 flanger, 3 chorus. */
+  mod: number;
+  /** How deep the modulation goes, 0..1. */
+  depth: number;
+  /** The step of the ring's round on which a phaser's or a flanger's sweep is at its top. */
+  crest: number;
+  /** How long one sweep takes: which of the spans (rounds of the ring). */
+  span: number;
+  /** What comes before the drive instead of after it: 1 the reverb, 2 the echo, 3 both. */
+  first: number;
 }
 
 /** Fog, sun, clouds, rain, sparks, hail: effects painted onto the wheel. */

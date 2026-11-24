@@ -247,6 +247,7 @@ export class RingDesk {
 
   togglePalette(): void {
     this.paletteOpen = !this.paletteOpen;
+    if (this.paletteOpen) this.app.pedals.open = false;
     this.app.notify();
   }
 

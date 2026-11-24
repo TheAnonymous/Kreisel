@@ -6,6 +6,7 @@ import { barCount } from "../piece";
 import { Store } from "../store";
 import { readFlag, writeFlag } from "./prefs";
 import { AcidDesk } from "./acid";
+import { PedalDesk } from "./pedals";
 import { RingDesk } from "./rings";
 import { VoiceDesk } from "./voice";
 import { WeatherDesk } from "./weather";
@@ -77,6 +78,9 @@ export const FX: readonly { id: FxName; name: string; hint: string }[] = [
   { id: "wurf", name: "Echo", hint: "Throws everything into the echo" },
   { id: "pause", name: "Pause", hint: "Drums and bass drop out, and come back when you let go" },
   { id: "aufbau", name: "Build-up", hint: "Builds up while held: riser and snare roll rise, the lows go (up to eight bars). When you let go, the drop lands on the next one" },
+  { id: "wash", name: "Wash", hint: "Everything swells into a reverb while the dry sound sinks. When you let go, the dry sound is back at once and the reverb rings out over it" },
+  { id: "jet", name: "Jet", hint: "A flanger over everything: its sweep is at its top on the one of every other bar" },
+  { id: "crush", name: "Crush", hint: "Crushes everything: fewer levels and fewer samples a second" },
 ];
 
 export class App {
@@ -113,6 +117,7 @@ export class App {
   // ---- the desks: what can be done to one subject each ----
   readonly rings = new RingDesk(this);
   readonly acid = new AcidDesk(this);
+  readonly pedals = new PedalDesk(this);
   readonly voice = new VoiceDesk(this);
   readonly weather = new WeatherDesk(this);
   readonly rumble = new RumbleDesk(this);
@@ -284,6 +289,7 @@ export class App {
     this.workshop = null;
     this.chords.openSlot = null;
     this.rings.paletteOpen = false;
+    this.pedals.open = false;
     this.keyCursor = null;
     this.notify();
   }
@@ -293,6 +299,7 @@ export class App {
     this.workshop = which;
     this.chords.openSlot = null;
     this.rings.paletteOpen = false;
+    this.pedals.open = false;
     this.notify();
   }
 

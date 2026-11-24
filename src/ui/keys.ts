@@ -147,10 +147,11 @@ class Keyboard {
     if (key !== "Escape") return false;
     const { app, panels } = this;
     if (panels.endTour()) return true;
-    const open = app.paint.isOpen || app.body.isOpen || app.voice.isOpen || app.chords.openSlot !== null || app.rings.paletteOpen;
+    const open = app.paint.isOpen || app.body.isOpen || app.voice.isOpen || app.chords.openSlot !== null || app.rings.paletteOpen || app.pedals.open;
     if (!open && app.stage) app.toggleStage(false);
     app.chords.close();
     app.rings.closePalette();
+    app.pedals.close();
     app.hideCursor();
     app.paint.close();
     app.body.close();
@@ -417,9 +418,11 @@ class Keyboard {
   }
 
   /** The bottom row holds an effect for as long as its key is down. */
-  private effect({ code, shift }: Press): boolean {
+  private effect({ event, code, shift }: Press): boolean {
     const fx = place(FX_CODES, code);
     if (fx < 0) return false;
+    // Some of these keys are a browser's own shortcuts (the apostrophe opens Firefox's quick find): here they are effects.
+    event.preventDefault();
     const wanted = FX[fx];
     if (!wanted) return true;
     // With Shift an effect latches; a latched one lets go at the next press of its key.
@@ -445,6 +448,9 @@ class Keyboard {
       app.rings.stepSound(app.selected, code === "KeyU" ? -1 : 1);
     } else if (code === "KeyP") {
       app.rings.togglePalette();
+    } else if (code === "KeyY") {
+      // The key between T and U: the ring's pedals.
+      app.pedals.toggle();
     } else if (code === "KeyN") {
       if (shift) app.rings.vary(app.selected);
       else app.rings.dice(app.selected);
