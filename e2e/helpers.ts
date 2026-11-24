@@ -137,12 +137,13 @@ export const pieceOf = (page: Page) => page.evaluate(() => window.kreisel.app.pr
 /** Puts the piece's ring in focus and waits until it has grown to its full width. */
 export async function focusPiece(page: Page): Promise<void> {
   await page.evaluate(() => window.kreisel.app.piece.focus());
+  // The rim stays where it is while the ring grows inwards: it is the foot of the bars that has to come to rest.
   await expect.poll(async () => {
-    const first = await barAt(page, 0, 1);
+    const first = await barAt(page, 0, 0);
     await page.waitForTimeout(80);
     const second = await barAt(page, 0, 0);
-    const third = await barAt(page, 0, 1);
-    return Math.abs(first.y - third.y) + (second.y > third.y ? 0 : 1);
+    const rim = await barAt(page, 0, 1);
+    return Math.abs(first.y - second.y) + (second.y > rim.y ? 0 : 1);
   }).toBeLessThan(0.05);
 }
 

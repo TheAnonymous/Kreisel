@@ -1,12 +1,12 @@
 import type { App, ContextTarget } from "../app/app";
 import { nextHit } from "../acid";
-import { ACID_SOUND, BODY_SOUND, VOICE_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, trackInfo, trackOf } from "../model";
+import { ACID_SOUND, BODY_SOUND, BUILD_SIZES, VOICE_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, trackInfo, trackOf, type Build, type BuildSize, wrap } from "../model";
 import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
 import { hasWeather, WEATHER_NAMES, windName } from "../weather";
 import { MAX_ROUNDS } from "../order";
-import { barCount, kickOut, phraseOf, ROSTER, rosterOf } from "../piece";
+import { barCount, buildReach, kickOut, phraseOf, ROSTER, rosterOf, sizeName, sizeOf } from "../piece";
 import { SOUND_COUNT } from "../sounds/index";
 import type { MenuRow, MenuSpec } from "./menu";
 import { soundLabel } from "./sound-palette";
@@ -21,6 +21,8 @@ import { soundLabel } from "./sound-palette";
 export interface MenuDoors {
   relay(): void;
   help(): void;
+  /** Opens another menu in this one's place: for a row that leads on (from a bar of the piece to the build-up it is part of). */
+  turnTo?(target: ContextTarget): void;
 }
 
 const VELOCITIES = ["leise", "normal", "laut"] as const;
@@ -169,7 +171,81 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
   return { title: at === null ? info.name : `${info.name} · Schritt ${at + 1}`, color: info.color, rows };
 }
 
-function pieceMenu(app: App, bar: number | null): MenuSpec {
+/** The colour of a drop's mark on the wheel. */
+const DROP_COLOR = "#e4572e";
+
+/** What the ready-made sizes of a build-up are made of, for whoever points at one. */
+const SIZE_HINTS: Record<BuildSize, string> = {
+  keiner: "Kein Build-up: Der Drop kommt einfach, ohne Crash",
+  klein: "Klein: ein Takt Riser, dann der Crash",
+  mittel: "Mittel: vier Takte mit Riser und Snare-Roll, die Tiefen gehen raus, dann der Crash",
+  gross: "Groß: acht Takte mit Riser und Ton, Snare-Roll, Tiefen raus, Hall-Wolke, leiser werden, ein Schlag Lücke, dann der Crash",
+};
+
+/**
+ * The kit of a build-up: of the drop that lands in bar `drop`, or (`null`) of all drops that have none of their own.
+ * The size sets everything at once; below it every part can be had by itself.
+ */
+function kitMenu(app: App, drop: number | null): MenuSpec | null {
+  // A drop that is gone (the line was painted over, the break taken away) has no kit.
+  if (drop !== null && !app.piece.dropAt(drop)) return null;
+  const piece = app.project.piece;
+  const build = app.piece.build(drop);
+  const none = build.bars === 0;
+  const size = sizeOf(build);
+  const set = (change: Partial<Build>) => (): void => app.piece.setBuild(drop, change);
+  const part = (label: string, key: "roll" | "lows" | "wash" | "dip" | "kick" | "hat"): MenuRow => ({ kind: "action", label, checked: build[key], disabled: none, keep: true, run: set({ [key]: !build[key] }) });
+  const rows: MenuRow[] = [
+    { kind: "choice", label: "Größe", options: (Object.keys(BUILD_SIZES) as BuildSize[]).map((id) => ({ label: sizeName(BUILD_SIZES[id]), title: SIZE_HINTS[id], active: size === id, run: () => app.piece.sizeBuild(drop, id) })) },
+    { kind: "choice", label: "Länge", options: [1, 2, 4, 8].map((bars) => ({ label: bars === 8 ? "8 Takte" : String(bars), title: bars === 1 ? "Der Build-up läuft einen Takt" : `Der Build-up läuft ${bars} Takte`, active: build.bars === bars, run: set({ bars }) })) },
+    { kind: "heading", label: "Zutaten" },
+    {
+      kind: "choice",
+      label: "Riser",
+      options: [
+        { label: "aus", title: "Kein Riser", active: build.riser === 0, disabled: none, run: set({ riser: 0 }) },
+        { label: "Rauschen", title: "Riser: Rauschen, das bis zum Drop ansteigt", active: build.riser === 1, disabled: none, run: set({ riser: 1 }) },
+        { label: "mit Ton", title: "Riser: Rauschen und ein Ton, der zwei Oktaven hochfährt und in der Tonart ankommt", active: build.riser === 2, disabled: none, run: set({ riser: 2 }) },
+      ],
+    },
+    part(`Snare-Roll, am Ende ${build.bars >= 4 ? "Zweiunddreißigstel" : "Sechzehntel"}`, "roll"),
+    part("Tiefen raus: Bass dünnt aus, Kick wird schwächer", "lows"),
+    part("Hall-Wolke: wächst, am Drop trocken", "wash"),
+    part("Leiser werden", "dip"),
+    part("Letzter Takt ohne Kick", "kick"),
+    part("Letzter Takt ohne Hi-Hat", "hat"),
+    { kind: "heading", label: "Der Moment" },
+    {
+      kind: "choice",
+      label: "Lücke",
+      options: ([[0, "keine", "Keine Lücke: Der Build-up läuft bis zum Drop"], [1, "Schlag", "Der letzte Schlag vor dem Drop ist still: Nur Hall und Echo klingen aus"], [2, "½ Takt", "Der letzte halbe Takt vor dem Drop ist still"], [4, "Takt", "Der ganze letzte Takt vor dem Drop ist still"]] as const)
+        .map(([gap, label, title]) => ({ label, title, active: build.gap === gap, disabled: none, run: set({ gap }) })),
+    },
+    {
+      kind: "choice",
+      label: "Drop",
+      options: [
+        { label: "auf die Eins", title: "Alles setzt auf der Eins ein", active: !build.late, disabled: none, run: set({ late: false }) },
+        { label: "spät", title: "Später Drop: Auf der Eins kommen nur Kick und Bass, alles andere einen Schlag später", active: build.late, disabled: none, run: set({ late: true }) },
+      ],
+    },
+  ];
+  if (drop === null) {
+    const own = app.piece.ownBuilds;
+    if (own > 0) rows.push({ kind: "action", label: own === 1 ? "Auch für den Drop mit eigenem Build-up" : `Auch für die ${own} Drops mit eigenem Build-up`, keep: true, run: () => app.piece.clearBuild(null) });
+    return { title: "Alle Drops · Build-up", color: DROP_COLOR, rows };
+  }
+  // Two bars of what comes before, so that the build-up is heard to begin.
+  const from = wrap(drop - buildReach(piece, drop) - 2, barCount(piece));
+  rows.push(
+    { kind: "action", label: `Anhören ab Takt ${from + 1}`, keep: true, run: () => app.piece.playFrom(from) },
+    { kind: "action", label: "Für alle Drops übernehmen", run: () => app.piece.shareBuild(drop) },
+    { kind: "action", label: "Wieder wie alle Drops", disabled: !app.piece.hasOwnBuild(drop), keep: true, run: () => app.piece.clearBuild(drop) },
+  );
+  return { title: `Drop in Takt ${drop + 1} · Build-up`, color: DROP_COLOR, rows };
+}
+
+function pieceMenu(app: App, bar: number | null, doors: MenuDoors): MenuSpec {
   const project = app.project;
   const piece = project.piece;
   const count = barCount(piece);
@@ -203,8 +279,11 @@ function pieceMenu(app: App, bar: number | null): MenuSpec {
           { label: "Break", title: "Break: Kick und Nachbeben setzen in diesen Takten aus, alles andere spielt nach der Spannung", active: out, run: () => app.piece.kickForPhrase(at, false) },
         ],
       },
-      { kind: "heading", label: "Ganzes Stück" },
     );
+    // A bar that leads up to a drop, or the drop itself: the way to its build-up.
+    const drop = app.piece.dropNear(at);
+    if (drop !== null) rows.push({ kind: "action", label: `Build-up vor dem Drop in Takt ${drop + 1} …`, note: app.piece.describeDrop(drop).split(" · ")[1] ?? "", run: () => doors.turnTo?.({ kind: "build", drop }) });
+    rows.push({ kind: "heading", label: "Ganzes Stück" });
   }
   rows.push(
     { kind: "action", label: "Nach dem Stück spielen", checked: piece.on, keep: true, run: () => app.piece.toggle() },
@@ -219,10 +298,7 @@ function pieceMenu(app: App, bar: number | null): MenuSpec {
         { label: "+", title: "Vier Takte länger", disabled: count >= MAX_BARS, run: () => app.piece.resize(count + 4) },
       ],
     },
-    { kind: "heading", label: "Build-up vor dem Drop" },
-    { kind: "action", label: "Snare-Roll", checked: piece.runUp?.roll ?? false, keep: true, run: () => app.piece.toggleRunUp("roll") },
-    { kind: "action", label: "Letzter Takt ohne Kick", checked: piece.runUp?.kick ?? false, keep: true, run: () => app.piece.toggleRunUp("kick") },
-    { kind: "action", label: "Letzter Takt ohne Hi-Hat", checked: piece.runUp?.hat ?? false, keep: true, run: () => app.piece.toggleRunUp("hat") },
+    { kind: "action", label: `Build-up aller Drops: ${sizeName(app.piece.build(null))} …`, run: () => doors.turnTo?.({ kind: "build", drop: null }) },
     { kind: "action", label: "Fills alle acht Takte", checked: piece.vary ?? false, keep: true, run: () => app.piece.toggleVary() },
   );
   return { title: at === null ? "Stück" : `Stück · Takt ${at + 1}`, rows };
@@ -357,7 +433,8 @@ function weatherMenu(app: App): MenuSpec {
 /** The menu for what the right button landed on, or `null` when there is nothing to offer (any more). */
 export function buildMenu(app: App, target: ContextTarget, doors: MenuDoors): MenuSpec | null {
   if (target.kind === "ring") return ringMenu(app, target.track, target.step);
-  if (target.kind === "piece") return pieceMenu(app, target.bar);
+  if (target.kind === "piece") return pieceMenu(app, target.bar, doors);
+  if (target.kind === "build") return kitMenu(app, target.drop);
   if (target.kind === "roster") return rosterMenu(app, target.bar);
   if (target.kind === "chord") return chordMenu(app, target.slot);
   if (target.kind === "scene") return sceneMenu(app, target.index);

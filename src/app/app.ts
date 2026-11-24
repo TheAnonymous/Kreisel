@@ -31,6 +31,8 @@ import { FileDesk } from "./files";
 export type ContextTarget =
   | { kind: "ring"; track: number; step: number | null }
   | { kind: "piece"; bar: number | null }
+  /** The kit of a build-up: of the drop that lands in bar `drop`, or of all drops that have none of their own. */
+  | { kind: "build"; drop: number | null }
   /** The roster ("Einsätze") of the phrase around a bar of the piece: all seven rings. */
   | { kind: "roster"; bar: number }
   | { kind: "chord"; slot: number }

@@ -3,10 +3,10 @@ import { cleanBody } from "./body";
 import { cleanVoice } from "./voice";
 import { cleanRumble } from "./rumble";
 import { cleanWind, packWeather, unpackWeather } from "./weather";
-import { ACID_SOUND, BODY_SOUND, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Acid, type Bild, type Body, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
+import { ACID_SOUND, BODY_SOUND, BUILD_BARS, BUILD_GAPS, BUILD_NONE, BUILD_SMALL, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Acid, type Bild, type Body, type Build, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { MAX_ROUNDS, orderOfOld, packOrder, unpackOrder } from "./order";
-import { soundPiece } from "./piece";
+import { buildOfAll, isDrop, MAX_OWN_BUILDS, soundBuild, soundPiece } from "./piece";
 import { LAST_SOUND } from "./sounds/index";
 import { cleanName } from "./relay";
 
@@ -94,8 +94,51 @@ export function unpackBild(value: unknown): Bild | null {
   return { strokes, hold: bytes[0] === 1 ? clamp(bytes[1] ?? 0, 0, TIME_MAX) : null };
 }
 
-/** What a piece does by itself, as bits of one number. */
+/**
+ * What a piece does by itself, as bits of one number. The first three are from before a build-up was a kit: a link
+ * of then says with them what its one build-up had beyond the bar of rising noise. A link of now does not set them.
+ */
 const MOVES = { roll: 1, kick: 2, hat: 4, vary: 8 } as const;
+
+/** The parts of a build-up that are on or off, in the order of their bits. */
+const BUILD_PARTS = ["roll", "lows", "wash", "dip", "kick", "hat", "late"] as const;
+
+/** A build-up as one number: its length (three bits, as a place in BUILD_BARS), its riser (two), its gap (two, as a place in BUILD_GAPS), and a bit a part. */
+function packBuild(build: Readonly<Build>): number {
+  let packed = Math.max(0, BUILD_BARS.indexOf(build.bars as (typeof BUILD_BARS)[number])) | ((build.riser & 3) << 3) | (Math.max(0, BUILD_GAPS.indexOf(build.gap as (typeof BUILD_GAPS)[number])) << 5);
+  BUILD_PARTS.forEach((part, bit) => { if (build[part]) packed |= 1 << (7 + bit); });
+  return packed;
+}
+
+function unpackBuild(value: unknown): Build | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value >= 1 << (7 + BUILD_PARTS.length)) return null;
+  const build: Build = { ...BUILD_NONE, bars: BUILD_BARS[value & 7] ?? -1, riser: (value >> 3) & 3, gap: BUILD_GAPS[(value >> 5) & 3] ?? 0 };
+  BUILD_PARTS.forEach((part, bit) => { build[part] = (value & (1 << (7 + bit))) !== 0; });
+  return soundBuild(build);
+}
+
+/**
+ * The build-ups of a piece as numbers: that of all drops first, then for every drop with one of its own the bar it
+ * lands in and its build-up. Nothing for a piece whose drops all have the small one.
+ */
+function packBuilds(piece: Piece): number[] | null {
+  // An entry on a bar where no drop lands says nothing (see `Piece.drops`): it is not passed on.
+  const own = (piece.drops ?? []).filter((entry) => isDrop(piece, entry.bar)).slice(0, MAX_OWN_BUILDS);
+  if (!piece.build && own.length === 0) return null;
+  return [packBuild(buildOfAll(piece)), ...own.flatMap((entry) => [entry.bar, packBuild(entry.build)])];
+}
+
+/** What a link says of the build-ups, as far as it can be read; `null` for a link that says nothing of them. */
+function unpackBuilds(value: unknown): { build: Build | null; drops: { bar: number; build: Build }[] } | null {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 1 + 2 * MAX_OWN_BUILDS) return null;
+  const drops: { bar: number; build: Build }[] = [];
+  for (let index = 1; index + 1 < value.length; index += 2) {
+    const bar: unknown = value[index];
+    const build = unpackBuild(value[index + 1]);
+    if (build && typeof bar === "number" && Number.isInteger(bar)) drops.push({ bar, build });
+  }
+  return { build: unpackBuild(value[0]), drops };
+}
 
 /** The longest list of a roster a link may carry: two bits a bar for 256 bars, in base64. */
 const ROSTER_CHARS = 90;
@@ -131,13 +174,14 @@ function unpackRoster(value: unknown, bars: number): number[][] {
 /**
  * A piece as [on, one byte a bar (tension | scene << 5) in base64, the order of the rings as digits].
  * Only a piece that has them adds more: its bars "ohne Kick" as one bit a bar in base64 (empty for none), what it
- * does by itself as a number (see MOVES, 0 for nothing), and its roster (see packRoster). A piece without any of
- * that is packed as it always was, and each of the three is there only if it or one after it says something.
+ * does by itself as a number (see MOVES, 0 for nothing), its roster (see packRoster, an empty list for none), and
+ * its build-ups (see packBuilds). A piece without any of that is packed as it always was, and each of the four is
+ * there only if it or one after it says something.
  */
-export function packPiece(piece: Piece): [number, string, string, string?, number?, string[]?] {
+export function packPiece(piece: Piece): [number, string, string, string?, number?, string[]?, number[]?] {
   const bytes = piece.tension.map((tension, bar) => (tension & 31) | (((piece.scenes[bar] ?? 0) & 7) << 5));
-  const packed: [number, string, string, string?, number?, string[]?] = [piece.on ? 1 : 0, toBase64Url(Uint8Array.from(bytes)), piece.order.join("")];
-  const moves = (piece.runUp?.roll ? MOVES.roll : 0) | (piece.runUp?.kick ? MOVES.kick : 0) | (piece.runUp?.hat ? MOVES.hat : 0) | (piece.vary ? MOVES.vary : 0);
+  const packed: [number, string, string, string?, number?, string[]?, number[]?] = [piece.on ? 1 : 0, toBase64Url(Uint8Array.from(bytes)), piece.order.join("")];
+  const moves = piece.vary ? MOVES.vary : 0;
   let marks = "";
   if (piece.noKick?.some(Boolean)) {
     const bits = new Uint8Array(Math.ceil(piece.tension.length / 8));
@@ -145,14 +189,16 @@ export function packPiece(piece: Piece): [number, string, string, string?, numbe
     marks = toBase64Url(bits);
   }
   const roster = packRoster(piece);
-  if (marks !== "" || moves > 0 || roster) packed.push(marks);
-  if (moves > 0 || roster) packed.push(moves);
-  if (roster) packed.push(roster);
+  const builds = packBuilds(piece);
+  if (marks !== "" || moves > 0 || roster || builds) packed.push(marks);
+  if (moves > 0 || roster || builds) packed.push(moves);
+  if (roster || builds) packed.push(roster ?? []);
+  if (builds) packed.push(builds);
   return packed;
 }
 
 export function unpackPiece(value: unknown, fallbackScene: number): Piece {
-  const [on, bars, order, marks, moves, lists] = Array.isArray(value) ? value : [];
+  const [on, bars, order, marks, moves, lists, kits] = Array.isArray(value) ? value : [];
   if (typeof bars !== "string" || bars.length === 0 || bars.length > 400) return firstPiece(fallbackScene);
   let bytes: Uint8Array;
   try {
@@ -170,7 +216,11 @@ export function unpackPiece(value: unknown, fallbackScene: number): Piece {
     }
   }
   const does = typeof moves === "number" && Number.isInteger(moves) ? moves : 0;
-  const extras = { noKick, roster: unpackRoster(lists, bytes.length), runUp: { roll: (does & MOVES.roll) !== 0, kick: (does & MOVES.kick) !== 0, hat: (does & MOVES.hat) !== 0 }, vary: (does & MOVES.vary) !== 0 };
+  // A link from before the kit says what its one build-up had with three bits: the roll ran through two bars, the rest is the small one.
+  const roll = (does & MOVES.roll) !== 0;
+  const old = (does & (MOVES.roll | MOVES.kick | MOVES.hat)) !== 0 ? { ...BUILD_SMALL, bars: roll ? 2 : 1, roll, kick: (does & MOVES.kick) !== 0, hat: (does & MOVES.hat) !== 0 } : null;
+  const builds = unpackBuilds(kits) ?? { build: old, drops: [] };
+  const extras = { noKick, roster: unpackRoster(lists, bytes.length), build: builds.build, drops: builds.drops, vary: (does & MOVES.vary) !== 0 };
   return soundPiece(on === 1, Array.from(bytes, (byte) => byte & 31), Array.from(bytes, (byte) => byte >> 5), typeof order === "string" ? Array.from(order, Number) : [], fallbackScene, extras);
 }
 
@@ -210,7 +260,7 @@ interface Packed {
   f?: string;
   /** Only in links from before the row: how often every filled scene played in turn. */
   n?: number;
-  z?: [number, string, string, string?, number?, string[]?];
+  z?: [number, string, string, string?, number?, string[]?, number[]?];
   /** Reihum: the rule, whether it is revealed, and the turns as [name, the project then]. */
   y?: { r: number; o: number; t: [string, unknown][] };
 }

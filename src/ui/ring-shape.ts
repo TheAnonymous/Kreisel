@@ -10,6 +10,8 @@ export type Spot =
   | { kind: "ring"; track: number; step: number }
   /** The piece's ring: the bar, how high in its band (0..1), and whether on the strip of scenes at its inner edge. */
   | { kind: "piece"; bar: number; height: number; lane: boolean }
+  /** The mark of a drop on the rim of the piece's ring: the bar the drop lands in. */
+  | { kind: "drop"; bar: number }
   /** One of the seven rings while they show the roster: the ring, and the bar of the piece at that angle. */
   | { kind: "roster"; ring: number; bar: number };
 

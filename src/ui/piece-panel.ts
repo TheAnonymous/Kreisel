@@ -1,7 +1,7 @@
 import type { App } from "../app/app";
 import type { PieceTool } from "../app/piece";
-import { MAX_BARS, MIN_BARS, trackInfo, type RunUp } from "../model";
-import { barCount, describePiece } from "../piece";
+import { MAX_BARS, MIN_BARS, trackInfo } from "../model";
+import { barCount, describeBuild, describePiece, sizeName } from "../piece";
 import { byId, el, button } from "./dom";
 import type { Panels } from "./panels";
 
@@ -12,7 +12,7 @@ const PIECE_TOOLS: readonly { id: PieceTool; name: string; hint: string; icon: s
 ];
 
 const HINTS: Record<PieceTool, string> = {
-  spannung: "Mal die Spannung in den äußeren Ring: außen ist viel los, innen wenig. Die farbigen Linien zeigen, ab wo ein Ring mitspielt. Vor einem steilen Anstieg nimmt der Kreisel Anlauf. Am inneren Rand liegen die Szenen: links eine wählen, dann dort malen. Ein Rechtsklick auf einen Takt spielt ab dort, legt eine Szene hin, ändert die Spannung oder macht einen Break.",
+  spannung: "Mal die Spannung in den äußeren Ring: außen ist viel los, innen wenig. Die farbigen Linien zeigen, ab wo ein Ring mitspielt. Ein roter Keil am Rand ist ein Drop: Ein Klick darauf stellt seinen Build-up ein. Am inneren Rand liegen die Szenen: links eine wählen, dann dort malen. Ein Rechtsklick auf einen Takt spielt ab dort, legt eine Szene hin, ändert die Spannung oder macht einen Break.",
   einsaetze: "Die sieben Ringe zeigen das ganze Stück: gefüllt heißt, der Ring spielt dort. Ein Klick schaltet das für acht Takte um, ziehen malt weiter. Heller Rand und gestrichelte Linie zeigen, wo du die Spannung überstimmst.",
 };
 
@@ -22,12 +22,8 @@ const HINTS: Record<PieceTool, string> = {
  */
 export class PiecePanel {
   private readonly pieceParts = { info: el("p", "info"), on: el("input"), bars: el("output"), order: el("ol", "entries") };
-  /** What the piece does by itself: the three parts of a build-up before a drop, and the fills. */
-  private readonly runUps: [part: keyof RunUp, chip: HTMLButtonElement][] = [
-    ["roll", button("chip", "Roll", "Snare-Roll: In den letzten zwei Takten vor dem Drop spielt der Ring der Snare Viertel, dann Achtel, dann Sechzehntel, immer lauter")],
-    ["kick", button("chip", "ohne Kick", "Im letzten Takt vor dem Drop setzen die Kick und ihr Nachbeben aus")],
-    ["hat", button("chip", "ohne Hi-Hat", "Im letzten Takt vor dem Drop setzt die Hi-Hat aus")],
-  ];
+  /** What the piece does by itself: the build-up before its drops (the button opens the kit for all of them), and the fills. */
+  private readonly kit = button("chip", "alle Drops: klein ▾", "");
   private readonly vary = button("chip", "alle 8 Takte", "Fills: Jeder achte Takt endet mit einer Kick mehr, jeder sechzehnte dazu mit zwei Schlägen der Trommel");
   /** The piece's tools beside the wheel, in the order of PIECE_TOOLS. */
   readonly toolButtons: HTMLButtonElement[] = [];
@@ -84,11 +80,11 @@ export class PiecePanel {
     moves.id = "piece-moves";
     const before = el("div", "line");
     before.append(el("span", "label", "Build-up"));
-    for (const [part, chip] of this.runUps) {
-      chip.id = `piece-${part}`;
-      chip.addEventListener("click", () => app.piece.toggleRunUp(part));
-      before.append(chip);
-    }
+    this.kit.id = "piece-build";
+    this.kit.setAttribute("aria-haspopup", "menu");
+    this.kit.setAttribute("aria-expanded", "false");
+    this.kit.addEventListener("click", (event) => this.panels.onMenuUnder(this.kit, { kind: "build", drop: null }, event.detail === 0));
+    before.append(this.kit);
     this.vary.id = "piece-vary";
     this.vary.addEventListener("click", () => app.piece.toggleVary());
     this.vary.setAttribute("aria-label", "Fills alle acht Takte");
@@ -154,7 +150,12 @@ export class PiecePanel {
     parts.info.textContent = describePiece(piece, app.project.bpm);
     parts.on.checked = piece.on;
     parts.bars.textContent = String(count);
-    for (const [part, chip] of this.runUps) chip.setAttribute("aria-pressed", String(piece.runUp?.[part] ?? false));
+    const all = app.piece.build(null);
+    const own = app.piece.ownBuilds;
+    const label = `alle Drops: ${sizeName(all)} ▾`;
+    if (this.kit.textContent !== label) this.kit.textContent = label;
+    const title = `Der Build-up vor jedem Drop: ${describeBuild(all).replace(/^Build-up /, "")}. ${own > 0 ? `${own === 1 ? "Ein Drop hat" : `${own} Drops haben`} einen eigenen: Der Keil am Stück-Ring stellt ihn ein. ` : ""}Ein Drop ist ein Takt, in dem die Spannung springt oder die Kick aus einem Break zurückkommt.`;
+    if (this.kit.title !== title) this.kit.title = title;
     this.vary.setAttribute("aria-pressed", String(piece.vary ?? false));
     for (const node of this.panels.pieceBox.querySelectorAll<HTMLButtonElement>(".line .button")) {
       if (node.textContent === "−") node.disabled = count <= MIN_BARS;

@@ -1,7 +1,7 @@
 import "./style.css";
 import { App } from "./app/app";
 import { hear, type Heard } from "./audio/hear";
-import { hearWhole, type Whole } from "./audio/whole";
+import { hearBeats, hearWhole, type Beat, type Whole } from "./audio/whole";
 import { serialize } from "./codec";
 import { PALETTE_ORDER } from "./sounds/index";
 import { bindKeys } from "./ui/keys";
@@ -41,7 +41,13 @@ const menu = new ContextMenu(context);
 const doors = { relay: () => panels.showRelay(), help: () => panels.showHelp(), tour: () => panels.startTour(), get stageKey() { return panels.keyLabel("KeyO"); } };
 app.onContext = (target, x, y, byKeyboard) => {
   app.chords.close();
-  menu.open(x, y, () => buildMenu(app, target, doors), byKeyboard);
+  // A row that leads on to another menu opens that one where this one was.
+  menu.open(x, y, () => buildMenu(app, target, { ...doors, turnTo: (next) => app.openContext(next, x, y, byKeyboard) }), byKeyboard);
+};
+// A menu of the wheel can also hang under a button of the panel (the build-up of all drops).
+panels.onMenuUnder = (opener, target, byKeyboard) => {
+  app.chords.close();
+  menu.openUnder(opener, () => buildMenu(app, target, doors), byKeyboard, true);
 };
 // The same menu hangs under the bar's buttons: the Kreisel's name, the speaker, "Teilen", "Aufnehmen", the help.
 panels.onBarMenu = (opener, which, byKeyboard) => {
@@ -90,6 +96,8 @@ declare global {
       bar(bar: number, height: number): { x: number; y: number };
       /** Where a bar of the piece is in a ring's lane while the rings show the roster. */
       lane(track: number, bar: number): { x: number; y: number };
+      /** Where the mark of the drop that lands in bar `bar` is on the page. */
+      drop(bar: number): { x: number; y: number };
       /** Where a chord field is on the page. */
       slot(slot: number): { x: number; y: number };
       /** Where a place on the body on the workbench is on the page (0 its middle, 1 its edge), and where its two grips are. */
@@ -105,6 +113,8 @@ declare global {
       hear(track: number, sound: number, x?: number, y?: number): Promise<Heard>;
       /** The whole Kreisel on the table, rendered faster than it plays (as a saved file would hold it), and what can be measured on it. */
       whole(): Promise<Whole>;
+      /** The same render, measured beat by beat (or in `parts` parts of a beat): how loud each is, and how much of it lies deep down and high up. */
+      beats(parts?: number): Promise<Beat[]>;
       /** The numbers of a ring's fifty ready-made sounds, in the order of its palette. */
       palette: readonly number[];
     };
@@ -119,6 +129,7 @@ window.kreisel = {
   sheet: (t, y) => easel.position(t, y),
   bar: (bar, height) => ring.barPosition(bar, height),
   lane: (track, bar) => ring.rosterPosition(track, bar),
+  drop: (bar) => ring.dropPosition(bar),
   slot: (slot) => ring.slotPosition(slot),
   knock: (where) => bench.position(where),
   grip: (what) => bench.grip(what),
@@ -127,5 +138,6 @@ window.kreisel = {
   light: () => ring.light(),
   hear: (track, sound, x, y) => hear(app.project, track, sound, x, y),
   whole: () => hearWhole(structuredClone(app.project)),
+  beats: (parts) => hearBeats(structuredClone(app.project), parts),
   palette: PALETTE_ORDER,
 };

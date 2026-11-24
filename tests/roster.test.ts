@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { factoryProject, technoProject, TENSION_MAX, type Piece } from "../src/model";
+import { BUILD_SMALL, factoryProject, technoProject, TENSION_MAX, type Piece } from "../src/model";
 import { clearRoster, dicePiece, fillRoster, flipped, planBar, playsThere, resizePiece, rosterOf, ROSTER, rotatePiece, setKick, setRoster, soundPiece } from "../src/piece";
 import { deserialize, pack, packPiece, serialize, unpack, unpackPiece } from "../src/codec";
 import { seeded } from "../src/patterns";
@@ -81,11 +81,11 @@ describe("the roster: who plays in which bar, whatever the tension", () => {
 
   it("plays no roll on a snare that is laid out, and the fills go by who plays", () => {
     const tension = [...Array.from({ length: 8 }, () => 6), ...Array.from({ length: 8 }, () => TENSION_MAX)];
-    const piece = soundPiece(true, tension, tension.map(() => 0), [0, 2, 1, 3, 4, 5, 6], 0, { runUp: { roll: true }, vary: true });
-    // Two bars before the landing the roll is at its first stage, right before it at its second.
-    expect([planBar(piece, 6).roll, planBar(piece, 7).roll]).toEqual([1, 2]);
+    const piece = soundPiece(true, tension, tension.map(() => 0), [0, 2, 1, 3, 4, 5, 6], 0, { build: { ...BUILD_SMALL, bars: 2, roll: true }, vary: true });
+    // The roll runs through the two bars of the build-up.
+    expect([planBar(piece, 5).roll, planBar(piece, 6).roll, planBar(piece, 7).roll]).toEqual([false, true, true]);
     setRoster(piece, 1, 0, 8, ROSTER.rests);
-    expect([planBar(piece, 6).roll, planBar(piece, 7).roll]).toEqual([0, 0]);
+    expect([planBar(piece, 6).roll, planBar(piece, 7).roll]).toEqual([false, false]);
     // A fill is a kick more at the end of the phrase: it needs the kick's gate, which a kick laid out does not have.
     expect(planBar(piece, 15).vary).toBeGreaterThan(0);
     setRoster(piece, 0, 8, 16, ROSTER.rests);
@@ -157,10 +157,12 @@ describe("the roster in a link and in the browser's memory", () => {
     expect(deserialize(serialize(project))).toEqual(project);
   });
 
-  it("costs nothing in a link while nothing is laid, and comes last when something is", () => {
+  it("costs nothing in a link while nothing is laid, and comes after the marks when something is", () => {
     const plain = factoryProject().piece;
     expect(packPiece(plain)).toHaveLength(3);
     const techno = technoProject().piece;
+    // Without the build-up that its drop out of the break has of its own: build-ups come after the roster (see build.test.ts).
+    delete techno.drops;
     const before = packPiece(techno);
     expect(before).toHaveLength(4);
     setRoster(techno, 2, 64, 72, ROSTER.rests);

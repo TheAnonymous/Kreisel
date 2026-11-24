@@ -193,11 +193,16 @@ export class ContextMenu {
     if (focus) this.buttons()[0]?.focus();
   }
 
+  /** Whether the menu that hangs on a button may stand beside it (see `openUnder`). */
+  private beside = false;
+
   /**
    * Opens the menu under a button of the page, its left edge at the button's (or as far left as it has to go to
    * stay whole on the page). A second call for the same button puts the menu away: the button is a switch for it.
+   * With `beside`, a menu for which there is not room enough below its button stands to the left of it instead, whole
+   * (for a button in the middle of the page with a long menu; a bar's menus have the page below them).
    */
-  openUnder(anchor: HTMLElement, build: () => MenuSpec | null, focus = false): void {
+  openUnder(anchor: HTMLElement, build: () => MenuSpec | null, focus = false, beside = false): void {
     if (this.isOpen && this.anchor === anchor) {
       this.close(focus);
       return;
@@ -205,6 +210,7 @@ export class ContextMenu {
     this.show(0, 0, build, focus, "");
     if (!this.isOpen) return;
     this.anchor = anchor;
+    this.beside = beside;
     this.node.dataset.under = anchor.id;
     anchor.setAttribute("aria-expanded", "true");
     this.hang(anchor);
@@ -213,6 +219,16 @@ export class ContextMenu {
   /** Puts the open menu under this button, where the button is now. */
   private hang(anchor: HTMLElement): void {
     const box = anchor.getBoundingClientRect();
+    if (this.beside) {
+      // As tall as it is with nothing holding it back: if that does not fit below the button and there is room to its left, it stands there.
+      this.node.style.maxHeight = "";
+      const width = this.node.offsetWidth;
+      if (this.node.offsetHeight > window.innerHeight - box.bottom - 16 && box.left - width - 10 >= 6) {
+        this.at = { x: box.left - width - 10, y: box.top - 2 };
+        this.place();
+        return;
+      }
+    }
     // It stays below its button, however much it holds: a long one scrolls.
     this.node.style.maxHeight = `calc(100dvh - ${Math.round(box.bottom) + 16}px)`;
     this.at = { x: box.left - 2, y: box.bottom + 6 };
@@ -238,6 +254,7 @@ export class ContextMenu {
     this.node.replaceChildren();
     this.anchor?.setAttribute("aria-expanded", "false");
     this.anchor = null;
+    this.beside = false;
     delete this.node.dataset.under;
     if (giveFocusBack) this.returnTo?.focus();
     this.returnTo = null;

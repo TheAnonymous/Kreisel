@@ -199,24 +199,62 @@ export interface Piece {
    * "ohne Kick" above, which came first and mean a break (see piece.ts).
    */
   roster?: number[][];
-  /** What the piece does by itself in the bars before a landing. Absent while all of it is off. */
-  runUp?: RunUp;
+  /** The build-up before every drop that has none of its own. Absent while it is the small one (BUILD_SMALL). */
+  build?: Build;
+  /**
+   * The drops that have a build-up of their own: the bar the drop lands in, and what leads up to it. Absent while
+   * none has. An entry hangs on its bar: where no drop lands (any more), it says nothing.
+   */
+  drops?: { bar: number; build: Build }[];
   /** "Abwechslung": small changes by themselves at the end of every eight bars. Absent while off. */
   vary?: boolean;
 }
 
 /**
- * The run-ups a piece can take before a landing, each on or off. They come on
- * top of the rising noise and the crash a landing always has.
+ * A build-up: what the piece does by itself in the bars before a drop, and how the drop comes. A drop is a bar much
+ * higher than the one before, or the bar in which the kick comes back from a break (see piece.ts). A build-up is a
+ * kit: each of its parts can be had without the others.
  */
-export interface RunUp {
-  /** A roll on the snare's ring through the last two bars, doubling twice: quarters, eighths, sixteenths. */
+export interface Build {
+  /** How many bars it runs: 1, 2, 4 or 8. 0 is no build-up at all: the drop just comes, without a crash. */
+  bars: number;
+  /** The riser: 0 none, 1 noise that rises, 2 noise and a tone that climbs with it. */
+  riser: number;
+  /** A roll on the snare's ring, denser and louder all the way to the drop. */
   roll: boolean;
+  /** The lows go: the bass thins out and the kick gets weaker. Both are back with the drop. */
+  lows: boolean;
+  /** A cloud of hall that grows, and is gone with the drop. */
+  wash: boolean;
+  /** It gets a little quieter, so that the drop is louder than what led up to it. */
+  dip: boolean;
   /** The kick and its Nachbeben stay out for the last bar. */
   kick: boolean;
   /** The hi-hat stays out for the last bar. */
   hat: boolean;
+  /** The gap right before the drop, in beats: 0 for none, 1, 2 or 4 (a whole bar). Nothing plays in it; hall and echo ring out. */
+  gap: number;
+  /** A late drop: on the one only kick and bass come, everything else a beat later. */
+  late: boolean;
 }
+
+/** How long a build-up can be, in bars (0: none at all), and how long its gap, in beats. */
+export const BUILD_BARS = [0, 1, 2, 4, 8] as const;
+export const BUILD_GAPS = [0, 1, 2, 4] as const;
+
+const NO_PARTS = { riser: 0, roll: false, lows: false, wash: false, dip: false, kick: false, hat: false, gap: 0, late: false };
+/** No build-up: the drop just comes. */
+export const BUILD_NONE: Readonly<Build> = Object.freeze({ ...NO_PARTS, bars: 0 });
+/** The small one, which every drop has unless told otherwise: a bar of rising noise, and a crash. */
+export const BUILD_SMALL: Readonly<Build> = Object.freeze({ ...NO_PARTS, bars: 1, riser: 1 });
+/** The middle one: four bars of riser and roll while the lows go. */
+export const BUILD_MEDIUM: Readonly<Build> = Object.freeze({ ...NO_PARTS, bars: 4, riser: 1, roll: true, lows: true });
+/** The big one: eight bars with everything, and a beat of nothing before the drop. */
+export const BUILD_BIG: Readonly<Build> = Object.freeze({ ...NO_PARTS, bars: 8, riser: 2, roll: true, lows: true, wash: true, dip: true, gap: 1 });
+
+/** The sizes a build-up comes in ready-made. */
+export const BUILD_SIZES = { keiner: BUILD_NONE, klein: BUILD_SMALL, mittel: BUILD_MEDIUM, gross: BUILD_BIG } as const;
+export type BuildSize = keyof typeof BUILD_SIZES;
 
 export const MAX_TURNS = 12;
 export const MAX_NAME = 16;
@@ -424,14 +462,15 @@ export const TECHNO_ORDER = [0, 2, 1, 3, 4, 5, 6] as const;
  * The piece a techno Kreisel starts with, in the sections such a track has:
  * sixteen bars that build from the kick, thirty-two at full height, a break
  * of sixteen without the kick (the acid line and the drums around it play on
- * and lift), thirty-two at the top, sixteen that take it apart again.
- * It waits switched off.
+ * and lift, and the last eight are a big build-up), thirty-two at the top,
+ * sixteen that take it apart again. It waits switched off.
  */
 export function technoPiece(scene = 0): Piece {
   const climb = (from: number, to: number, bars: number): number[] => Array.from({ length: bars }, (_, bar) => Math.round(from + ((to - from) * bar) / (bars - 1)));
   const hold = (level: number, bars: number): number[] => Array.from({ length: bars }, () => level);
   const shape = [...climb(3, 17, 16), ...hold(27, 16), ...hold(31, 16), ...hold(18, 8), ...climb(18, 22, 8), ...hold(31, 32), ...climb(24, 3, 16)];
-  return { on: false, tension: shape, scenes: shape.map(() => scene), order: [...TECHNO_ORDER], noKick: shape.map((_, bar) => bar >= 48 && bar < 64) };
+  // Its first drop (bar 17) is a small one; the one out of the break (bar 65) is the big one of the piece.
+  return { on: false, tension: shape, scenes: shape.map(() => scene), order: [...TECHNO_ORDER], noKick: shape.map((_, bar) => bar >= 48 && bar < 64), drops: [{ bar: 64, build: { ...BUILD_BIG } }] };
 }
 
 /**

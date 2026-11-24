@@ -70,6 +70,12 @@ export class RingGestures {
   /** A stroke in the roster: every phrase it comes over gets the state its first click made. */
   private rosterDrag: { pointer: number; state: RosterState; gesture: string } | null = null;
   private press: Press | null = null;
+  /**
+   * A press on the mark of a drop. Its kit opens with the click that ends the press, and not before: a menu that
+   * opened as the press came down, or as it was let go, could lie under the pointer when that click comes (a finger's
+   * click is aimed anew), and the click would press one of its rows.
+   */
+  private dropPress: { pointer: number; bar: number; x: number; y: number; released: boolean } | null = null;
   /** A stroke of the weather brush: the cells it has already been over get no more from it. */
   private gust: { pointer: number; erase: boolean; gesture: string; done: Set<string> } | null = null;
   /** Counts the strokes, so each one is its own step back. */
@@ -85,6 +91,7 @@ export class RingGestures {
     canvas.addEventListener("pointerup", (event) => this.up(event));
     canvas.addEventListener("pointercancel", (event) => this.up(event));
     canvas.addEventListener("pointerleave", () => this.leave());
+    canvas.addEventListener("click", () => this.clicked());
     canvas.addEventListener("wheel", (event) => this.wheel(event), { passive: false });
     canvas.addEventListener("contextmenu", (event) => event.preventDefault());
   }
@@ -109,11 +116,20 @@ export class RingGestures {
     drag.height = spot.height;
   }
 
+  /** The click that ends a press on the mark of a drop: its kit opens where the press was. */
+  private clicked(): void {
+    const press = this.dropPress;
+    if (!press?.released) return;
+    this.dropPress = null;
+    this.app.openContext({ kind: "build", drop: press.bar }, press.x, press.y);
+  }
+
   private down(event: PointerEvent): void {
     const { x, y } = this.view.point(event);
     const spot = this.view.locate(x, y);
     this.app.wake();
     this.disarm();
+    this.dropPress = null;
     if (!spot) return;
     // The right button shows what can be done with the place it is on.
     const context = event.button === 2;
@@ -128,6 +144,17 @@ export class RingGestures {
       this.hideTip();
       if (context) this.app.openContext({ kind: "chord", slot: spot.index }, event.clientX, event.clientY);
       else this.app.chords.open(spot.index);
+    } else if (spot.kind === "drop") {
+      // The mark of a drop: either button (or a finger) opens the kit of its build-up.
+      this.hideTip();
+      this.app.piece.focus();
+      if (context) {
+        this.app.openContext({ kind: "build", drop: spot.bar }, event.clientX, event.clientY);
+      } else {
+        event.preventDefault();
+        capture(this.canvas, event);
+        this.dropPress = { pointer: event.pointerId, bar: spot.bar, x: event.clientX, y: event.clientY, released: false };
+      }
     } else {
       // A finger has no right button: resting on a ring does the same.
       if (event.pointerType !== "mouse" && !context) this.arm(event, spot);
@@ -327,6 +354,7 @@ export class RingGestures {
   private move(event: PointerEvent): void {
     const { x, y } = this.view.point(event);
     if (this.press?.pointer === event.pointerId && Math.hypot(event.clientX - this.press.x, event.clientY - this.press.y) > LONG_PRESS_SLACK) this.disarm();
+    if (this.dropPress?.pointer === event.pointerId) return;
     if (this.pieceDrag?.pointer === event.pointerId) {
       this.movePieceStroke(this.pieceDrag, x, y);
       return;
@@ -436,6 +464,13 @@ export class RingGestures {
 
   private up(event: PointerEvent): void {
     if (this.press?.pointer === event.pointerId) this.disarm();
+    if (this.dropPress?.pointer === event.pointerId) {
+      const press = this.dropPress;
+      // Let go where it came down: the click that follows opens the kit. Pulled away first, it was not meant.
+      if (event.type === "pointerup" && Math.hypot(event.clientX - press.x, event.clientY - press.y) <= LONG_PRESS_SLACK) press.released = true;
+      else this.dropPress = null;
+      return;
+    }
     if (this.pieceDrag?.pointer === event.pointerId) {
       this.pieceDrag = null;
       this.app.endGesture();
@@ -525,7 +560,9 @@ export class RingGestures {
       const tension = Math.round(((piece.tension[spot.bar] ?? 0) / TENSION_MAX) * 100);
       text = spot.lane && this.app.piece.focused
         ? `Szene ${SCENE_NAMES[project.scene]} hierher malen · Takt ${spot.bar + 1}`
-        : `Stück · Takt ${spot.bar + 1} von ${piece.tension.length} · ${tension} % Spannung · Szene ${SCENE_NAMES[piece.scenes[spot.bar] ?? 0]} · Rechtsklick: ab hier spielen und mehr`;
+        : `Stück · Takt ${spot.bar + 1} von ${piece.tension.length} · ${tension} % Spannung · Szene ${SCENE_NAMES[piece.scenes[spot.bar] ?? 0]}${this.app.piece.dropNear(spot.bar) === null ? "" : " · Build-up"} · Rechtsklick: ab hier spielen und mehr`;
+    } else if (spot.kind === "drop") {
+      text = `${this.app.piece.describeDrop(spot.bar)} · klicken zum Ändern`;
     } else if (spot.kind === "roster") {
       text = this.app.piece.describeRoster(spot.ring, spot.bar);
     } else {

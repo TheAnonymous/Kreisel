@@ -521,14 +521,14 @@ techno track.
   which the kick comes back is a landing like a steep rise (run-up of noise,
   crash), and the bar in which it leaves is a fall (the last beat goes into
   the echo), without any step in the line.
-- **A build-up to choose from** ("Build-up" in the piece's panel and in its
-  menu), each part on or off for the whole piece and all off to begin with
-  (the genre's own guides disagree about them): "Roll", a snare roll on the
-  snare's ring through the last two bars before a landing, quarters, then
-  eighths, then sixteenths, growing louder, in place of what that ring would
-  play itself; "ohne Kick", the last bar without kick and Nachbeben; "ohne
-  Hi-Hat", the last bar without the hi-hat. They come on top of the noise and
-  the crash a landing always has.
+- **A build-up to choose from.** At first three switches for the whole
+  piece, all off to begin with (the genre's own guides disagree about them):
+  a snare roll on the snare's ring through the last two bars before a
+  landing, quarters, then eighths, then sixteenths, growing louder, in place
+  of what that ring would play itself; the last bar without kick and
+  Nachbeben; the last bar without the hi-hat. They came on top of the noise
+  and the crash a landing always had. Since then the build-up is a kit, and
+  the three are parts of it (see "The build-up kit" below).
 - **Fills**, also off to begin with: every eighth bar ends with a quiet kick
   more, every sixteenth with two strokes of the tuned drum as well, on rings
   that play in that bar and never on top of a hit of their own. A bar that
@@ -630,6 +630,98 @@ The rules are in `src/piece.ts` (`rosterOf`, `playsThere`, `flipped`,
 `setRoster`; `planBar` gives the roster the last word on who plays), with
 `tests/roster.test.ts`. The wheel draws the lanes in `src/ui/ring.ts`
 (`drawRoster`), and what a pointer does there is in `src/ui/ring-gestures.ts`.
+
+## The build-up kit
+
+What leads up to a drop is a kit of parts, every drop can have its own, and
+the ring shows where the drops are.
+
+Until now a piece had one build-up for all of its drops: a bar of rising
+noise and a crash, with three switches on top. Nothing on the ring said where
+a drop would land. A drop is what it was: a bar much higher than the one
+before it, or the bar in which the kick comes back from a break.
+
+- **Drops show on the piece's ring.** A red wedge sits on the rim where a
+  drop lands, with a line across the band. Before it a ramp climbs through
+  the bars of its build-up, from the foot of the band to the rim; a dark
+  patch is the gap, if it has one. A drop without a build-up keeps a hollow
+  wedge. In a piece that is switched off all of it is only hinted at, like
+  the line.
+- **A click on the wedge opens the kit of that drop** (either button, or a
+  finger). Pointing at it says in words what leads up to the drop. Inside the
+  band a click still paints the line; there the right button on a bar of the
+  build-up, or on the bar of the drop, has a row that leads to the kit.
+- **The size sets everything at once:** "keiner" (the drop just comes,
+  without a crash), "klein" (a bar of riser and the crash: what every drop
+  had), "mittel" (four bars: riser, snare roll, the lows go), "groß" (eight
+  bars: riser with a tone, snare roll, the lows go, a cloud of hall, getting
+  quieter, a beat of nothing before the drop). Below it every part can be had
+  by itself; a build-up put together by hand is "eigen".
+- **The parts.** "Länge": 1, 2, 4 or 8 bars. "Riser": off, noise, or noise
+  with a tone that climbs two octaves and arrives in key. "Snare-Roll": in a
+  short build-up as before (quarters, eighths, sixteenths through two bars; a
+  single bar plays the second half of that), in a long one quarters through
+  its first half, eighths through the next quarter, then sixteenths, and
+  thirty-seconds at the very end. "Tiefen raus": a low cut on the sum climbs
+  to 320 Hz, so the bass thins out and the kick gets weaker. "Hall-Wolke":
+  more and more of the sum goes into a hall of its own, which is cut with the
+  drop while the Kreisel's hall rings on. "Leiser werden": close to 3 dB by
+  the end. "Letzter Takt ohne Kick", "ohne Hi-Hat": as before.
+- **The moment.** "Lücke": the last beat, half bar or bar before the drop is
+  silent; nothing is struck and the dry sum is closed, so only hall and echo
+  ring out. The riser and the roll end where the gap begins. "Drop spät": on
+  the one only kick and bass come, everything else a beat later.
+- **With the drop everything is back at once:** the lows, the level, the dry
+  hall, and a crash (not after "keiner").
+- **One for all, one of its own.** The piece's panel has one button, "alle
+  Drops: klein ▾", which opens the same kit for every drop that has none of
+  its own; it takes the place of the three switches. A drop's own build-up
+  hangs on the bar it lands in: where the line is painted over or the break
+  taken away so that no drop lands there, the build-up of all drops applies
+  again. "Für alle Drops übernehmen" makes one drop's build-up that of the
+  piece, "Wieder wie alle Drops" gives a drop's own up. "Anhören" plays from
+  two bars before the build-up and leaves the kit open.
+- **Only the next drop counts.** A build-up does not reach back over a drop
+  before its own: right after that drop a long one begins in its middle.
+- **The dice** give a techno form bigger build-ups towards its end: the last
+  drop gets the big one (the middle one where the sections are eight bars
+  long), in a long piece the drops between the first and the last get the
+  middle one, and the first stays small. Only while the piece's build-up for
+  all drops is the small one. The techno Kreisel's own piece has the big one
+  before its drop in bar 65.
+- **Getting quieter sits behind the master.** The master's compressor and
+  limiter even out what comes in: turned down before them, 2.9 dB arrived as
+  1 dB. So there is one gain after the master, at rest at 1, which the level
+  meter and the recorder hear too. The gap closes the dry sum before the
+  press instead, so that hall and echo get through.
+- **The key "Dünn"** uses the same low cut: while it is held the build-up
+  leaves the cut alone, and gets it back where it would be by then.
+- **Measured, not listened to.** A techno Kreisel of sixteen bars whose drop
+  lands in bar 9, beat by beat against the same without a build-up: with
+  "mittel" the deep lows are 26 dB down by the last beat and the sum 5 dB,
+  and a beat after the drop both are where they are after any drop; with
+  "groß" the sum is 8 dB down before the gap, the gap rings 19 dB down with
+  the cloud in it, and the drop stands 18 dB above the gap. "Leiser werden"
+  alone is 2.9 dB by the end. In a gap a ring by itself is silent after
+  about 15 ms (the master's own delay). "klein" measures as the build-up
+  always did. `window.kreisel.beats()` renders the Kreisel on the table and measures
+  it beat by beat (`src/audio/whole.ts`).
+- **In the link** the build-ups are the seventh part of the piece: numbers,
+  first the build-up of all drops, then for every drop with its own the bar
+  and the build-up (14 bits each). A piece whose drops all have the small one
+  is packed as it always was. A link from before says with three bits what
+  its one build-up had; they are read as a kit. One difference: where the
+  roll was on, the build-up is now two bars long as a whole, so its riser
+  begins with the roll and is the longer, louder one, where it used to be a
+  single bar.
+
+The rules are in `src/piece.ts` (`dropsOf`, `buildFor`, `buildAt`, `rollHits`,
+`setBuild`; `planBar` says for every bar which build-up it is part of and
+whether a drop lands in it), with `tests/build.test.ts`. The sound of a
+build-up is in `src/audio/build.ts`; its roll, its gap and the late drop are
+notes, which the player in `src/audio/engine.ts` strikes or leaves out. The
+wheel draws the drops in `src/ui/ring.ts` (`drawPieceDrops`), the kit is
+`kitMenu` in `src/ui/menus.ts`, and the browser tests are `e2e/build.spec.ts`.
 
 ## Build
 

@@ -1,4 +1,4 @@
-import { FX, TOOLS, type App, type Deed, type Tool } from "../app/app";
+import { FX, TOOLS, type App, type ContextTarget, type Deed, type Tool } from "../app/app";
 import type { FxName } from "../audio/engine";
 import { describeBild } from "../bild";
 import { describeBody } from "../body";
@@ -66,6 +66,8 @@ export class Panels {
   private readonly sliders: Slider[] = [];
   /** Opens the menu that hangs under one of the bar's buttons (set by whoever holds the menu). */
   onBarMenu: (opener: HTMLElement, which: BarMenu, byKeyboard: boolean) => void = () => undefined;
+  /** A button of a panel opens one of the wheel's menus under itself. */
+  onMenuUnder: (opener: HTMLElement, target: ContextTarget, byKeyboard: boolean) => void = () => undefined;
   readonly trackRows: HTMLLIElement[] = [];
   private readonly toolButtons = new Map<Tool, HTMLButtonElement>();
   private readonly fxButtons = new Map<FxName, HTMLButtonElement>();

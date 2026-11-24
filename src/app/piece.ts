@@ -1,5 +1,5 @@
-import { clamp, TENSION_MAX, TRACK_COUNT, trackInfo, type RunUp, wrap } from "../model";
-import { barCount, clearRoster, dicePiece, fillRoster, flipped, kickOut, moveInOrder, PHRASE, phraseOf, reached, resizePiece, ROSTER, rosterOf, rotatePiece, setKick, setRoster, setRunUp, setVary, smoothPiece, type RosterState } from "../piece";
+import { BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, TENSION_MAX, TRACK_COUNT, trackInfo, type Build, type BuildSize, wrap } from "../model";
+import { barCount, buildAt, buildFor, buildOfAll, clearBuild, clearRoster, describeBuild, dicePiece, fillRoster, flipped, isDrop, kickOut, moveInOrder, ownBuild, PHRASE, phraseOf, reached, resizePiece, ROSTER, rosterOf, rotatePiece, setBuild, setKick, setRoster, setVary, shareBuild, smoothPiece, type RosterState } from "../piece";
 import type { App } from "./app";
 
 /** What the wheel shows of the piece while its ring is in focus: the tension to paint, or the roster ("Einsätze") to lay. */
@@ -159,10 +159,69 @@ export class PieceDesk {
     this.app.notify();
   }
 
-  /** Switches one of the run-ups before a landing on or off. */
-  toggleRunUp(part: keyof RunUp): void {
-    const on = !(this.app.project.piece.runUp?.[part] ?? false);
-    this.app.store.edit((project) => setRunUp(project.piece, part, on));
+  /** The build-up the kit shows for a drop (the bar it lands in), or with `null` the one of all drops. */
+  build(drop: number | null): Readonly<Build> {
+    const piece = this.app.project.piece;
+    return drop === null ? buildOfAll(piece) : buildFor(piece, drop);
+  }
+
+  /** Whether a drop lands in bar `bar`. */
+  dropAt(bar: number): boolean {
+    const piece = this.app.project.piece;
+    return bar >= 0 && bar < barCount(piece) && isDrop(piece, bar);
+  }
+
+  /** The drop a bar leads up to or lands in: the bar that drop lands in, or `null` where the bar is neither. */
+  dropNear(bar: number): number | null {
+    const piece = this.app.project.piece;
+    if (bar < 0 || bar >= barCount(piece)) return null;
+    return isDrop(piece, bar) ? bar : buildAt(piece, bar)?.drop ?? null;
+  }
+
+  /** Whether the drop in bar `drop` has a build-up of its own. */
+  hasOwnBuild(drop: number): boolean {
+    return ownBuild(this.app.project.piece, drop) !== null;
+  }
+
+  /** How many drops have a build-up of their own. */
+  get ownBuilds(): number {
+    const piece = this.app.project.piece;
+    return (piece.drops ?? []).filter((entry) => isDrop(piece, entry.bar)).length;
+  }
+
+  /**
+   * Changes parts of a build-up: of the drop in bar `drop`, which then has its own, or with `null` of all drops that
+   * have none of their own. Giving a length to "no build-up" starts from the small one.
+   */
+  setBuild(drop: number | null, change: Partial<Build>): void {
+    if (drop !== null && !this.dropAt(drop)) return;
+    const now = this.build(drop);
+    const next: Build = change.bars === 0 ? { ...BUILD_NONE } : { ...(now.bars === 0 ? BUILD_SMALL : now), ...change };
+    this.app.store.edit((project) => setBuild(project.piece, drop, next));
+  }
+
+  /** One of the ready-made sizes, for a drop or for all drops. */
+  sizeBuild(drop: number | null, size: BuildSize): void {
+    if (drop !== null && !this.dropAt(drop)) return;
+    this.app.store.edit((project) => setBuild(project.piece, drop, BUILD_SIZES[size]));
+  }
+
+  /** "Für alle Drops übernehmen": every drop gets the build-up of the one in bar `drop`. */
+  shareBuild(drop: number): void {
+    if (!this.dropAt(drop)) return;
+    this.app.store.edit((project) => shareBuild(project.piece, drop));
+    this.app.say("Alle Drops haben jetzt diesen Build-up.", this.app.takeBack);
+  }
+
+  /** "Wieder wie alle Drops": the drop in bar `drop` gives up its own build-up; with `null` every drop does. */
+  clearBuild(drop: number | null): void {
+    this.app.store.edit((project) => clearBuild(project.piece, drop));
+  }
+
+  /** A drop in words: where it lands and what leads up to it. For the status line and for whoever points there. */
+  describeDrop(drop: number): string {
+    const piece = this.app.project.piece;
+    return `Drop in Takt ${drop + 1} · ${describeBuild(buildFor(piece, drop))}`;
   }
 
   /** Fills: small changes by themselves at the end of every eight bars. */

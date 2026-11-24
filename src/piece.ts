@@ -1,4 +1,4 @@
-import { BAR, clamp, MAX_BARS, MIN_BARS, SCENE_COUNT, TENSION_MAX, TRACK_COUNT, FIRST_ORDER, type Piece, type RunUp, type StyleId, wrap } from "./model";
+import { BAR, BUILD_BARS, BUILD_BIG, BUILD_GAPS, BUILD_MEDIUM, BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, MAX_BARS, MIN_BARS, SCENE_COUNT, TENSION_MAX, TRACK_COUNT, FIRST_ORDER, type Build, type BuildSize, type Piece, type StyleId, wrap } from "./model";
 import type { Random } from "./patterns";
 
 /*
@@ -12,19 +12,24 @@ import type { Random } from "./patterns";
  *   its quiet steps.
  * - The whole sound is duller when little is going on and opens up as the
  *   tension rises.
- * - Before a steep rise the Kreisel takes a run-up (rising noise) and lands
- *   with a crash; before a steep fall the last beat is thrown into the echo.
+ * - A bar much higher than the one before is a drop: the Kreisel builds up
+ *   to it and lands with a crash. Before a steep fall the last beat is
+ *   thrown into the echo.
  *
  * And what makes a piece a techno track:
  *
  * - A bar can be marked "ohne Kick": the kick and its Nachbeben stay out
  *   there, and everything else plays by the tension. That is a break, which
  *   the tension alone cannot give, because the kick is the first to come in.
- *   The bar in which the kick comes back is a landing like a steep rise, and
+ *   The bar in which the kick comes back is a drop like a steep rise, and
  *   the bar in which it leaves a fall.
- * - A piece can take more of a run-up before a landing, each part on or off:
- *   a roll on the snare's ring that doubles twice through the last two bars,
- *   the kick left out for the last bar, the hi-hat left out for the last bar.
+ * - What leads up to a drop is a build-up, a kit of parts (see `Build`): how
+ *   many bars it runs, a riser, a roll on the snare's ring, the lows going, a
+ *   cloud of hall, the level sinking, the kick or the hi-hat left out for the
+ *   last bar, a gap of nothing right before the drop, and a drop that comes
+ *   late. A piece has one build-up for all of its drops, and a drop can have
+ *   one of its own. The small one (a bar of rising noise) is what a piece has
+ *   unless it says otherwise.
  * - "Abwechslung": every eighth bar ends with a kick more, every sixteenth
  *   with two strokes of the tuned drum as well.
  *
@@ -53,8 +58,17 @@ export const PHRASE = 8;
 /** The tension at which the ring in place `place` of the order comes in (0..1). */
 export const entry = (place: number): number => 0.04 + place * 0.13;
 
-/** How steep a step between two bars has to be for a run-up or a fall (a share of the full height). */
+/** How steep a step between two bars has to be for a drop or a fall (a share of the full height). */
 export const STEEP = 0.28;
+
+/** Where a bar stands in a build-up. */
+export interface BuildPlace {
+  /** The bar the drop lands in. */
+  drop: number;
+  /** Which bar of the build-up this is, counted as if it ran its full length: its last bar is `kit.bars - 1`. */
+  at: number;
+  kit: Build;
+}
 
 export interface BarPlan {
   /** Per ring: 0 silent, otherwise how firmly it is in (up to 1). */
@@ -62,13 +76,17 @@ export interface BarPlan {
   /** Hz the master lowpass sits at in this bar, and where it is heading by the bar's end. */
   cutoff: number;
   cutoffEnd: number;
-  /** The next bar is much higher: take a run-up through this bar. */
+  /** The next bar is a drop. */
   rise: boolean;
   /** The next bar is much lower: throw the last beat into the echo. */
   fall: boolean;
   scene: number;
-  /** The stage of the roll this bar plays (see `rollHits`): 0 none, 1 two bars before the landing, 2 right before it. */
-  roll: number;
+  /** The build-up this bar is part of: the bar its drop lands in, which of the build-up's bars this is (0 the first), and its kit. */
+  build: BuildPlace | null;
+  /** This bar is a drop: the build-up that led here. */
+  drop: Build | null;
+  /** This bar plays the build-up's roll (see `rollHits`). */
+  roll: boolean;
   /** The small change this bar ends with (see `varyHits`): 0 none, 1 a kick more, 2 the tuned drum as well. */
   vary: number;
 }
@@ -123,7 +141,7 @@ export function flipped(piece: Piece, ring: number, bar: number): RosterState {
 /** Whether the kick can play in a bar (a bar "ohne Kick" aside): the tension has reached it, or it is laid in. */
 const kickIn = (piece: Piece, bar: number): boolean => rosterOf(piece, KICK, bar) === ROSTER.plays || reached(piece, KICK, bar);
 
-/** Whether the bar after `bar` is a landing: much higher, or the bar in which the kick comes back from a break. */
+/** Whether the bar after `bar` is a drop: much higher, or the bar in which the kick comes back from a break. */
 function lands(piece: Piece, bar: number): boolean {
   const now = share(piece, bar);
   const next = share(piece, bar + 1);
@@ -133,6 +151,54 @@ function lands(piece: Piece, bar: number): boolean {
 /** Whether the bar after `bar` is a fall: much lower, or the bar in which the kick leaves for a break. */
 function falls(piece: Piece, bar: number): boolean {
   return share(piece, bar) - share(piece, bar + 1) >= STEEP || (!kickOut(piece, bar) && kickIn(piece, bar) && kickOut(piece, bar + 1));
+}
+
+/** Whether a drop lands in bar `bar`. */
+export const isDrop = (piece: Piece, bar: number): boolean => lands(piece, bar - 1);
+
+/** The bars in which a drop lands, from the piece's first bar on. */
+export function dropsOf(piece: Piece): number[] {
+  const drops: number[] = [];
+  for (let bar = 0; bar < barCount(piece); bar += 1) if (isDrop(piece, bar)) drops.push(bar);
+  return drops;
+}
+
+/** Whether two build-ups are the same in every part. */
+export function sameBuild(one: Readonly<Build>, other: Readonly<Build>): boolean {
+  return one.bars === other.bars && one.riser === other.riser && one.roll === other.roll && one.lows === other.lows && one.wash === other.wash
+    && one.dip === other.dip && one.kick === other.kick && one.hat === other.hat && one.gap === other.gap && one.late === other.late;
+}
+
+/** The build-up of all drops that have none of their own. */
+export const buildOfAll = (piece: Piece): Readonly<Build> => piece.build ?? BUILD_SMALL;
+
+/** The build-up a drop has of its own, if it has one. */
+export const ownBuild = (piece: Piece, drop: number): Build | null => piece.drops?.find((entry) => entry.bar === wrap(drop, barCount(piece)))?.build ?? null;
+
+/** The build-up before the drop that lands in bar `drop`: its own, or the one all drops have. */
+export const buildFor = (piece: Piece, drop: number): Readonly<Build> => ownBuild(piece, drop) ?? buildOfAll(piece);
+
+/** The ready-made size a build-up is, or `null` for one put together by hand. */
+export function sizeOf(build: Readonly<Build>): BuildSize | null {
+  return (Object.keys(BUILD_SIZES) as BuildSize[]).find((size) => sameBuild(BUILD_SIZES[size], build)) ?? null;
+}
+
+/** The longest a build-up can be, in bars. */
+const LONGEST = BUILD_BARS[BUILD_BARS.length - 1] ?? 8;
+
+/**
+ * The build-up a bar is part of. Only the next drop counts: a build-up does not reach back over a drop before its
+ * own, so right after a drop a long one begins in its middle.
+ */
+export function buildAt(piece: Piece, bar: number): BuildPlace | null {
+  const count = barCount(piece);
+  for (let ahead = 1; ahead <= Math.min(LONGEST, count); ahead += 1) {
+    if (!lands(piece, bar + ahead - 1)) continue;
+    const drop = wrap(bar + ahead, count);
+    const kit = buildFor(piece, drop);
+    return ahead <= kit.bars ? { drop, at: kit.bars - ahead, kit } : null;
+  }
+  return null;
 }
 
 /** What bar `bar` of the piece asks for. The piece is a ring: after the last bar comes the first. */
@@ -156,11 +222,11 @@ export function planBar(piece: Piece, bar: number): BarPlan {
   const count = barCount(piece);
   const at = wrap(bar, count);
   const rise = lands(piece, bar);
-  // The last bar before a landing, the one before that, or neither.
-  const lead = rise ? 1 : lands(piece, bar + 1) ? 2 : 0;
-  const runUp = piece.runUp;
-  if (kickOut(piece, bar) || (lead === 1 && runUp?.kick)) gates[KICK] = 0;
-  if (lead === 1 && runUp?.hat) gates[HAT] = 0;
+  const build = buildAt(piece, bar);
+  // The last bar of a build-up can leave the kick or the hi-hat out.
+  const last = build !== null && build.at === build.kit.bars - 1;
+  if (kickOut(piece, bar) || (last && build.kit.kick)) gates[KICK] = 0;
+  if (last && build.kit.hat) gates[HAT] = 0;
   return {
     gates,
     cutoff,
@@ -168,24 +234,47 @@ export function planBar(piece: Piece, bar: number): BarPlan {
     rise,
     fall: falls(piece, bar),
     scene: piece.scenes[at] ?? 0,
+    build,
+    drop: isDrop(piece, bar) ? buildFor(piece, at) : null,
     // The roll is the snare's ring playing: where that ring is laid out, there is none.
-    roll: runUp?.roll && rosterOf(piece, ROLL_RING, bar) !== ROSTER.rests ? [0, 2, 1][lead] ?? 0 : 0,
-    // A bar that runs up to a landing has enough going on.
-    vary: piece.vary && lead !== 1 && at % PHRASE === PHRASE - 1 ? (at % (PHRASE * 2) === PHRASE * 2 - 1 ? 2 : 1) : 0,
+    roll: build !== null && build.kit.roll && rosterOf(piece, ROLL_RING, bar) !== ROSTER.rests,
+    // The bar right before a drop has enough going on.
+    vary: piece.vary && !rise && at % PHRASE === PHRASE - 1 ? (at % (PHRASE * 2) === PHRASE * 2 - 1 ? 2 : 1) : 0,
   };
 }
 
+/** How many steps of a build-up's last bar are its gap. */
+export const gapSteps = (build: Readonly<Build>): number => Math.min(BAR, Math.max(0, build.gap) * (BAR / 4));
+
 /**
- * The strikes of the roll in one bar, each with the step it falls on and how
- * loud it is. Two bars before the landing it plays quarters and then eighths,
- * in the last bar eighths and then sixteenths, growing louder all the way.
+ * The strikes of the roll in bar `at` of a build-up of `of` bars, each with the step it falls on (a half step for a
+ * thirty-second) and how loud it is. The roll gets denser and louder all the way, and stops where the gap begins
+ * (`gap` beats before the drop).
+ *
+ * A short one (one or two bars) doubles from half bar to half bar: quarters, eighths, eighths, sixteenths, and in
+ * a single bar only the second half of that. A long one (four or eight bars) plays quarters through its first half,
+ * eighths through the next quarter, then sixteenths, and thirty-seconds right at the end.
  */
-export function rollHits(stage: number): { step: number; level: number }[] {
-  if (stage !== 1 && stage !== 2) return [];
-  const [first, second] = stage === 1 ? [4, 2] : [2, 1];
+export function rollHits(at: number, of: number, gap = 0): { step: number; level: number }[] {
+  if (!Number.isInteger(at) || at < 0 || at >= of) return [];
+  // The steps that sound: everything up to the gap.
+  const sounding = of * BAR - Math.min(BAR, Math.max(0, gap) * (BAR / 4));
+  const from = at * BAR;
   const hits: { step: number; level: number }[] = [];
-  for (let step = 0; step < BAR; step += step < BAR / 2 ? first : second) {
-    hits.push({ step, level: 0.5 + (0.7 * ((stage - 1) * BAR + step)) / (2 * BAR - 1) });
+  if (sounding <= 0) return hits;
+  const level = (place: number): number => Math.min(1.2, 0.5 + (0.7 * place) / Math.max(1, of * BAR - 1));
+  if (of <= 2) {
+    // How far apart the strikes are in each half of the bar.
+    const [first, second] = of === 2 && at === 0 ? [4, 2] : [2, 1];
+    for (let step = 0; step < BAR && from + step < sounding; step += step < BAR / 2 ? first : second) hits.push({ step, level: level(from + step) });
+    return hits;
+  }
+  for (let half = 0; half < BAR * 2; half += 1) {
+    const place = from + half / 2;
+    if (place >= sounding) break;
+    const along = place / sounding;
+    const apart = along < 1 / 2 ? 4 : along < 3 / 4 ? 2 : along < 15 / 16 ? 1 : 0.5;
+    if (place % apart === 0) hits.push({ step: half / 2, level: level(place) });
   }
   return hits;
 }
@@ -214,9 +303,10 @@ const laid = (ring: number, state: unknown): state is 1 | 2 => state === ROSTER.
  * Keeps a piece plain: the list of bars "ohne Kick" is as long as the piece
  * and is there only while a bar is marked; the roster has a list as long as
  * the piece for every ring that has something laid, and is there only while
- * one has; the run-ups and the Abwechslung are there only while one of them
- * is on. A piece with none of it is exactly what a piece always was, in
- * memory and in a link.
+ * one has; the build-up of all drops is there only while it is not the small
+ * one, and a drop's own only where a drop lands and while it differs from
+ * that of all; the Abwechslung is there only while it is on. A piece with
+ * none of it is exactly what a piece always was, in memory and in a link.
  */
 export function tidyPiece(piece: Piece): void {
   const count = barCount(piece);
@@ -231,9 +321,41 @@ export function tidyPiece(piece: Piece): void {
   });
   if (roster.some((list) => list.length > 0)) piece.roster = roster;
   else delete piece.roster;
-  if (piece.runUp && (piece.runUp.roll || piece.runUp.kick || piece.runUp.hat)) piece.runUp = { roll: piece.runUp.roll === true, kick: piece.runUp.kick === true, hat: piece.runUp.hat === true };
-  else delete piece.runUp;
+  const all = soundBuild(piece.build);
+  if (all && !sameBuild(all, BUILD_SMALL)) piece.build = all;
+  else delete piece.build;
+  const own: { bar: number; build: Build }[] = [];
+  for (const entry of piece.drops ?? []) {
+    const build = soundBuild(entry?.build);
+    const bar = entry?.bar;
+    if (!build || !Number.isInteger(bar) || bar < 0 || bar >= count || own.some((other) => other.bar === bar)) continue;
+    if (isDrop(piece, bar) && !sameBuild(build, buildOfAll(piece))) own.push({ bar, build });
+  }
+  if (own.length > 0) piece.drops = own.sort((one, other) => one.bar - other.bar);
+  else delete piece.drops;
   if (piece.vary !== true) delete piece.vary;
+}
+
+/** A build-up as far as a claim plainly says one: its length is one a build-up can have, and each part is on only if it says so. */
+export function soundBuild(value: unknown): Build | null {
+  if (typeof value !== "object" || value === null) return null;
+  const claim = value as Record<string, unknown>;
+  const bars = BUILD_BARS.find((length) => length === claim.bars);
+  if (bars === undefined) return null;
+  // No build-up is no build-up: it has no parts.
+  if (bars === 0) return { ...BUILD_NONE };
+  return {
+    bars,
+    riser: claim.riser === 1 || claim.riser === 2 ? claim.riser : 0,
+    roll: claim.roll === true,
+    lows: claim.lows === true,
+    wash: claim.wash === true,
+    dip: claim.dip === true,
+    kick: claim.kick === true,
+    hat: claim.hat === true,
+    gap: BUILD_GAPS.find((beats) => beats === claim.gap) ?? 0,
+    late: claim.late === true,
+  };
 }
 
 /** The phrase a bar belongs to: its first bar and the one after its last. */
@@ -276,10 +398,58 @@ export function clearRoster(piece: Piece, from: number, to: number): void {
   for (let ring = 0; ring < TRACK_COUNT; ring += 1) setRoster(piece, ring, from, to, ROSTER.tension);
 }
 
-/** Switches one of the run-ups on or off. */
-export function setRunUp(piece: Piece, part: keyof RunUp, on: boolean): void {
-  piece.runUp = { roll: false, kick: false, hat: false, ...piece.runUp, [part]: on };
+/**
+ * Gives the drop that lands in bar `drop` this build-up as its own, or, with `null` for the drop, all drops that have
+ * none of their own. A drop whose own is the same as that of all has none.
+ */
+export function setBuild(piece: Piece, drop: number | null, build: Readonly<Build>): void {
+  if (drop === null) piece.build = { ...build };
+  else piece.drops = [...(piece.drops ?? []).filter((entry) => entry.bar !== drop), { bar: drop, build: { ...build } }];
   tidyPiece(piece);
+}
+
+/** "Für alle Drops übernehmen": every drop gets the build-up of the one in bar `drop`, and none keeps its own. */
+export function shareBuild(piece: Piece, drop: number): void {
+  piece.build = { ...buildFor(piece, drop) };
+  delete piece.drops;
+  tidyPiece(piece);
+}
+
+/** "Wieder wie alle Drops": the drop in bar `drop` gives up its own build-up; with `null`, every drop does. */
+export function clearBuild(piece: Piece, drop: number | null): void {
+  if (drop === null) delete piece.drops;
+  else if (piece.drops) piece.drops = piece.drops.filter((entry) => entry.bar !== drop);
+  tidyPiece(piece);
+}
+
+/** The name of a build-up's size, as the page says it: "eigen" for one put together by hand. */
+export function sizeName(build: Readonly<Build>): string {
+  const size = sizeOf(build);
+  return size === "gross" ? "groß" : size ?? "eigen";
+}
+
+/** How many bars before its drop a build-up begins on the piece's ring: its length, or less where another drop lands before. */
+export function buildReach(piece: Piece, drop: number): number {
+  const bars = buildFor(piece, drop).bars;
+  for (let back = 1; back < bars; back += 1) if (isDrop(piece, drop - back)) return back;
+  return Math.min(bars, barCount(piece));
+}
+
+/** A build-up in words: its size, how long it runs and what it is made of. */
+export function describeBuild(build: Readonly<Build>): string {
+  if (build.bars === 0) return "kein Build-up";
+  const parts = [
+    ...(build.riser === 2 ? ["Riser mit Ton"] : build.riser === 1 ? ["Riser"] : []),
+    ...(build.roll ? ["Roll"] : []),
+    ...(build.lows ? ["Tiefen raus"] : []),
+    ...(build.wash ? ["Hall-Wolke"] : []),
+    ...(build.dip ? ["leiser"] : []),
+    ...(build.kick ? ["letzter Takt ohne Kick"] : []),
+    ...(build.hat ? ["letzter Takt ohne Hi-Hat"] : []),
+    ...(build.gap > 0 ? [`Lücke ${build.gap === 1 ? "ein Schlag" : build.gap === 2 ? "ein halber Takt" : "ein Takt"}`] : []),
+    ...(build.late ? ["später Drop"] : []),
+  ];
+  return `Build-up ${sizeName(build)}, ${build.bars === 1 ? "1 Takt" : `${build.bars} Takte`}: ${parts.length > 0 ? parts.join(", ") : "nur der Crash"}`;
 }
 
 export function setVary(piece: Piece, on: boolean): void {
@@ -297,10 +467,13 @@ export function resizePiece(piece: Piece, bars: number): void {
   const scenes = Array.from({ length: count }, (_, index) => piece.scenes[at(index)] ?? 0);
   const noKick = Array.from({ length: count }, (_, index) => piece.noKick?.[at(index)] === true);
   const roster = piece.roster?.map((list) => (list.length === 0 ? [] : Array.from({ length: count }, (_, index) => list[at(index)] ?? 0)));
+  // A drop moves with the bar it lands in: to the first bar of the new line that is taken from it.
+  const drops = piece.drops?.map((entry) => ({ ...entry, bar: Math.ceil((entry.bar * count) / old) }));
   piece.tension = tension;
   piece.scenes = scenes;
   piece.noKick = noKick;
   if (roster) piece.roster = roster;
+  if (drops) piece.drops = drops;
   tidyPiece(piece);
 }
 
@@ -314,6 +487,7 @@ export function rotatePiece(piece: Piece, by: number): void {
   piece.scenes = turn(piece.scenes);
   if (piece.noKick) piece.noKick = turn(Array.from({ length: count }, (_, bar) => piece.noKick?.[bar] === true));
   if (piece.roster) piece.roster = piece.roster.map((list) => (list.length === 0 ? [] : turn(Array.from({ length: count }, (_, bar) => list[bar] ?? 0))));
+  if (piece.drops) piece.drops = piece.drops.map((entry) => ({ ...entry, bar: (entry.bar + shift) % count })).sort((one, other) => one.bar - other.bar);
 }
 
 /** Rounds the line off: every bar moves halfway towards the mean of its neighbours. Steep steps soften. */
@@ -413,23 +587,46 @@ function technoLine(count: number, random: Random): { tension: number[]; noKick:
 }
 
 /**
+ * Lets a techno form grow towards its end: its last drop gets the biggest build-up the piece has room for (the big
+ * one where the sections are sixteen bars long, the middle one where they are eight), and in a long piece the drops
+ * between the first and the last get the middle one. The first stays small. Only while all drops have the small
+ * build-up: whoever chose another one for all of them has said what they want.
+ */
+function sizeDrops(piece: Piece): void {
+  if (piece.build) return;
+  // A drop in the first bar would be the turn of the ring, from the outro into the intro: a techno form has none.
+  const drops = dropsOf(piece).filter((bar) => bar > 0);
+  if (drops.length < 2) return;
+  const long = barCount(piece) >= 64;
+  const last = drops[drops.length - 1] as number;
+  piece.drops = [
+    ...(long ? drops.slice(1, -1).map((bar) => ({ bar, build: { ...BUILD_MEDIUM } })) : []),
+    { bar: last, build: { ...(long ? BUILD_BIG : BUILD_MEDIUM) } },
+  ];
+}
+
+/**
  * A new line for the piece, with the form of a track. In the free style it
  * comes in sections of four or eight bars: it starts low and climbs, perhaps
  * breaks, lands on a peak, stays up or breaks once more, and fades out in its
  * last section. In techno it is a techno form (see `technoSections`), where
  * the piece is long enough for one; its breaks are "ohne Kick". The scenes
- * stay as they are, and so do the run-ups and the Abwechslung; bars that were
- * "ohne Kick", and whatever else the roster held, belonged to the old line
- * and go with it.
+ * stay as they are, and so do the build-up of all drops and the Abwechslung;
+ * bars that were "ohne Kick", whatever else the roster held, and the
+ * build-ups that drops had of their own belonged to the old line and go with
+ * it. A techno form whose drops all have the small build-up gets bigger ones
+ * towards its end (see `sizeDrops`).
  */
 export function dicePiece(piece: Piece, random: Random, style: StyleId = "frei"): void {
   const count = barCount(piece);
   delete piece.roster;
+  delete piece.drops;
   if (style === "techno" && count >= TECHNO_FORM_MIN) {
     const line = technoLine(count, random);
     piece.tension = line.tension;
     piece.noKick = line.noKick;
     tidyPiece(piece);
+    sizeDrops(piece);
     return;
   }
   delete piece.noKick;
@@ -477,18 +674,23 @@ export function describePiece(piece: Piece, bpm: number): string {
   return `${count} Takte, ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} Minuten, im Mittel ${mean} % Spannung${breaks > 0 ? `, ${breaks} Takte Break` : ""}`;
 }
 
+/** How many drops of a piece can have a build-up of their own. */
+export const MAX_OWN_BUILDS = 32;
+
 /** What a piece can have beyond its line, scenes and order, as a link may claim it. */
 export interface PieceExtras {
   noKick?: readonly unknown[];
   /** A list a ring, one entry a bar (see `Piece.roster`). */
   roster?: readonly unknown[];
-  runUp?: { roll?: unknown; kick?: unknown; hat?: unknown };
+  /** The build-up of all drops (see `Piece.build`), and the drops' own as a list of `{ bar, build }`. */
+  build?: unknown;
+  drops?: unknown;
   vary?: unknown;
 }
 
 /**
  * Whatever a link claims, a piece is 4 to 256 bars with tensions and scenes in range and every ring once in its order.
- * Its bars "ohne Kick", its roster, its run-ups and its Abwechslung are there only as far as the link plainly says so.
+ * Its bars "ohne Kick", its roster, its build-ups and its Abwechslung are there only as far as the link plainly says so.
  * A kick that a link lays out is a break.
  */
 export function soundPiece(on: boolean, tension: readonly number[], scenes: readonly number[], order: readonly number[], fallbackScene: number, extras: PieceExtras = {}): Piece {
@@ -509,9 +711,17 @@ export function soundPiece(on: boolean, tension: readonly number[], scenes: read
       const list = extras.roster?.[ring];
       return Array.isArray(list) ? Array.from({ length: count }, (_, bar) => (laid(ring, list[bar]) ? (list[bar] as number) : 0)) : [];
     }),
-    runUp: { roll: extras.runUp?.roll === true, kick: extras.runUp?.kick === true, hat: extras.runUp?.hat === true },
     vary: extras.vary === true,
   };
+  const all = soundBuild(extras.build);
+  if (all) piece.build = all;
+  if (Array.isArray(extras.drops)) {
+    piece.drops = (extras.drops as unknown[]).slice(0, MAX_OWN_BUILDS).flatMap((entry) => {
+      const claim = (typeof entry === "object" && entry !== null ? entry : {}) as { bar?: unknown; build?: unknown };
+      const build = soundBuild(claim.build);
+      return build && typeof claim.bar === "number" ? [{ bar: claim.bar, build }] : [];
+    });
+  }
   tidyPiece(piece);
   return piece;
 }

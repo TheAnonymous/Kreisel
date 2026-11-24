@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { decodeLink, encodeLink, pack, packPiece, unpack, unpackPiece } from "../src/codec";
-import { BAR, factoryProject, FIRST_ORDER, firstPiece, MAX_BARS, MIN_BARS, TECHNO_ORDER, technoPiece, technoProject, TENSION_MAX, TRACK_COUNT, type Piece } from "../src/model";
+import { BAR, BUILD_BIG, BUILD_SMALL, factoryProject, FIRST_ORDER, firstPiece, MAX_BARS, MIN_BARS, TECHNO_ORDER, technoPiece, technoProject, TENSION_MAX, TRACK_COUNT, type Piece } from "../src/model";
 import { seeded } from "../src/patterns";
-import { barCount, cutoffFor, describePiece, dicePiece, dropsQuiet, entry, gateLevel, kickOut, moveInOrder, PHRASE, phraseOf, planBar, resizePiece, rollHits, rotatePiece, setKick, setRunUp, setVary, smoothPiece, soundPiece, STEEP, tidyPiece, varyHits } from "../src/piece";
+import { barCount, cutoffFor, describePiece, dicePiece, dropsQuiet, entry, gateLevel, kickOut, moveInOrder, PHRASE, phraseOf, planBar, resizePiece, rollHits, rotatePiece, setBuild, setKick, setVary, smoothPiece, soundPiece, STEEP, tidyPiece, varyHits } from "../src/piece";
 
 const piece = (tension: number[], order: number[] = [...FIRST_ORDER]): Piece => ({ on: true, tension, scenes: tension.map(() => 0), order });
 const playing = (plan: { gates: number[] }): number[] => plan.gates.map((gate, ring) => (gate > 0 ? ring : -1)).filter((ring) => ring >= 0);
@@ -177,32 +177,33 @@ describe("a techno piece", () => {
     expect(planBar(level(8, 22, [6, 7]), 7).rise).toBe(true);
   });
 
-  it("can take more of a run-up before a landing: a roll through two bars, and the last bar without kick or hi-hat", () => {
+  it("builds up to a drop as its kit says: a roll through two bars, and the last bar without kick or hi-hat", () => {
     const line = level(16, 22, [8, 9, 10, 11]);
-    expect([9, 10, 11, 12].map((bar) => planBar(line, bar).roll)).toEqual([0, 0, 0, 0]);
-    setRunUp(line, "roll", true);
-    expect(line.runUp).toEqual({ roll: true, kick: false, hat: false });
-    expect([9, 10, 11, 12].map((bar) => planBar(line, bar).roll)).toEqual([0, 1, 2, 0]);
+    expect([9, 10, 11, 12].map((bar) => planBar(line, bar).roll)).toEqual([false, false, false, false]);
+    setBuild(line, null, { ...BUILD_SMALL, bars: 2, roll: true });
+    expect(line.build).toEqual({ ...BUILD_SMALL, bars: 2, roll: true });
+    expect([9, 10, 11, 12].map((bar) => planBar(line, bar).roll)).toEqual([false, true, true, false]);
+    expect([10, 11].map((bar) => planBar(line, bar).build?.at)).toEqual([0, 1]);
     // Quarters and then eighths, then eighths and then sixteenths, louder all the way.
-    expect(rollHits(1).map((hit) => hit.step)).toEqual([0, 4, 8, 10, 12, 14]);
-    expect(rollHits(2).map((hit) => hit.step)).toEqual([0, 2, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15]);
-    const levels = [...rollHits(1), ...rollHits(2)].map((hit) => hit.level);
+    expect(rollHits(0, 2).map((hit) => hit.step)).toEqual([0, 4, 8, 10, 12, 14]);
+    expect(rollHits(1, 2).map((hit) => hit.step)).toEqual([0, 2, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15]);
+    const levels = [...rollHits(0, 2), ...rollHits(1, 2)].map((hit) => hit.level);
     expect(levels.every((loud, index) => index === 0 || loud > (levels[index - 1] ?? 0))).toBe(true);
     expect([levels[0], levels.at(-1)]).toEqual([0.5, 1.2]);
-    expect([rollHits(0), rollHits(3)]).toEqual([[], []]);
+    expect([rollHits(-1, 2), rollHits(2, 2)]).toEqual([[], []]);
 
-    // A steep rise is a landing too. Kick and hi-hat stay out of its last bar only.
+    // A steep rise is a drop too. Kick and hi-hat stay out of the build-up's last bar only.
     const steep = piece([10, 10, 10, 31, 31, 31, 31, 31], [...TECHNO_ORDER]);
     expect(playing(planBar(steep, 2))).toEqual([0, 1, 2]);
-    setRunUp(steep, "kick", true);
+    setBuild(steep, null, { ...BUILD_SMALL, kick: true });
     expect(playing(planBar(steep, 2))).toEqual([1, 2]);
     expect(playing(planBar(steep, 1))).toEqual([0, 1, 2]);
-    setRunUp(steep, "hat", true);
+    setBuild(steep, null, { ...BUILD_SMALL, kick: true, hat: true });
     expect(playing(planBar(steep, 2))).toEqual([1]);
     expect(playing(planBar(steep, 3))).toHaveLength(TRACK_COUNT);
-    setRunUp(steep, "kick", false);
-    setRunUp(steep, "hat", false);
-    expect(steep.runUp).toBeUndefined();
+    // The small build-up is what a piece has anyway: it is not kept.
+    setBuild(steep, null, BUILD_SMALL);
+    expect(steep.build).toBeUndefined();
   });
 
   it("ends every eighth bar with a kick more and every sixteenth with the drum as well, where no run-up is going on", () => {
@@ -234,10 +235,11 @@ describe("a techno piece", () => {
     expect(line).toEqual(level(20, 22));
     expect(Object.keys(line)).toEqual(["on", "tension", "scenes", "order"]);
     // Tidying takes away what says nothing, and brings the list to the piece's length.
-    const untidy: Piece = { ...level(8, 22), noKick: [false, true], runUp: { roll: false, kick: false, hat: false }, vary: false };
+    const untidy: Piece = { ...level(8, 22), noKick: [false, true], build: { ...BUILD_SMALL }, drops: [{ bar: 5, build: { ...BUILD_BIG } }], vary: false };
     tidyPiece(untidy);
     expect(untidy.noKick).toEqual([false, true, false, false, false, false, false, false]);
-    expect([untidy.runUp, untidy.vary]).toEqual([undefined, undefined]);
+    // The small build-up goes without saying, and no drop lands in bar 6.
+    expect([untidy.build, untidy.drops, untidy.vary]).toEqual([undefined, undefined, undefined]);
   });
 
   it("keeps its marks when it is stretched or turned, and says how many bars are without the kick", () => {
@@ -255,7 +257,7 @@ describe("a techno piece", () => {
   it("dices breaks without the kick in techno, with the bass playing on, and takes the marks away with a free line", () => {
     for (const seed of [13, 7932, 15851, 23770, 31689]) {
       const line = level(112, 0);
-      setRunUp(line, "roll", true);
+      setBuild(line, null, { ...BUILD_SMALL, bars: 2, roll: true });
       setVary(line, true);
       dicePiece(line, seeded(seed), "techno");
       const out = line.noKick?.flatMap((mark, bar) => (mark ? [bar] : [])) ?? [];
@@ -267,13 +269,13 @@ describe("a techno piece", () => {
         expect(who).toEqual(expect.arrayContaining([1, 2, 3, 4]));
       }
       expect(planBar(line, 47).fall).toBe(true);
-      expect(planBar(line, 63)).toMatchObject({ rise: true, roll: 2 });
+      expect(planBar(line, 63)).toMatchObject({ rise: true, roll: true });
       expect(planBar(line, 64).gates[0]).toBeGreaterThan(0);
       // Dice are for the line: what the piece does by itself stays as it was set.
-      expect([line.runUp?.roll, line.vary]).toEqual([true, true]);
+      expect([line.build?.roll, line.drops, line.vary]).toEqual([true, undefined, true]);
       dicePiece(line, seeded(seed));
       expect(line.noKick).toBeUndefined();
-      expect([line.runUp?.roll, line.vary]).toEqual([true, true]);
+      expect([line.build?.roll, line.drops, line.vary]).toEqual([true, undefined, true]);
     }
   });
 
@@ -284,29 +286,34 @@ describe("a techno piece", () => {
     expect(playing(planBar(start, 63))).toEqual([1, 2, 3, 4, 5]);
     expect(planBar(start, 47).fall).toBe(true);
     expect(planBar(start, 63).rise).toBe(true);
-    expect([start.runUp, start.vary, start.on]).toEqual([undefined, undefined, false]);
+    expect([start.build, start.vary, start.on]).toEqual([undefined, undefined, false]);
+    // Its drop out of the break has the big build-up, the first one the small one every drop has.
+    expect(start.drops).toEqual([{ bar: 64, build: BUILD_BIG }]);
     // The Werks-Kreisel's piece has none of it.
     expect(Object.keys(firstPiece())).toEqual(["on", "tension", "scenes", "order"]);
   });
 });
 
 describe("a piece in a link", () => {
-  it("packs a piece without breaks, run-ups and Abwechslung as it always did, and carries them where it has them", async () => {
+  it("packs a piece without breaks, build-ups and Abwechslung as it always did, and carries them where it has them", async () => {
     expect(packPiece(firstPiece())).toHaveLength(3);
     const marked = technoPiece();
+    delete marked.drops;
     expect(packPiece(marked)).toHaveLength(4);
     expect(unpackPiece(packPiece(marked), 0)).toEqual(marked);
-    setRunUp(marked, "roll", true);
-    setRunUp(marked, "hat", true);
     setVary(marked, true);
+    expect(packPiece(marked).slice(4)).toEqual([8]);
+    expect(unpackPiece(JSON.parse(JSON.stringify(packPiece(marked))), 0)).toEqual(marked);
+    // The build-ups come last, after the place of the roster.
+    setBuild(marked, null, { ...BUILD_SMALL, bars: 2, roll: true, hat: true });
     const packed = packPiece(marked);
-    expect(packed).toHaveLength(5);
-    expect(packed[4]).toBe(1 + 4 + 8);
+    expect(packed).toHaveLength(7);
+    expect(packed.slice(4, 6)).toEqual([8, []]);
     expect(unpackPiece(JSON.parse(JSON.stringify(packed)), 0)).toEqual(marked);
-    // Run-ups without any bar "ohne Kick": the place of the marks is kept, empty.
+    // A build-up without any bar "ohne Kick": the places before it are kept, empty.
     const plain = firstPiece();
-    setRunUp(plain, "kick", true);
-    expect(packPiece(plain).slice(3)).toEqual(["", 2]);
+    setBuild(plain, null, { ...BUILD_SMALL, kick: true });
+    expect(packPiece(plain).slice(3, 6)).toEqual(["", 0, []]);
     expect(unpackPiece(packPiece(plain), 0)).toEqual(plain);
     // In a whole Kreisel, through a link.
     const project = technoProject();
@@ -319,8 +326,10 @@ describe("a piece in a link", () => {
     expect(unpackPiece([...three, "%%%", 99.5], 0)).toEqual(firstPiece());
     expect(unpackPiece([...three, 7, "x"], 0)).toEqual(firstPiece());
     expect(unpackPiece([...three, "", 0], 0)).toEqual(firstPiece());
-    expect(unpackPiece([...three, "", 1 + 16], 0).runUp).toEqual({ roll: true, kick: false, hat: false });
-    expect(soundPiece(true, [5, 5, 5, 5], [], [], 0, { noKick: [1, "yes", true, null], runUp: { roll: 1 }, vary: "on" })).toEqual({ on: true, tension: [5, 5, 5, 5], scenes: [0, 0, 0, 0], order: [...FIRST_ORDER], noKick: [false, false, true, false] });
+    // A link from before the build-up was a kit says with three bits what its one build-up had: the roll ran through two bars.
+    expect(unpackPiece([...three, "", 1 + 16], 0).build).toEqual({ ...BUILD_SMALL, bars: 2, roll: true });
+    expect(unpackPiece([...three, "", 2 + 4], 0).build).toEqual({ ...BUILD_SMALL, kick: true, hat: true });
+    expect(soundPiece(true, [5, 5, 5, 5], [], [], 0, { noKick: [1, "yes", true, null], build: { bars: 3, roll: 1 }, drops: "alle", vary: "on" })).toEqual({ on: true, tension: [5, 5, 5, 5], scenes: [0, 0, 0, 0], order: [...FIRST_ORDER], noKick: [false, false, true, false] });
   });
 
 

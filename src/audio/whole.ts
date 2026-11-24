@@ -1,6 +1,6 @@
 import type { Project } from "../model";
 import { MONO_BELOW } from "../press";
-import { renderBuffer } from "./engine";
+import { RENDER_LEAD, renderBuffer } from "./engine";
 
 /*
  * The whole Kreisel, rendered faster than it plays, and what can be measured
@@ -78,6 +78,56 @@ export function measureWhole(left: Float32Array, right: Float32Array, sampleRate
     lowSide: shared > 0 ? rms(lows(side, deep, sampleRate)) / shared : 0,
     deep: loud > 0 ? Math.min(1, shared / loud) : 0,
   };
+}
+
+/** One beat of a render: how loud it is, and how much of that lies deep down and high up. */
+export interface Beat {
+  /** How loud the beat is, as a root mean square of both channels. */
+  loud: number;
+  /** How loud what lies deep down in it is (below about 75 Hz), measured the same way. */
+  deep: number;
+  /** How loud what lies high up in it is (above about 4 kHz). */
+  high: number;
+  /** How loud what lies below about 1 kHz is: the body of drums, bass and chords, without a crash or a riser's hiss. */
+  body: number;
+}
+
+/** What is left of `samples` above about `hz`: the samples less their lows. */
+function highs(samples: Float32Array, hz: number, sampleRate: number): Float32Array {
+  const low = lows(samples, hz, sampleRate);
+  return samples.map((sample, index) => sample - (low[index] ?? 0));
+}
+
+/**
+ * A render beat by beat (a beat is `beatSeconds` long), for what happens over time: a build-up thins the lows out
+ * and lets the level sink, the gap before a drop is silent, and the drop brings both back.
+ */
+export function measureBeats(left: Float32Array, right: Float32Array, sampleRate: number, beatSeconds: number): Beat[] {
+  const middle = left.map((sample, index) => (sample + (right[index] ?? 0)) / 2);
+  const deep = lows(middle, MONO_BELOW / 2, sampleRate);
+  const high = highs(middle, 4000, sampleRate);
+  const body = lows(middle, 1000, sampleRate);
+  const size = beatSeconds * sampleRate;
+  const beats: Beat[] = [];
+  for (let beat = 0; Math.round((beat + 1) * size) <= left.length; beat += 1) {
+    const from = Math.round(beat * size);
+    const to = Math.round((beat + 1) * size);
+    beats.push({
+      loud: Math.sqrt((rms(left.subarray(from, to)) ** 2 + rms(right.subarray(from, to)) ** 2) / 2),
+      deep: rms(deep.subarray(from, to)),
+      high: rms(high.subarray(from, to)),
+      body: rms(body.subarray(from, to)),
+    });
+  }
+  return beats;
+}
+
+/** Renders the project as `hearWhole` does and measures it beat by beat, or in `parts` equal parts of a beat (4 for sixteenths). */
+export async function hearBeats(project: Project, parts = 1): Promise<Beat[]> {
+  const { buffer, length } = await renderBuffer(project);
+  // The first beat begins where the render's first step does.
+  const from = Math.round(RENDER_LEAD * buffer.sampleRate);
+  return measureBeats(buffer.getChannelData(0).subarray(from, length), buffer.getChannelData(1).subarray(from, length), buffer.sampleRate, 60 / project.bpm / Math.max(1, Math.round(parts)));
 }
 
 /** Renders the project as a saved file would hold it (the scene twice through its chords, the chain, or the piece) and measures it. */

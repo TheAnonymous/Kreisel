@@ -1,11 +1,11 @@
 import { nextHit, slidesInto } from "../acid";
-import { ACID_SOUND, currentScene, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, WEATHER_MAX, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Pattern, type Scene, type Step, wrap } from "../model";
+import { ACID_SOUND, BAR, currentScene, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, WEATHER_MAX, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Pattern, type Scene, type Step, wrap } from "../model";
 import { chordAt, chordName } from "../music";
 import { drawMouth } from "./booth";
 import { WEATHER_COLORS, windDrift } from "../weather";
 import { Lights } from "./lights";
 import { approach, compare, DEAL, dealt, face, hop, MANY, POP, rest, SHRINK, SLIDE, SWELL, swell, unface } from "./motion";
-import { entry, PHRASE, planBar, playsThere, reached, ROSTER, rosterOf } from "../piece";
+import { buildFor, buildReach, dropsOf, entry, gapSteps, PHRASE, planBar, playsThere, reached, ROSTER, rosterOf } from "../piece";
 import { turnColor } from "../relay";
 import type { App } from "../app/app";
 import { type Spot, TAU, BRUSH, lerp } from "./ring-shape";
@@ -93,6 +93,13 @@ const PIECE_REST = 0.72;
 const LANE = 0.22;
 const CHANCE_ALPHA = [1, 0.72, 0.48, 0.28] as const;
 /** How long the runner takes to grow out of the middle at a start, and to fade where it stood at a stop (seconds). */
+/** The colour of a drop's mark. */
+const DROP_COLOR = "#e4572e";
+/**
+ * Half the width of a drop's wedge on the rim, in pixels: nine tenths of a bar, but never tiny and never huge, and
+ * smaller while the piece's ring is not in focus (0..1).
+ */
+const wedgeHalf = (count: number, outer: number, focus: number): number => Math.min(14, Math.max(6, 0.9 * (TAU / count) * outer)) * (0.6 + 0.4 * focus);
 const RUNNER_IN = 0.16;
 const RUNNER_OUT = 0.22;
 /** How long the hub takes to give way and hop back when the Kreisel starts or stops. */
@@ -308,6 +315,16 @@ export class RingView {
     return { x: box.left + (geometry.center + Math.cos(angle) * radius) * scale, y: box.top + (geometry.center + Math.sin(angle) * radius) * scale };
   }
 
+  /** Where the mark of the drop that lands in bar `bar` is on the page: the middle of its wedge, on the rim of the piece's ring at the bar's line. */
+  dropPosition(bar: number): { x: number; y: number } {
+    const geometry = this.geometry();
+    const angle = TOP + (bar / this.app.project.piece.tension.length) * TAU;
+    const radius = geometry.piece.outer;
+    const box = this.canvas.getBoundingClientRect();
+    const scale = box.width / Math.max(1, this.size);
+    return { x: box.left + (geometry.center + Math.cos(angle) * radius) * scale, y: box.top + (geometry.center + Math.sin(angle) * radius) * scale };
+  }
+
   /** Where a bar of the piece is on the page in a ring's lane of the roster: for the browser tests. */
   rosterPosition(ring: number, bar: number): { x: number; y: number } {
     const geometry = this.geometry();
@@ -404,8 +421,10 @@ export class RingView {
     this.drawHub(frame);
     // Over the chords too: the bar numbers stand at their outer edge, where a chord that sounds lights up.
     if (laying) this.drawRosterMarks(frame);
-    this.drawPiece(geometry, playhead !== null);
+    const piece = this.drawPiece(geometry, playhead !== null);
     this.drawRim(frame);
+    // The wedges of the drops sit on the rim: they come after it.
+    this.drawDropMarks(piece);
     this.drawBrush();
     this.drawMark(frame);
   }
@@ -1116,7 +1135,7 @@ export class RingView {
   }
 
   /** The piece's ring: a bar chart bent into a circle, with the lines at which the rings come in. */
-  private drawPiece(geometry: Geometry, playing: boolean): void {
+  private drawPiece(geometry: Geometry, playing: boolean): PieceShape {
     const context = this.context;
     const piece = this.app.project.piece;
     const { center } = geometry;
@@ -1145,8 +1164,10 @@ export class RingView {
     this.drawTension(shape);
     if (shape.focus > 0.25) this.drawPieceScenes(shape);
     this.drawPieceLines(shape);
+    this.drawPieceDrops(shape);
     this.drawPieceMark(shape, playing);
     this.drawPiecePointers(shape);
+    return shape;
   }
 
   /**
@@ -1160,8 +1181,8 @@ export class RingView {
     const { ink } = this.palette;
     const pad = count > 72 ? 0 : Math.min(cell * 0.12, 0.7 / middle);
     const places = piece.order.length;
-    // A piece can keep a ring out of a bar although the tension reaches it: "ohne Kick", or a run-up without kick or hi-hat.
-    const keepsOut = piece.noKick !== undefined || piece.runUp !== undefined;
+    // A piece can keep a ring out of a bar although the tension reaches it: "ohne Kick", or a build-up without kick or hi-hat.
+    const keepsOut = piece.noKick !== undefined || piece.build !== undefined || piece.drops !== undefined;
     context.globalAlpha = piece.on ? 1 : 0.3;
     piece.tension.forEach((tension, bar) => {
       if (tension <= 0) return;
@@ -1268,6 +1289,99 @@ export class RingView {
     }
   }
 
+  /**
+   * The drops. Each shows what leads up to it: a ramp that climbs through the bars of its build-up, a dark patch where
+   * the gap is, and a line where the drop lands. (Its wedge on the rim is drawn later, over the rim: `drawDropMarks`.)
+   */
+  private drawPieceDrops(shape: PieceShape): void {
+    const context = this.context;
+    const piece = this.app.project.piece;
+    const { center, base, outer, cell, focus } = shape;
+    const { bg, ink } = this.palette;
+    const fade = piece.on ? 1 : 0.3;
+    const top = outer - 1;
+    const angle = (bar: number): number => TOP + bar * cell;
+    const at = (bar: number, radius: number): [number, number] => [center + Math.cos(angle(bar)) * radius, center + Math.sin(angle(bar)) * radius];
+    context.lineJoin = "round";
+    for (const drop of dropsOf(piece)) {
+      const build = buildFor(piece, drop);
+      const from = drop - buildReach(piece, drop);
+      const to = drop - gapSteps(build) / BAR;
+      // How high the ramp stands at a bar: at the ring's foot where the build-up begins, at the rim where it ends.
+      const sounding = build.bars - gapSteps(build) / BAR;
+      const height = (bar: number): number => base + (top - base) * Math.max(0, Math.min(1, (bar - (drop - build.bars)) / Math.max(0.01, sounding)));
+      if (build.bars > 0 && to > from) {
+        const steps = Math.max(2, Math.ceil((to - from) * 4));
+        const edge = (): void => {
+          for (let step = 0; step <= steps; step += 1) {
+            const bar = from + ((to - from) * step) / steps;
+            const [x, y] = at(bar, height(bar));
+            if (step === 0) context.moveTo(x, y);
+            else context.lineTo(x, y);
+          }
+        };
+        context.beginPath();
+        edge();
+        context.lineTo(...at(to, base));
+        context.arc(center, center, base, angle(to), angle(from), true);
+        context.closePath();
+        context.fillStyle = ink;
+        context.globalAlpha = 0.34 * fade;
+        context.fill();
+        context.beginPath();
+        edge();
+        context.strokeStyle = ink;
+        context.lineWidth = 1.5 + focus * 1.5;
+        context.globalAlpha = fade;
+        context.stroke();
+      }
+      if (build.bars > 0 && to < drop) {
+        // The gap: nothing but what rings out.
+        this.sector(base, top, angle(Math.max(from, to)), angle(drop));
+        context.fillStyle = bg;
+        context.globalAlpha = 0.8;
+        context.fill();
+      }
+      context.globalAlpha = fade;
+      context.beginPath();
+      context.moveTo(...at(drop, base));
+      context.lineTo(...at(drop, outer + 1));
+      context.strokeStyle = DROP_COLOR;
+      context.lineWidth = 1.6 + focus;
+      context.stroke();
+    }
+    context.globalAlpha = 1;
+  }
+
+  /** A wedge on the rim for every drop, to take hold of: its tip in the band, its back outside the rim. Hollow for a drop without a build-up. */
+  private drawDropMarks(shape: PieceShape): void {
+    const context = this.context;
+    const piece = this.app.project.piece;
+    const { center, outer, count, cell, focus } = shape;
+    const { bg, ink } = this.palette;
+    const fade = piece.on ? 1 : 0.3;
+    const at = (bar: number, radius: number): [number, number] => [center + Math.cos(TOP + bar * cell) * radius, center + Math.sin(TOP + bar * cell) * radius];
+    const pointed = this.gestures.hover?.kind === "drop" ? this.gestures.hover.bar : null;
+    context.lineJoin = "round";
+    for (const drop of dropsOf(piece)) {
+      const build = buildFor(piece, drop);
+      const half = (wedgeHalf(count, outer, focus) + (pointed === drop ? 1.5 : 0)) / outer / cell;
+      context.beginPath();
+      context.moveTo(...at(drop, outer - 4 - focus * 3));
+      context.lineTo(...at(drop - half, outer + 3.5));
+      context.lineTo(...at(drop + half, outer + 3.5));
+      context.closePath();
+      context.fillStyle = build.bars > 0 ? DROP_COLOR : bg;
+      context.globalAlpha = build.bars > 0 ? fade : 1;
+      context.fill();
+      context.globalAlpha = fade;
+      context.strokeStyle = build.bars > 0 ? ink : DROP_COLOR;
+      context.lineWidth = (build.bars > 0 ? 1 : 1.6) + (pointed === drop ? 0.8 : 0);
+      context.stroke();
+    }
+    context.globalAlpha = 1;
+  }
+
   /** Where the piece is, or where it will start. */
   private drawPieceMark(shape: PieceShape, playing: boolean): void {
     const context = this.context;
@@ -1358,6 +1472,19 @@ export class RingView {
       }
     }
     const band = geometry.piece;
+    // The mark of a drop sits on the rim: it comes before the band under it.
+    if (distance >= band.outer - 6 && distance <= band.outer + 10) {
+      const piece = this.app.project.piece;
+      const count = piece.tension.length;
+      const turn = this.turn(x, y);
+      // As wide as the wedge is drawn, and a little more for a finger.
+      const focus = Math.max(0, Math.min(1, ((this.weights[PIECE] ?? PIECE_REST) - PIECE_REST) / (FOCUS - PIECE_REST)));
+      const reach = Math.max(9, wedgeHalf(count, band.outer, focus) + 2);
+      for (const drop of dropsOf(piece)) {
+        const away = Math.abs(turn - drop / count);
+        if (Math.min(away, 1 - away) * TAU * band.outer <= reach) return { kind: "drop", bar: drop };
+      }
+    }
     if (distance >= band.inner - geometry.gap / 2 && distance <= geometry.center) {
       const count = this.app.project.piece.tension.length;
       const height = Math.max(0, Math.min(1, (distance - band.base) / Math.max(1, band.outer - band.base)));

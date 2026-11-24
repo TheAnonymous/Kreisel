@@ -181,7 +181,8 @@ test.describe("am Laptop", () => {
     expect(await laid(page, 0)).toBe(with_(2, 6, 7));
     await click(page, 2, 66);
     await page.locator("#roster-clear").click();
-    expect(Object.keys(await pieceOf(page))).toEqual(["on", "tension", "scenes", "order"]);
+    // Nothing is laid any more. The drop in bar 65 stays one without the break (the tension jumps there too), and keeps its build-up.
+    expect(Object.keys(await pieceOf(page))).toEqual(["on", "tension", "scenes", "order", "drops"]);
     await expect(page.locator("#toast")).toContainText("Auch die Breaks sind weg");
     await page.keyboard.press("Control+z");
     expect([await laid(page, 0), await laid(page, 2)]).toEqual([with_(2, 6, 7), with_(2, 8)]);
@@ -229,7 +230,8 @@ test.describe("am Laptop", () => {
     await page.keyboard.press("Enter");
     expect(await laid(page, 4)).toBe(with_(1, 0));
     const packed = await page.evaluate(() => (JSON.parse(window.kreisel.state()) as { z: unknown[] }).z);
-    expect(packed).toHaveLength(6);
+    // The roster is the sixth part; after it comes the build-up that the drop out of the break has of its own.
+    expect(packed).toHaveLength(7);
     expect(packed[5]).toEqual(["", "", expect.any(String), "", expect.any(String)]);
     const kept = await pieceOf(page);
     await page.evaluate(() => window.kreisel.app.store.save());

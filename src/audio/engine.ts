@@ -25,9 +25,10 @@ import { ACID_SOUND, BAR, BODY_SOUND, currentScene, emptyStep, OWN_SOUND, VOICE_
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
 import { hasRumble } from "../rumble";
-import { barCount, dropsQuiet, gateLevel, planBar, ROLL_RING, rollHits, varyHits, type BarPlan } from "../piece";
+import { barCount, dropsQuiet, gapSteps, gateLevel, planBar, ROLL_RING, rollHits, varyHits, type BarPlan } from "../piece";
 import { playBild } from "./bild";
 import { playBody } from "./body";
+import { BuildUp, rise, type Riser } from "./build";
 import { buildDrive, buildGroup, shadeDrive, shadeGroup, type KickDrive, type KickGroup } from "./kick";
 import { playVoice } from "./voice";
 import { buildRumble, hitRumble, shadeRumble, stepRumble, stillRumble, type Rumble } from "./rumble";
@@ -56,6 +57,13 @@ export interface Graph {
   /** "Druck": where the sum is pressed before the master hears it. */
   press: Press;
   mix: GainNode;
+  /** The dry sum on its way to the press: the gap before a drop closes it, and hall and echo ring out. */
+  dry: GainNode;
+  /** What the listener hears, after the master has done its work: a build-up that gets quieter lets it sink. */
+  tail: GainNode;
+  /** The hall's impulse, and the hall of its own that a build-up's cloud rings in (built when the first one asks for it). */
+  impulse: AudioBuffer;
+  cloud: { send: GainNode; output: GainNode } | null;
   buses: Bus[];
   /** Where each ring's notes go in; swapped for a fresh one to cut what still rings. */
   inlets: GainNode[];
@@ -76,6 +84,10 @@ export interface Graph {
   chains: Chain[];
 }
 
+/** The rings that play on the one of a late drop. */
+const KICK_RING = 0;
+const BASS_RING = 4;
+
 /** Evens out how loud the rings are at the same level setting. */
 const TRIM = [1, 0.85, 1.1, 0.85, 0.8, 0.9, 0.95] as const;
 const VELOCITY = [0.42, 0.78, 1] as const;
@@ -85,12 +97,17 @@ export function buildGraph(context: BaseAudioContext): Graph {
   const kit = new Kit(context, { noiseSeed: 4711 });
   const highpass = kit.filter("highpass", 20, 0.7);
   const lowpass = kit.filter("lowpass", 20_000, 0.7);
-  const master = new Master(context, { chain: [highpass, lowpass, "gate"], open: true });
+  // The master evens out whatever comes in: what is to be quieter for the listener is turned down behind it.
+  const tail = kit.gain(1);
+  tail.connect(context.destination);
+  const master = new Master(context, { chain: [highpass, lowpass, "gate"], open: true, destination: tail });
   // Mix, hall and echo meet in the press on their way to the master; at rest it lets them through as they come.
   const press = buildPress(kit, master.input);
   const mix = kit.gain(1);
-  mix.connect(press.input);
-  const hall = createReverb(kit, hallImpulse(context, 2.4, { decay: 4.5 }), { to: press.input, level: 0.8 });
+  const dry = kit.gain(1);
+  mix.connect(dry).connect(press.input);
+  const impulse = hallImpulse(context, 2.4, { decay: 4.5 });
+  const hall = createReverb(kit, impulse, { to: press.input, level: 0.8 });
   const echo = createPingPong(kit, { feedback: 0.42, tone: 3400, to: press.input, level: 0.7 });
   const throwSend = kit.gain(0);
   mix.connect(throwSend).connect(echo.input);
@@ -111,9 +128,9 @@ export function buildGraph(context: BaseAudioContext): Graph {
   if (typeof AudioContext !== "undefined" && context instanceof AudioContext) {
     analyser = context.createAnalyser();
     analyser.fftSize = 1024;
-    master.output.connect(analyser);
+    tail.connect(analyser);
   }
-  return { context, kit, master, press, mix, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, drive, rumble, group, chains };
+  return { context, kit, master, press, mix, dry, tail, impulse, cloud: null, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, drive, rumble, group, chains };
 }
 
 export const stepSeconds = (project: Project): number => 15 / project.bpm;
@@ -155,33 +172,6 @@ function hush(graph: Graph, time: number): void {
   });
   stillRumble(graph.rumble, time);
   for (const chain of graph.chains) clearChain(chain, time);
-}
-
-/**
- * Noise that rises until `end` and then stays up until it is cut: the breath
- * held during a pause. (Klangwerk's riser reads its two seconds of noise only
- * once; a pause can be held for longer.)
- */
-function rise(kit: Kit, out: AudioNode, start: number, end: number, peak: number): { cut(time: number): void } {
-  const source = kit.context.createBufferSource();
-  source.buffer = kit.noise;
-  source.loop = true;
-  const tone = kit.filter("bandpass", 300, 2.5);
-  tone.frequency.setValueAtTime(300, start);
-  tone.frequency.exponentialRampToValueAtTime(7000, end);
-  const amp = kit.gain(0);
-  amp.gain.setValueAtTime(0.0001, start);
-  amp.gain.exponentialRampToValueAtTime(peak, end);
-  source.connect(tone).connect(amp).connect(out);
-  source.start(start);
-  source.stop(start + 120);
-  return {
-    cut: (time: number) => {
-      amp.gain.cancelScheduledValues(time);
-      amp.gain.setTargetAtTime(0, time, 0.012);
-      source.stop(time + 0.15);
-    },
-  };
 }
 
 /** Turns steps into notes, and remembers each ring's last note for slides. */
@@ -320,6 +310,8 @@ export class Player {
   seek: number | null = null;
   /** An effect key holds the master lowpass: the piece leaves it alone meanwhile. */
   filterHeld = false;
+  /** An effect key holds the low cut: a build-up leaves it alone meanwhile. */
+  thinHeld = false;
   private stutter: { at: number; start: number } | null = null;
   private readonly voices: Voices;
   private readonly skip = new Set<string>();
@@ -330,7 +322,14 @@ export class Player {
   private pieceSteps = 0;
   private barNow = 0;
   private cutoff = 20_000;
-  private runUp: { cut(time: number): void } | null = null;
+  /** The build-up before a drop, as far as it is sound; its notes are below. */
+  private readonly lead: BuildUp;
+  /** The roll's strikes in the bar that sounds. */
+  private rolls: { step: number; level: number }[] = [];
+  /** The step of the bar that sounds from which nothing plays: the gap before a drop (BAR for none). */
+  private gapFrom = BAR;
+  /** The bar that sounds is a late drop: on its first beat only kick and bass play. */
+  private late = false;
   /** How much the kick and its Nachbeben are pressed into one right now; −1 before the first step. */
   private glued = -1;
 
@@ -342,6 +341,7 @@ export class Player {
     seed = 20_261_113,
   ) {
     this.voices = new Voices(graph);
+    this.lead = new BuildUp(graph);
     this.random = seeded(seed);
   }
 
@@ -359,6 +359,9 @@ export class Player {
     this.pieceSteps = 0;
     this.seek = null;
     this.glued = -1;
+    this.rolls = [];
+    this.gapFrom = BAR;
+    this.late = false;
   }
 
   /** Where the master lowpass sits by the piece's line right now (wide open without a piece). */
@@ -366,10 +369,17 @@ export class Player {
     return this.cutoff;
   }
 
-  /** The piece no longer plays: the run-up stops and the sound opens up again. */
+  /** Where the low cut sits by the piece's build-up right now, in Hz (where nothing is cut without one). */
+  get lowCutNow(): number {
+    return this.lead.lowCut;
+  }
+
+  /** The piece no longer plays: a build-up stops and the sound opens up again. */
   leavePiece(time: number): void {
-    this.runUp?.cut(time);
-    this.runUp = null;
+    this.lead.stop(time, this.thinHeld);
+    this.rolls = [];
+    this.gapFrom = BAR;
+    this.late = false;
     if (this.plan && !this.filterHeld) {
       const frequency = this.graph.lowpass.frequency;
       frequency.cancelScheduledValues(time);
@@ -379,7 +389,7 @@ export class Player {
     this.plan = null;
   }
 
-  /** A bar line of the piece: its scene, who plays, how open the sound is, and run-ups and landings. */
+  /** A bar line of the piece: its scene, who plays, how open the sound is, and build-ups and drops. */
   private barLine(project: Project, time: number, duration: number): void {
     const piece = project.piece;
     const count = barCount(piece);
@@ -396,14 +406,23 @@ export class Player {
       this.skip.clear();
     }
     this.queued = null;
-    const { kit, mix, hall, lowpass } = this.graph;
-    if (this.runUp) {
-      // The landing after a run-up.
-      this.runUp.cut(time);
-      this.runUp = null;
-      crash(kit, mix, time, 0.36, 1.6).connect(hall);
+    const { lowpass } = this.graph;
+    const lead = this.lead;
+    this.late = false;
+    if (lead.drop !== null && plan.build?.drop !== lead.drop) {
+      // The build-up that was going on is over: its drop lands here, or the piece went elsewhere.
+      if (bar === lead.drop && plan.drop) {
+        lead.land(time, plan.drop, this.thinHeld);
+        this.late = plan.drop.late;
+      } else {
+        lead.stop(time, this.thinHeld);
+      }
     }
-    if (plan.rise) this.runUp = rise(kit, mix, time, time + BAR * duration, 0.15);
+    // The riser's tone starts two octaves above the bass's keynote, and ends two octaves higher, in key.
+    if (plan.build) lead.bar(plan.build, time, duration, midiToHz(bassMidi(project, 0, 0) + 24), this.thinHeld);
+    const kit = plan.build?.kit;
+    this.rolls = plan.build && kit && plan.roll ? rollHits(plan.build.at, kit.bars, kit.gap) : [];
+    this.gapFrom = plan.build && kit && plan.build.at === kit.bars - 1 ? BAR - gapSteps(kit) : BAR;
     if (!this.filterHeld) {
       lowpass.frequency.cancelScheduledValues(time);
       lowpass.frequency.setValueAtTime(this.cutoff, time);
@@ -448,12 +467,15 @@ export class Player {
     let fired = 0;
     // The Nachbeben is the kick's: silent where the kick is (muted, paused, not yet in the piece).
     const kicks = scene.patterns[0];
-    const shaking = kicks && this.audible(0) && !this.pause && (!this.plan || (this.plan.gates[0] ?? 0) > 0);
-    const quakes = Boolean(shaking && kicks && hasRumble(scene, kicks.len));
     // The step within the piece's bar, for what the piece plays by itself there.
     const inBar = this.pieceSteps % BAR;
-    // A roll before a landing takes the snare's ring over: what the ring would play itself waits for the landing.
-    const rolling = this.plan !== null && this.plan.roll > 0;
+    // The gap before a drop: nothing plays. And a late drop: on the one only kick and bass.
+    const gapped = this.plan !== null && inBar >= this.gapFrom;
+    const late = this.plan !== null && this.late && inBar < BAR / 4;
+    const shaking = kicks && this.audible(0) && !this.pause && !gapped && (!this.plan || (this.plan.gates[0] ?? 0) > 0);
+    const quakes = Boolean(shaking && kicks && hasRumble(scene, kicks.len));
+    // A roll before a drop takes the snare's ring over: what the ring would play itself waits for the drop.
+    const rolling = this.plan !== null && this.plan.roll;
     for (let track = 0; track < TRACK_COUNT; track += 1) {
       const pattern = scene.patterns[track];
       if (!pattern) continue;
@@ -464,6 +486,7 @@ export class Player {
       if (rolling && track === ROLL_RING) continue;
       const step = stepAt(pattern, position % pattern.len);
       if (!step.on) continue;
+      if (gapped || (late && track !== KICK_RING && track !== BASS_RING)) continue;
       if (this.skip.delete(`${track}:${this.local}`)) continue;
       if (step.chance > 0 && this.random() >= (CHANCES[step.chance] ?? 1)) continue;
       if (!this.audible(track)) continue;
@@ -475,7 +498,7 @@ export class Player {
       this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, shadesSound(track) ? brightness(over) : 0, hitNumber(pattern, position % pattern.len, this.local), quakes);
       if (track === 0) hitRumble(this.graph.rumble, time, duration);
     }
-    if (this.plan && !this.pause) fired |= this.pieceHits(project, scene, this.plan, inBar, position, chord, time, duration, quakes);
+    if (this.plan && !this.pause && !gapped) fired |= this.pieceHits(project, scene, this.plan, inBar, position, chord, time, duration, quakes);
     // The Nachbeben: as much as the line in the kick's ring lets out at this step, at the pitch of the bar's chord.
     stepRumble(this.graph.rumble, shaking ? (scene.rumble[position % kicks.len] ?? 0) : 0, midiToHz(bassMidi(project, chord, 0)), time, duration);
     // Where a scene shakes, the kick and the Nachbeben leave as one, the more the dirtier; a kick without one is left alone.
@@ -493,16 +516,17 @@ export class Player {
   }
 
   /**
-   * What the piece plays by itself at this step of its bar: the roll before a landing, on the snare's ring whether
-   * or not the tension has reached it, and the small change at a phrase's end, on rings that play in this bar and
-   * never on top of a hit of their own. Returns one bit per ring that struck.
+   * What the piece plays by itself at this step of its bar: the roll before a drop, on the snare's ring whether
+   * or not the tension has reached it (a thirty-second falls half a step later), and the small change at a
+   * phrase's end, on rings that play in this bar and never on top of a hit of their own. Returns one bit per ring
+   * that struck.
    */
   private pieceHits(project: Project, scene: Scene, plan: BarPlan, inBar: number, position: number, chord: number, time: number, duration: number, quakes: boolean): number {
     let fired = 0;
-    const roll = plan.roll > 0 && this.audible(ROLL_RING) ? rollHits(plan.roll).find((hit) => hit.step === inBar) : undefined;
-    if (roll) {
+    for (const roll of plan.roll && this.audible(ROLL_RING) ? this.rolls : []) {
+      if (Math.floor(roll.step) !== inBar) continue;
       fired |= 1 << ROLL_RING;
-      this.voices.strike(project, ROLL_RING, { ...emptyStep(), on: true }, chord, time, duration, roll.level, 0, 0, quakes);
+      this.voices.strike(project, ROLL_RING, { ...emptyStep(), on: true }, chord, time + (roll.step - inBar) * duration, duration, roll.level, 0, 0, quakes);
     }
     for (const hit of varyHits(plan.vary)) {
       if (hit.step !== inBar || !this.audible(hit.ring)) continue;
@@ -595,7 +619,7 @@ export class Engine {
   private readonly transport: Transport;
   private player: Player | null = null;
   private recorder: MasterRecorder | null = null;
-  private rise: { cut(time: number): void } | null = null;
+  private rise: Riser | null = null;
   private samples: Float32Array<ArrayBuffer> | null = null;
 
   constructor(private readonly project: () => Project, private readonly view: EngineView) {
@@ -786,7 +810,10 @@ export class Engine {
       graph.lowpass.frequency.setTargetAtTime(on ? 300 : (this.player?.cutoffNow ?? 20_000), now, on ? 0.2 : 0.07);
       graph.lowpass.Q.setTargetAtTime(on ? 6 : 0.7, now, 0.05);
     } else if (name === "duenn") {
-      graph.highpass.frequency.setTargetAtTime(on ? 1300 : 20, now, on ? 0.2 : 0.07);
+      // A build-up can move the low cut: the key takes it over and hands it back.
+      if (this.player) this.player.thinHeld = on;
+      graph.highpass.frequency.cancelScheduledValues(now);
+      graph.highpass.frequency.setTargetAtTime(on ? 1300 : (this.player?.lowCutNow ?? 20), now, on ? 0.2 : 0.07);
       graph.highpass.Q.setTargetAtTime(on ? 5 : 0.7, now, 0.05);
     } else if (name === "wurf") {
       graph.throwSend.gain.setTargetAtTime(on ? 0.9 : 0, now, 0.02);
@@ -839,7 +866,7 @@ export class Engine {
     const graph = this.host.graph;
     if (!context || !graph) return null;
     this.recorder ??= new MasterRecorder(() => void this.toggleRecording());
-    await this.recorder.start(context, graph.master.output);
+    await this.recorder.start(context, graph.tail);
     this.recording = true;
     this.view.onState();
     return null;
@@ -881,6 +908,9 @@ export function renderPlan(project: Project): RenderPlan {
   return { steps, seconds: steps * stepSeconds(project) + 3 };
 }
 
+/** How long a render waits before its first step, in seconds: what comes before a sound's own start has room. */
+export const RENDER_LEAD = 0.05;
+
 /** Renders the project faster than it plays: what would be heard, and how many of its samples are music (the rest rings out). */
 export async function renderBuffer(project: Project, onProgress: (share: number) => void = () => undefined, sampleRate = 48_000): Promise<{ buffer: AudioBuffer; length: number }> {
   const plan = renderPlan(project);
@@ -899,7 +929,7 @@ export async function renderBuffer(project: Project, onProgress: (share: number)
       else player.step(time, stepSeconds(project));
     },
   });
-  transport.begin(context, 0.05);
+  transport.begin(context, RENDER_LEAD);
   const buffer = await renderInChunks(context, (until) => transport.renderUntil(until), plan.seconds, 2, onProgress);
   return { buffer, length: trimmedLength(buffer, Math.round(plan.steps * stepSeconds(project) * sampleRate)) };
 }
