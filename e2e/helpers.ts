@@ -148,6 +148,15 @@ export async function focusPiece(page: Page): Promise<void> {
 }
 
 /** For `test.skip`: on a phone, where there is neither mouse nor keyboard. */
+/**
+ * The build-up's key, the one between Shift and Y on a German keyboard. The test keyboard does not carry it, so the page
+ * gets the event a browser sends for it.
+ */
+export const buildKey = (page: Page, down: boolean): Promise<void> =>
+  page.evaluate((type) => {
+    (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent(type, { code: "IntlBackslash", key: "<", bubbles: true, cancelable: true }));
+  }, down ? "keydown" : "keyup");
+
 export const onPhone = ({ isMobile }: { isMobile: boolean }): boolean => isMobile;
 /** For `test.skip`: on a laptop, where there is no finger. */
 export const onLaptop = ({ isMobile }: { isMobile: boolean }): boolean => !isMobile;

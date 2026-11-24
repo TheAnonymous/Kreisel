@@ -808,8 +808,9 @@ tests are `e2e/ends.spec.ts`.
 
 The Kreisel is an instrument, and a DJ makes tension by hand.
 
-- **A sixth effect key, "Build-up"** (the key after M; the right button
-  latches it like the others): for as long as it is held a riser rises, a
+- **A sixth effect key, "Build-up"** (the key at the left end of the bottom
+  row, "<" on a German keyboard; the right button latches it like the
+  others): for as long as it is held a riser rises, a
   snare roll gets denser and the lows go, for up to eight bars, after which
   it stays at its height. Let go, the drop lands on the next one, with a
   crash and the lows back. The groove plays on meanwhile, unlike under

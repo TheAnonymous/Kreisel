@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { barAt, focusPiece, onLaptop, onPhone, open, pieceOf } from "./helpers";
+import { barAt, buildKey, focusPiece, onLaptop, onPhone, open, pieceOf } from "./helpers";
 
 /*
  * Playing the tension by hand: the key "Build-up" builds up for as long as it
@@ -30,22 +30,22 @@ test.describe("am Laptop", () => {
     await expect(page.locator("#fx .pad-fx")).toHaveCount(6);
 
     // Without anything playing the key does nothing.
-    await page.keyboard.down("Comma");
+    await buildKey(page, true);
     await expect(pad).toHaveClass(/held/);
     expect(await held(page)).toBe(false);
-    await page.keyboard.up("Comma");
+    await buildKey(page, false);
 
     // Round a scene: held for two bars, the lows go; let go, they are back at the next bar line.
     await page.keyboard.press("Space");
     await expect.poll(() => page.evaluate(() => window.kreisel.level()), { timeout: 5000 }).toBeGreaterThan(0.05);
     expect(await lowCut(page)).toBeLessThan(21);
-    await page.keyboard.down("Comma");
+    await buildKey(page, true);
     await expect.poll(() => held(page)).toBe(true);
     await expect.poll(() => lowCut(page), { timeout: 8000 }).toBeGreaterThan(24);
     const early = await lowCut(page);
     await page.waitForTimeout(1500);
     expect(await lowCut(page)).toBeGreaterThan(early);
-    await page.keyboard.up("Comma");
+    await buildKey(page, false);
     await expect(pad).not.toHaveClass(/held/);
     await expect.poll(() => held(page), { timeout: 5000 }).toBe(false);
     await expect.poll(() => lowCut(page), { timeout: 3000 }).toBeLessThan(21);
@@ -62,6 +62,29 @@ test.describe("am Laptop", () => {
     await expect.poll(() => lowCut(page), { timeout: 3000 }).toBeLessThan(21);
     await expect(pad).not.toHaveClass(/held/);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
+    expect(problems).toEqual([]);
+  });
+
+  test("lässt Komma und Punkt bei den Szenen: die Taste „Build-up“ nimmt keine andere Taste weg", async ({ page }) => {
+    const problems = await open(page);
+    const scene = (): Promise<number> => page.evaluate(() => window.kreisel.app.project.scene);
+    const pad = page.locator('#fx [data-fx="aufbau"]');
+    await page.evaluate(() => window.kreisel.app.scenes.pick(1));
+    expect(await scene()).toBe(1);
+    await page.keyboard.press("Comma");
+    expect(await scene()).toBe(0);
+    await page.keyboard.press("Period");
+    expect(await scene()).toBe(1);
+    await page.keyboard.down("Comma");
+    await expect(pad).not.toHaveClass(/held/);
+    await page.keyboard.up("Comma");
+    expect(await scene()).toBe(0);
+    // Its own key holds it, and no scene changes by it.
+    await buildKey(page, true);
+    await expect(pad).toHaveClass(/held/);
+    await buildKey(page, false);
+    await expect(pad).not.toHaveClass(/held/);
+    expect(await scene()).toBe(0);
     expect(problems).toEqual([]);
   });
 

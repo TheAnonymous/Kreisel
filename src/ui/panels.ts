@@ -62,7 +62,7 @@ interface Slider {
 
 export class Panels {
   /** What stands on each key on this keyboard (QWERTZ until the browser says otherwise). */
-  private labels = new Map<string, string>([["KeyZ", "Y"], ["KeyY", "Z"], ["Comma", ","]]);
+  private labels = new Map<string, string>([["KeyZ", "Y"], ["KeyY", "Z"], ["IntlBackslash", "<"]]);
   private readonly sliders: Slider[] = [];
   /** Opens the menu that hangs under one of the bar's buttons (set by whoever holds the menu). */
   onBarMenu: (opener: HTMLElement, which: BarMenu, byKeyboard: boolean) => void = () => undefined;
@@ -257,7 +257,8 @@ export class Panels {
   }
 
   keyLabel(code: string): string {
-    return this.labels.get(code) ?? code.replace(/^Key|^Digit/, "");
+    // The key between Shift and Y has no letter in its code: it carries "<" on most keyboards that have it.
+    return this.labels.get(code) ?? (code === "IntlBackslash" ? "<" : code.replace(/^Key|^Digit/, ""));
   }
 
   private async readKeyboard(): Promise<void> {
