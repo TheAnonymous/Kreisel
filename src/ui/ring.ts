@@ -1441,6 +1441,19 @@ export class RingView {
         context.fill();
       }
       context.globalAlpha = 1;
+      if (app.piece.riding) {
+        // "Einspielen": the hand on the tension, an arc at its height from where the piece is to two bars on.
+        const { base, span, cell } = shape;
+        const radius = base + span * (app.piece.hand / TENSION_MAX);
+        context.beginPath();
+        context.arc(center, center, Math.max(base + 1, radius), angle, angle + cell * 2);
+        context.lineWidth = 4;
+        context.strokeStyle = ink;
+        context.stroke();
+        context.lineWidth = 1.5;
+        context.strokeStyle = this.palette.bg;
+        context.stroke();
+      }
     }
   }
 

@@ -62,7 +62,7 @@ interface Slider {
 
 export class Panels {
   /** What stands on each key on this keyboard (QWERTZ until the browser says otherwise). */
-  private labels = new Map<string, string>([["KeyZ", "Y"], ["KeyY", "Z"]]);
+  private labels = new Map<string, string>([["KeyZ", "Y"], ["KeyY", "Z"], ["Comma", ","]]);
   private readonly sliders: Slider[] = [];
   /** Opens the menu that hangs under one of the bar's buttons (set by whoever holds the menu). */
   onBarMenu: (opener: HTMLElement, which: BarMenu, byKeyboard: boolean) => void = () => undefined;

@@ -535,7 +535,9 @@ export class RingGestures {
       this.view.redraw();
       return;
     }
-    if (spot.kind === "piece") this.app.piece.rotate(notches);
+    // While the tension is played in, the wheel is the hand on it: up is more.
+    if (spot.kind === "piece" && this.app.piece.riding) this.app.piece.rideBy(-notches);
+    else if (spot.kind === "piece") this.app.piece.rotate(notches);
     else this.app.rings.rotate(spot.track, notches);
   }
 

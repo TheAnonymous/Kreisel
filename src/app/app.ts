@@ -76,6 +76,7 @@ export const FX: readonly { id: FxName; name: string; hint: string }[] = [
   { id: "stotter", name: "Stotter", hint: "Wiederholt die letzte Achtel" },
   { id: "wurf", name: "Echo", hint: "Wirft alles ins Echo" },
   { id: "pause", name: "Pause", hint: "Schlagzeug und Bass setzen aus, beim Loslassen kommen sie zurück" },
+  { id: "aufbau", name: "Build-up", hint: "Baut auf, solange gehalten: Riser und Snare-Roll steigen, die Tiefen gehen (bis zu acht Takte). Beim Loslassen kommt der Drop auf die nächste Eins" },
 ];
 
 export class App {
@@ -140,7 +141,10 @@ export class App {
       onState: () => this.notify(),
       // Stopping lets every effect go, latched or held. (A latch set while it stands is kept: it takes hold at the start.)
       onStopped: () => this.latched.clear(),
-      onStep: (local) => this.weather.trail(local),
+      onStep: (local) => {
+        this.weather.trail(local);
+        this.piece.heard();
+      },
       scene: (index) => this.project.scenes[index] ?? null,
       pieceStart: () => (this.project.piece.on ? this.piece.start % barCount(this.project.piece) : 0),
       roundStart: () => this.scenes.startRound(),

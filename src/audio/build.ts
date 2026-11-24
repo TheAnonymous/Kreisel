@@ -173,18 +173,27 @@ export class BuildUp {
    */
   bar(place: BuildPlace, time: number, step: number, rootHz: number, thinHeld: boolean): void {
     const { kit: build, at, drop } = place;
-    if (this.drop !== drop) {
-      this.stop(time, thinHeld);
-      this.drop = drop;
-    }
-    const { kit, mix, dry, tail, highpass } = this.outs;
     // The steps of the whole build-up that sound (all but the gap), and how far this bar gets through them.
     const sounding = build.bars * BAR - gapSteps(build);
     const gap = at === build.bars - 1 ? gapSteps(build) : 0;
     const from = sounding > 0 ? Math.min(1, (at * BAR) / sounding) : 1;
     const to = sounding > 0 ? Math.min(1, ((at + 1) * BAR - gap) / sounding) : 1;
-    // Where what this bar does ends: at the gap, or a hair before the next bar line.
-    const turn = time + (BAR - gap) * step;
+    // Where what this bar does ends: at the gap, or at the next bar line.
+    this.span(drop, build, from, to, time, time + (BAR - gap) * step, gap > 0, rootHz, thinHeld);
+  }
+
+  /**
+   * A stretch of build-up `build` (which leads to the drop in bar `drop`): between `time` and `turn` it gets from
+   * share `from` to share `to` of its way (0 where it begins, 1 where it is at its height). `gap` says that its gap
+   * begins at `turn`. A build-up held by hand is told its stretches this way, from wherever in a bar it began.
+   */
+  span(drop: number, build: Readonly<Build>, from: number, to: number, time: number, turn: number, gap: boolean, rootHz: number, thinHeld: boolean): void {
+    if (this.drop !== drop) {
+      this.stop(time, thinHeld);
+      this.drop = drop;
+    }
+    const { kit, mix, dry, tail, highpass } = this.outs;
+    // Slopes end a hair before the turn.
     const end = turn - EDGE;
     const moving = end > time;
 
@@ -193,7 +202,7 @@ export class BuildUp {
       this.riser ??= build.bars === 1 ? startRiser(kit, mix, time, NOISE_PEAK, 0.0001, build.riser === 2 ? rootHz : null) : startRiser(kit, mix, time, LONG_NOISE_PEAK, LONG_NOISE_PEAK * 0.01, build.riser === 2 ? rootHz : null);
       this.riser.seg(from, to, time, end);
     }
-    if (gap > 0 && this.riser) {
+    if (gap && this.riser) {
       this.riser.cut(turn);
       this.riser = null;
     }
@@ -218,7 +227,7 @@ export class BuildUp {
       if (moving) tail.gain.linearRampToValueAtTime(1 - (1 - DIP) * to, end);
       this.moved.tail = true;
     }
-    if (gap > 0) {
+    if (gap) {
       // The gap: nothing dry gets through; what hall and echo hold rings out.
       dry.gain.setTargetAtTime(0, turn, 0.004);
       this.moved.dry = true;

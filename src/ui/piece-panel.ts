@@ -1,6 +1,6 @@
 import type { App } from "../app/app";
 import type { PieceTool } from "../app/piece";
-import { MAX_BARS, MIN_BARS, trackInfo } from "../model";
+import { MAX_BARS, MIN_BARS, TENSION_MAX, trackInfo } from "../model";
 import { barCount, describeBuild, describePiece, sizeName } from "../piece";
 import { byId, el, button } from "./dom";
 import { swayName } from "./menus";
@@ -35,6 +35,8 @@ export class PiecePanel {
   /** What can be done with the roster as a whole; shown while the rings show it. */
   private readonly roster = el("div", "line");
   private readonly hint = el("p", "easel-hint");
+  /** "Einspielen": the hand on the tension while the piece plays. */
+  private readonly ride = button("tool", "", "Einspielen: Während das Stück läuft, folgt die Spannung dem Mausrad oder den Pfeiltasten ↑ ↓ und wird Takt für Takt in die Linie geschrieben");
   private orderSignature = "";
   private pieceFocused = false;
 
@@ -127,6 +129,14 @@ export class PiecePanel {
       this.toolButtons.push(node);
     }
 
+    this.ride.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 3v3M12 18v3"/></svg>';
+    this.ride.append(el("span", "name", "Einspielen"), el("kbd", "key"));
+    this.ride.id = "piece-ride";
+    this.ride.setAttribute("aria-pressed", "false");
+    this.ride.addEventListener("click", () => app.piece.toggleRide());
+    tools.append(this.ride);
+    this.toolButtons.push(this.ride);
+
     const order = el("div", "group");
     order.append(el("h3", "", "Wer zuerst einsetzt"), parts.order);
 
@@ -159,7 +169,10 @@ export class PiecePanel {
     if (!app.piece.focused) return;
     PIECE_TOOLS.forEach((tool, index) => this.toolButtons[index]?.setAttribute("aria-checked", String(tool.id === app.piece.tool)));
     this.roster.hidden = !app.piece.laying;
-    const hint = HINTS[app.piece.tool];
+    this.ride.setAttribute("aria-pressed", String(app.piece.riding));
+    const hint = app.piece.riding
+      ? `Einspielen: ${Math.round((app.piece.hand / TENSION_MAX) * 100)} % Spannung. Mausrad oder ↑ ↓ ändern sie, während das Stück läuft; sie wird Takt für Takt in die Linie geschrieben.`
+      : HINTS[app.piece.tool];
     if (this.hint.textContent !== hint) this.hint.textContent = hint;
     const parts = this.pieceParts;
     parts.info.textContent = describePiece(piece, app.project.bpm);

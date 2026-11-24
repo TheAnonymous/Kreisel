@@ -17,6 +17,14 @@ export class PieceDesk {
   tool: PieceTool = "spannung";
   /** The ring the keyboard points at in the roster. */
   lane = 0;
+  /**
+   * "Einspielen": while the piece plays, the tension follows the hand (the mouse wheel, the arrow keys) and is written
+   * into the line bar by bar. `hand` is the tension the hand holds (0..TENSION_MAX).
+   */
+  riding = false;
+  hand = 0;
+  /** The bar the playhead was in when the hand last wrote, so that every bar is written once. */
+  private ridden: number | null = null;
 
   constructor(private readonly app: App) {}
 
@@ -38,6 +46,43 @@ export class PieceDesk {
     if (this.tool === tool) return;
     this.tool = tool;
     this.app.notify();
+  }
+
+  /** Switches "Einspielen" on or off. The hand starts at the tension of the bar that plays (or of the bar the piece starts from). */
+  toggleRide(): void {
+    this.riding = !this.riding;
+    this.ridden = null;
+    // One ride is one step back.
+    this.app.store.settle();
+    if (this.riding) {
+      const piece = this.app.project.piece;
+      const at = Math.floor(this.playhead() ?? this.start);
+      this.hand = piece.tension[wrap(at, barCount(piece))] ?? 0;
+      this.app.say("Einspielen: Mausrad oder ↑ ↓ ändern die Spannung, während das Stück läuft. Sie wird Takt für Takt in die Linie geschrieben.");
+    }
+    this.app.notify();
+  }
+
+  /** The hand moves: more or less tension from the next bar on. */
+  rideBy(by: number): void {
+    const hand = clamp(this.hand + by, 0, TENSION_MAX);
+    if (hand === this.hand) return;
+    this.hand = hand;
+    this.app.notify();
+  }
+
+  /**
+   * A step is heard. While "Einspielen" is on and the piece plays, the bar after the one that has just begun gets the
+   * tension the hand holds: the player has read the bar that sounds already, so the hand is heard from the next one.
+   */
+  heard(): void {
+    if (!this.riding || !this.app.project.piece.on) return;
+    const at = this.playhead();
+    if (at === null) return;
+    const bar = Math.floor(at);
+    if (bar === this.ridden) return;
+    this.ridden = bar;
+    this.paintTension(wrap(bar + 1, barCount(this.app.project.piece)), this.hand, "einspielen");
   }
 
   /** Puts the piece's ring in focus: it widens, and the panel shows the piece. */

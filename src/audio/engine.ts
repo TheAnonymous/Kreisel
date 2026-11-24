@@ -21,7 +21,7 @@ import {
 } from "klangwerk";
 import { charged, noteSeconds } from "../acid";
 import { CHOKE_SECONDS, HAT_TRACK, hatChokes, isOpenHat, OPEN_HATS } from "../hat";
-import { ACID_SOUND, BAR, BODY_SOUND, clamp, currentScene, emptyStep, MARK, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Project, type Scene, type Step, type Track, wrap } from "../model";
+import { ACID_SOUND, BAR, BODY_SOUND, BUILD_MEDIUM, clamp, currentScene, emptyStep, MARK, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Build, type Project, type Scene, type Step, type Track, wrap } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
 import { hasRumble } from "../rumble";
@@ -92,6 +92,10 @@ export interface Graph {
 /** The rings that play on the one of a late drop. */
 const KICK_RING = 0;
 const BASS_RING = 4;
+/** The build-up the key "Build-up" holds: eight bars of riser and roll while the lows go. It leads to no bar of the piece. */
+const HAND_KIT: Readonly<Build> = { ...BUILD_MEDIUM, bars: 8 };
+const HAND_DROP = -1;
+
 /** The rings the tension can drive harder (all of them), and the ones it can give more hall (all but kick and bass). */
 const DRIVEN = [0, 1, 2, 3, 4, 5, 6] as const;
 const ROOMY = [1, 2, 3, 5, 6] as const;
@@ -345,6 +349,12 @@ export class Player {
   private late = false;
   /** What the effect marks of the bar that sounds hold just now, and so have to let go at the next bar line. */
   private marked = { dull: false, thin: false, stutter: false };
+  /**
+   * The build-up held by hand (the key "Build-up"): how many steps it has run, counted from the bar line before it
+   * began (−1 until its first step), and whether the key was let go (then its drop lands at the next bar line).
+   */
+  private hand: { steps: number; let: boolean } | null = null;
+  private handRolls: { step: number; level: number }[] = [];
   /** How much the kick and its Nachbeben are pressed into one right now; −1 before the first step. */
   private glued = -1;
 
@@ -377,6 +387,46 @@ export class Player {
     this.rolls = [];
     this.gapFrom = BAR;
     this.late = false;
+    this.hand = null;
+    this.handRolls = [];
+  }
+
+  /** The key "Build-up" is held or let go. Held, a build-up begins with the next step; let go, it lands at the next bar line. */
+  holdBuild(on: boolean): void {
+    if (on) this.hand = { steps: this.hand?.steps ?? -1, let: false };
+    else if (this.hand) this.hand.let = true;
+  }
+
+  /** Everything stops: a build-up held by hand ends without its drop, and the piece lets go of the sound. */
+  halt(time: number): void {
+    this.hand = null;
+    this.handRolls = [];
+    this.leavePiece(time);
+  }
+
+  /**
+   * A step of the build-up held by hand. It is the big kit without its extras, eight bars long, and counts from the
+   * bar line before the key came down, so that its roll falls on the beats; after eight bars it stays at its height.
+   */
+  private handStep(project: Project, inBar: number, time: number, duration: number): void {
+    const hand = this.hand;
+    if (!hand) return;
+    if (inBar === 0 && hand.let && hand.steps >= 0) {
+      // The key was let go: the drop.
+      this.lead.land(time, HAND_KIT, this.thinHeld);
+      this.hand = null;
+      this.handRolls = [];
+      return;
+    }
+    const first = hand.steps < 0;
+    if (first) hand.steps = inBar;
+    if (first || inBar === 0) {
+      const total = HAND_KIT.bars * BAR;
+      const at = Math.floor(hand.steps / BAR);
+      if (hand.steps < total) this.lead.span(HAND_DROP, HAND_KIT, hand.steps / total, Math.min(1, ((at + 1) * BAR) / total), time, time + (BAR - inBar) * duration, false, midiToHz(bassMidi(project, 0, 0) + 24), this.thinHeld);
+      this.handRolls = rollHits(Math.min(at, HAND_KIT.bars - 1), HAND_KIT.bars);
+    }
+    hand.steps += 1;
   }
 
   /** Where the master lowpass sits by the piece's line right now (wide open without a piece). */
@@ -391,7 +441,7 @@ export class Player {
 
   /** The piece no longer plays: a build-up stops and the sound opens up again. */
   leavePiece(time: number): void {
-    this.lead.stop(time, this.thinHeld);
+    if (!this.hand) this.lead.stop(time, this.thinHeld);
     this.rolls = [];
     this.gapFrom = BAR;
     this.late = false;
@@ -431,7 +481,9 @@ export class Player {
     const dull = (plan.marks & MARK.dumpf) !== 0 && !this.filterHeld;
     const thin = (plan.marks & MARK.duenn) !== 0 && !this.thinHeld;
     if (plan.crash) crash(this.graph.kit, this.graph.mix, time, 0.24, 1.3).connect(this.graph.hall);
-    if (lead.drop !== null && plan.build?.drop !== lead.drop) {
+    // While a build-up is held by hand, the piece's own wait.
+    const own = this.hand ? null : plan.build;
+    if (!this.hand && lead.drop !== null && plan.build?.drop !== lead.drop) {
       // The build-up that was going on is over: its drop lands here, or the piece went elsewhere.
       if (bar === lead.drop && plan.drop) {
         lead.land(time, plan.drop, this.thinHeld);
@@ -441,7 +493,7 @@ export class Player {
       }
     }
     // The riser's tone starts two octaves above the bass's keynote, and ends two octaves higher, in key.
-    if (plan.build) lead.bar(plan.build, time, duration, midiToHz(bassMidi(project, 0, 0) + 24), this.thinHeld || thin);
+    if (own) lead.bar(own, time, duration, midiToHz(bassMidi(project, 0, 0) + 24), this.thinHeld || thin);
     if (thin) {
       // "Dünn" for this one bar: the lows go, as under the key.
       highpass.frequency.setTargetAtTime(1300, time, 0.03);
@@ -449,9 +501,9 @@ export class Player {
       this.marked.thin = true;
     }
     this.sway(plan.sway, time);
-    const kit = plan.build?.kit;
-    this.rolls = plan.build && kit && plan.roll ? rollHits(plan.build.at, kit.bars, kit.gap) : [];
-    this.gapFrom = plan.build && kit && plan.build.at === kit.bars - 1 ? BAR - gapSteps(kit) : BAR;
+    const kit = own?.kit;
+    this.rolls = own && kit && plan.roll ? rollHits(own.at, kit.bars, kit.gap) : [];
+    this.gapFrom = own && kit && own.at === kit.bars - 1 ? BAR - gapSteps(kit) : BAR;
     if (dull) {
       // "Dumpf" for this one bar: the sum is muffled, as under the key; the line has the filter back at the next bar.
       lowpass.frequency.cancelScheduledValues(time);
@@ -549,8 +601,10 @@ export class Player {
     const noKick = this.plan !== null && this.plan.lastKick && inBar >= BAR - 4;
     const shaking = kicks && this.audible(0) && !this.pause && !hush && !gapped && (!this.plan || (this.plan.gates[0] ?? 0) > 0);
     const quakes = Boolean(shaking && kicks && hasRumble(scene, kicks.len));
+    // The build-up held by hand, wherever the Kreisel is: by a piece or round a scene.
+    this.handStep(project, this.plan ? inBar : this.local % BAR, time, duration);
     // A roll before a drop takes the snare's ring over: what the ring would play itself waits for the drop.
-    const rolling = this.plan !== null && this.plan.roll;
+    const rolling = this.hand !== null || (this.plan !== null && this.plan.roll);
     for (let track = 0; track < TRACK_COUNT; track += 1) {
       const pattern = scene.patterns[track];
       if (!pattern) continue;
@@ -579,6 +633,7 @@ export class Player {
       if (track === 0) hitRumble(this.graph.rumble, time, duration);
     }
     if (this.plan && !this.pause && !gapped) fired |= this.pieceHits(project, scene, this.plan, inBar, position, chord, time, duration, quakes);
+    if (this.hand && !this.pause) fired |= this.roll(project, this.handRolls, this.plan ? inBar : this.local % BAR, chord, time, duration, quakes);
     // The Nachbeben: as much as the line in the kick's ring lets out at this step, at the pitch of the bar's chord.
     stepRumble(this.graph.rumble, shaking ? (scene.rumble[position % kicks.len] ?? 0) : 0, midiToHz(bassMidi(project, chord, 0)), time, duration);
     // Where a scene shakes, the kick and the Nachbeben leave as one, the more the dirtier; a kick without one is left alone.
@@ -602,12 +657,7 @@ export class Player {
    * that struck.
    */
   private pieceHits(project: Project, scene: Scene, plan: BarPlan, inBar: number, position: number, chord: number, time: number, duration: number, quakes: boolean): number {
-    let fired = 0;
-    for (const roll of plan.roll && this.audible(ROLL_RING) ? this.rolls : []) {
-      if (Math.floor(roll.step) !== inBar) continue;
-      fired |= 1 << ROLL_RING;
-      this.voices.strike(project, ROLL_RING, { ...emptyStep(), on: true }, chord, time + (roll.step - inBar) * duration, duration, roll.level, 0, 0, quakes);
-    }
+    let fired = plan.roll ? this.roll(project, this.rolls, inBar, chord, time, duration, quakes) : 0;
     for (const hit of varyHits(plan.vary)) {
       if (hit.step !== inBar || !this.audible(hit.ring)) continue;
       const gate = plan.gates[hit.ring] ?? 0;
@@ -616,6 +666,18 @@ export class Player {
       fired |= 1 << hit.ring;
       this.voices.strike(project, hit.ring, { ...emptyStep(), on: true, vel: hit.vel, pitch: hit.pitch }, chord, time, duration, gateLevel(gate), 0, 0, quakes);
       if (hit.ring === 0) hitRumble(this.graph.rumble, time, duration);
+    }
+    return fired;
+  }
+
+  /** The strikes of a roll that fall on this step of the bar (a thirty-second falls half a step later), on the snare's ring. */
+  private roll(project: Project, hits: readonly { step: number; level: number }[], inBar: number, chord: number, time: number, duration: number, quakes: boolean): number {
+    let fired = 0;
+    if (!this.audible(ROLL_RING)) return fired;
+    for (const hit of hits) {
+      if (Math.floor(hit.step) !== inBar) continue;
+      fired |= 1 << ROLL_RING;
+      this.voices.strike(project, ROLL_RING, { ...emptyStep(), on: true }, chord, time + (hit.step - inBar) * duration, duration, hit.level, 0, 0, quakes);
     }
     return fired;
   }
@@ -659,8 +721,8 @@ export class Player {
   }
 }
 
-export type FxName = "dumpf" | "duenn" | "stotter" | "wurf" | "pause";
-const FX_NAMES: readonly FxName[] = ["dumpf", "duenn", "stotter", "wurf", "pause"];
+export type FxName = "dumpf" | "duenn" | "stotter" | "wurf" | "pause" | "aufbau";
+const FX_NAMES: readonly FxName[] = ["dumpf", "duenn", "stotter", "wurf", "pause", "aufbau"];
 
 export interface EngineView {
   /** Whether a ring is heard (not muted, not silenced by another ring's solo). */
@@ -692,7 +754,7 @@ export class Engine {
   readonly struck: number[] = Array.from({ length: TRACK_COUNT }, () => -10);
   /** Which hit of its line each ring last played (a voice sings a syllable a hit). */
   readonly sung: number[] = Array.from({ length: TRACK_COUNT }, () => 0);
-  readonly fx: Record<FxName, boolean> = { dumpf: false, duenn: false, stotter: false, wurf: false, pause: false };
+  readonly fx: Record<FxName, boolean> = { dumpf: false, duenn: false, stotter: false, wurf: false, pause: false, aufbau: false };
 
   private readonly host = new AudioHost<Graph>((context) => buildGraph(context), { latencyHint: "interactive" });
   private readonly cues = new Cues(() => this.host.visualTime());
@@ -756,7 +818,7 @@ export class Engine {
     this.heard = null;
     const graph = this.host.graph;
     if (graph) {
-      this.player?.leavePiece(graph.context.currentTime);
+      this.player?.halt(graph.context.currentTime);
       hush(graph, graph.context.currentTime);
     }
     this.view.onStopped();
@@ -899,6 +961,9 @@ export class Engine {
       graph.throwSend.gain.setTargetAtTime(on ? 0.9 : 0, now, 0.02);
     } else if (name === "stotter") {
       this.player?.setStutter(on && this.playing);
+    } else if (name === "aufbau") {
+      // A build-up for as long as the key is held; let go, its drop lands on the next one.
+      this.player?.holdBuild(on && this.playing);
     } else if (this.player) {
       this.player.pause = on && this.playing;
       if (on && this.playing) {

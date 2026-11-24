@@ -804,6 +804,32 @@ each bar `lastKick`, `crash`, `swell` and `marks`), with
 menus are `endsMenu` and the row "Effekt" in `src/ui/menus.ts`; the browser
 tests are `e2e/ends.spec.ts`.
 
+## Playing the tension
+
+The Kreisel is an instrument, and a DJ makes tension by hand.
+
+- **A sixth effect key, "Build-up"** (the key after M; the right button
+  latches it like the others): for as long as it is held a riser rises, a
+  snare roll gets denser and the lows go, for up to eight bars, after which
+  it stays at its height. Let go, the drop lands on the next one, with a
+  crash and the lows back. The groove plays on meanwhile, unlike under
+  "Pause". It works round a scene and by a piece; the piece's own build-ups
+  wait while it is held. It counts from the bar line before the key came
+  down, so that its roll falls on the beats.
+- **"Einspielen" for the piece** (a third button beside the wheel while the
+  piece's ring is in focus, key E): while the piece plays, the mouse wheel
+  over its ring or the arrows up and down are a hand on the tension, and
+  every bar that begins hands that tension to the bar after it. One plays the
+  arc first and files at it afterwards. The hand shows as an arc on the ring
+  and as a number in the panel; a whole ride is one step back.
+
+The held build-up is the same sound as a build-up of the piece
+(`src/audio/build.ts`, told its stretches by `span`); the player counts it in
+`handStep` (`src/audio/engine.ts`). The ride is `toggleRide`, `rideBy` and
+`heard` at the piece's desk (`src/app/piece.ts`). The browser tests are
+`e2e/ride.spec.ts`: they hold the key while the Kreisel plays and watch the
+low cut rise and fall back, and they ride a line in.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the

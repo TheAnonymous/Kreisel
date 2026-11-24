@@ -261,6 +261,16 @@ class Keyboard {
       if (!repeat) piece.setTool(code === "KeyQ" ? "spannung" : "einsaetze");
       return true;
     }
+    // "Einspielen": the third key switches it, and while it is on the arrows up and down (and plus and minus) are the hand on the tension.
+    if (code === "KeyE") {
+      if (!repeat) piece.toggleRide();
+      return true;
+    }
+    if (piece.riding && (code === "ArrowUp" || code === "ArrowDown" || sign !== 0)) {
+      event.preventDefault();
+      piece.rideBy(code === "ArrowUp" ? 1 : code === "ArrowDown" ? -1 : sign);
+      return true;
+    }
     if (piece.laying && this.onRoster(event, code, repeat, enter, sign)) return true;
     if (code === "ArrowLeft" || code === "ArrowRight") {
       event.preventDefault();
