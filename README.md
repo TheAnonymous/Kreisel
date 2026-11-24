@@ -723,6 +723,50 @@ notes, which the player in `src/audio/engine.ts` strikes or leaves out. The
 wheel draws the drops in `src/ui/ring.ts` (`drawPieceDrops`), the kit is
 `kitMenu` in `src/ui/menus.ts`, and the browser tests are `e2e/build.spec.ts`.
 
+## What the tension moves
+
+The line can do more than count rings ("Bewegt" in the piece's panel).
+
+Until now the tension decided who plays and how open the sum is, and above
+the last ring's entry (82 percent) it moved almost nothing: just where the
+full sections of a techno track lie. Now six things can hang on it, each off,
+gently ("sanft") or clearly ("deutlich"), and all off to begin with:
+
+- **Hi-Hat öffnet sich:** the hi-hat rings longer the higher the tension.
+- **Helligkeit:** bass, chords and melody get brighter with the tension, from
+  what their ring is set to; an acid machine's bite goes along.
+- **Kick wächst:** where little is going on the kick is shorter and smaller,
+  and its Nachbeben with it; at the top it is whole.
+- **Dichte:** where little is going on the quiet hits fall away (below 45 or
+  70 percent); at the top all of them play.
+- **Zerre:** towards the top every ring is driven a little harder.
+- **Raum:** the less tension, the more hall on everything but kick and bass.
+
+So a line that climbs by a quarter over sixty-four bars opens the hi-hat and
+the acid filter very slowly: small changes over long stretches, which is how
+hypnotic techno keeps its pull.
+
+- **How it is done.** Brightness and length are the two values of a ring's
+  sound pad, pushed note by note the way sun and fog push them (`shaded`).
+  Zerre and hall are added to the ring's own in the mix. The kick's level is
+  taken down behind what makes it hard: taken from the hits themselves, the
+  hardness filled it up again (0.9 dB of the 1.8 that were asked for).
+- **Measured, not listened to** (one ring by itself, a piece low for four
+  bars and at the top for four, "deutlich"): the hi-hat is 2 dB louder at the
+  top through its longer ring, the acid bass about twice as sharp, the kick
+  3 dB smaller at 13 percent tension and unchanged at the top, a ring of
+  quiet hits silent below the threshold, the bass 7 percent sharper at the
+  top through Zerre, and between a snare's hits the hall rings where there
+  was silence. `window.kreisel.beats()` now says how sharp each beat is too.
+- **In the link** this is the first entry of an eighth part of the piece, an
+  object for whatever comes after the build-ups (`s`: two bits a thing). A
+  piece that moves nothing more is packed as it always was.
+
+The rules are in `src/piece.ts` (`swayAt`; `planBar` gives each bar its
+`sway`), with `tests/sway.test.ts`; the player applies them in
+`src/audio/engine.ts`; the list is `swayMenu` in `src/ui/menus.ts`; the
+browser tests are `e2e/sway.spec.ts`.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the

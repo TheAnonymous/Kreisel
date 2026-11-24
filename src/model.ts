@@ -208,7 +208,31 @@ export interface Piece {
   drops?: { bar: number; build: Build }[];
   /** "Abwechslung": small changes by themselves at the end of every eight bars. Absent while off. */
   vary?: boolean;
+  /** What the tension moves beyond who plays. Absent while it moves nothing more. */
+  sway?: Sway;
 }
+
+/**
+ * What the tension moves beyond who plays and how open the sum is ("Was die Spannung bewegt"). Each is 0 for off,
+ * 1 for gently ("sanft") or 2 for clearly ("deutlich"). With all of it off the line does what it always did.
+ */
+export interface Sway {
+  /** The hi-hat opens: it rings longer the higher the tension. */
+  hat: number;
+  /** Bass, chords and melody get brighter with the tension, from what their ring is set to; an acid machine's bite goes along. */
+  bright: number;
+  /** The kick grows: shorter and thinner where little is going on, whole at the top. */
+  kick: number;
+  /** Density: where little is going on the quiet hits fall away. */
+  dense: number;
+  /** Towards the top every ring is driven a little harder (its Zerre). */
+  drive: number;
+  /** The less tension, the more hall on everything but kick and bass. */
+  room: number;
+}
+
+/** The parts of a `Sway`, in the order the page and a link have them. */
+export const SWAY_PARTS = ["hat", "bright", "kick", "dense", "drive", "room"] as const;
 
 /**
  * A build-up: what the piece does by itself in the bars before a drop, and how the drop comes. A drop is a bar much

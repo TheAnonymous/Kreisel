@@ -3,6 +3,7 @@ import type { PieceTool } from "../app/piece";
 import { MAX_BARS, MIN_BARS, trackInfo } from "../model";
 import { barCount, describeBuild, describePiece, sizeName } from "../piece";
 import { byId, el, button } from "./dom";
+import { swayName } from "./menus";
 import type { Panels } from "./panels";
 
 /** The piece's two tools, which take the ring tools' place beside the wheel while the piece is in focus. */
@@ -12,7 +13,7 @@ const PIECE_TOOLS: readonly { id: PieceTool; name: string; hint: string; icon: s
 ];
 
 const HINTS: Record<PieceTool, string> = {
-  spannung: "Mal die Spannung in den äußeren Ring: außen ist viel los, innen wenig. Die farbigen Linien zeigen, ab wo ein Ring mitspielt. Ein roter Keil am Rand ist ein Drop: Ein Klick darauf stellt seinen Build-up ein. Am inneren Rand liegen die Szenen: links eine wählen, dann dort malen. Ein Rechtsklick auf einen Takt spielt ab dort, legt eine Szene hin, ändert die Spannung oder macht einen Break.",
+  spannung: "Mal die Spannung in den äußeren Ring: außen ist viel los, innen wenig. Ein roter Keil am Rand ist ein Drop, ein Klick darauf stellt seinen Build-up ein. Am inneren Rand liegen die Szenen. Ein Rechtsklick auf einen Takt zeigt, was dort geht.",
   einsaetze: "Die sieben Ringe zeigen das ganze Stück: gefüllt heißt, der Ring spielt dort. Ein Klick schaltet das für acht Takte um, ziehen malt weiter. Heller Rand und gestrichelte Linie zeigen, wo du die Spannung überstimmst.",
 };
 
@@ -24,6 +25,8 @@ export class PiecePanel {
   private readonly pieceParts = { info: el("p", "info"), on: el("input"), bars: el("output"), order: el("ol", "entries") };
   /** What the piece does by itself: the build-up before its drops (the button opens the kit for all of them), and the fills. */
   private readonly kit = button("chip", "alle Drops: klein ▾", "");
+  /** What the tension moves beyond who plays: the button opens the list. */
+  private readonly sway = button("chip", "nur die Einsätze ▾", "Was die Spannung außer den Einsätzen bewegt: Hi-Hat, Helligkeit, Kick, Dichte, Zerre und Raum, jedes aus, sanft oder deutlich");
   private readonly vary = button("chip", "alle 8 Takte", "Fills: Jeder achte Takt endet mit einer Kick mehr, jeder sechzehnte dazu mit zwei Schlägen der Trommel");
   /** The piece's tools beside the wheel, in the order of PIECE_TOOLS. */
   readonly toolButtons: HTMLButtonElement[] = [];
@@ -85,6 +88,12 @@ export class PiecePanel {
     this.kit.setAttribute("aria-expanded", "false");
     this.kit.addEventListener("click", (event) => this.panels.onMenuUnder(this.kit, { kind: "build", drop: null }, event.detail === 0));
     before.append(this.kit);
+    this.sway.id = "piece-sway";
+    this.sway.setAttribute("aria-haspopup", "menu");
+    this.sway.setAttribute("aria-expanded", "false");
+    this.sway.addEventListener("click", (event) => this.panels.onMenuUnder(this.sway, { kind: "sway" }, event.detail === 0));
+    const moved = el("div", "line");
+    moved.append(el("span", "label", "Bewegt"), this.sway);
     this.vary.id = "piece-vary";
     this.vary.addEventListener("click", () => app.piece.toggleVary());
     this.vary.setAttribute("aria-label", "Fills alle acht Takte");
@@ -98,7 +107,7 @@ export class PiecePanel {
     clear.addEventListener("click", () => app.piece.clearRoster(null));
     this.roster.id = "piece-roster";
     this.roster.append(el("span", "label", "Einsätze"), fill, clear);
-    moves.append(before, also, this.roster);
+    moves.append(moved, before, also, this.roster);
 
     const tools = byId("piece-tools");
     for (const tool of PIECE_TOOLS) {
@@ -157,6 +166,8 @@ export class PiecePanel {
     const title = `Der Build-up vor jedem Drop: ${describeBuild(all).replace(/^Build-up /, "")}. ${own > 0 ? `${own === 1 ? "Ein Drop hat" : `${own} Drops haben`} einen eigenen: Der Keil am Stück-Ring stellt ihn ein. ` : ""}Ein Drop ist ein Takt, in dem die Spannung springt oder die Kick aus einem Break zurückkommt.`;
     if (this.kit.title !== title) this.kit.title = title;
     this.vary.setAttribute("aria-pressed", String(piece.vary ?? false));
+    const moving = `${swayName(app.piece.swayCount)} ▾`;
+    if (this.sway.textContent !== moving) this.sway.textContent = moving;
     for (const node of this.panels.pieceBox.querySelectorAll<HTMLButtonElement>(".line .button")) {
       if (node.textContent === "−") node.disabled = count <= MIN_BARS;
       if (node.textContent === "+") node.disabled = count >= MAX_BARS;

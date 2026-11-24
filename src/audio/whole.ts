@@ -49,6 +49,15 @@ const rms = (samples: Float32Array): number => {
   return samples.length === 0 ? 0 : Math.sqrt(sum / samples.length);
 };
 
+/** The Hz of a pure tone that changes as fast from sample to sample as these samples do on average; 0 for silence. */
+function sharpness(samples: Float32Array, sampleRate: number): number {
+  const even = rms(samples);
+  if (even <= 0 || samples.length < 2) return 0;
+  let sum = 0;
+  for (let index = 1; index < samples.length; index += 1) sum += ((samples[index] ?? 0) - (samples[index - 1] ?? 0)) ** 2;
+  return (sampleRate / (2 * Math.PI)) * (Math.sqrt(sum / (samples.length - 1)) / even);
+}
+
 export function measureWhole(left: Float32Array, right: Float32Array, sampleRate: number): Whole {
   const middle = new Float32Array(left.length);
   const side = new Float32Array(left.length);
@@ -90,6 +99,8 @@ export interface Beat {
   high: number;
   /** How loud what lies below about 1 kHz is: the body of drums, bass and chords, without a crash or a riser's hiss. */
   body: number;
+  /** How sharp the beat is (see `Whole.sharp`): it rises with every overtone a filter lets through or a shaper adds. */
+  sharp: number;
 }
 
 /** What is left of `samples` above about `hz`: the samples less their lows. */
@@ -117,6 +128,7 @@ export function measureBeats(left: Float32Array, right: Float32Array, sampleRate
       deep: rms(deep.subarray(from, to)),
       high: rms(high.subarray(from, to)),
       body: rms(body.subarray(from, to)),
+      sharp: sharpness(middle.subarray(from, to), sampleRate),
     });
   }
   return beats;

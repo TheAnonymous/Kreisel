@@ -21,11 +21,11 @@ import {
 } from "klangwerk";
 import { charged, noteSeconds } from "../acid";
 import { CHOKE_SECONDS, HAT_TRACK, hatChokes, isOpenHat, OPEN_HATS } from "../hat";
-import { ACID_SOUND, BAR, BODY_SOUND, currentScene, emptyStep, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Project, type Scene, type Step, type Track, wrap } from "../model";
+import { ACID_SOUND, BAR, BODY_SOUND, clamp, currentScene, emptyStep, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Project, type Scene, type Step, type Track, wrap } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
 import { hasRumble } from "../rumble";
-import { barCount, dropsQuiet, gapSteps, gateLevel, planBar, ROLL_RING, rollHits, varyHits, type BarPlan } from "../piece";
+import { barCount, dropsQuiet, gapSteps, gateLevel, planBar, ROLL_RING, rollHits, varyHits, type BarPlan, type BarSway } from "../piece";
 import { playBild } from "./bild";
 import { playBody } from "./body";
 import { BuildUp, rise, type Riser } from "./build";
@@ -64,6 +64,11 @@ export interface Graph {
   /** The hall's impulse, and the hall of its own that a build-up's cloud rings in (built when the first one asks for it). */
   impulse: AudioBuffer;
   cloud: { send: GainNode; output: GainNode } | null;
+  /**
+   * What the piece's tension does right now to the mix (see `Sway`): what it adds to each ring's Zerre and hall, and
+   * how much it takes from the kick (0..1; the Nachbeben shrinks with it). The mix takes it along.
+   */
+  sway: { drive: number[]; hall: number[]; kick: number };
   buses: Bus[];
   /** Where each ring's notes go in; swapped for a fresh one to cut what still rings. */
   inlets: GainNode[];
@@ -87,6 +92,9 @@ export interface Graph {
 /** The rings that play on the one of a late drop. */
 const KICK_RING = 0;
 const BASS_RING = 4;
+/** The rings the tension can drive harder (all of them), and the ones it can give more hall (all but kick and bass). */
+const DRIVEN = [0, 1, 2, 3, 4, 5, 6] as const;
+const ROOMY = [1, 2, 3, 5, 6] as const;
 
 /** Evens out how loud the rings are at the same level setting. */
 const TRIM = [1, 0.85, 1.1, 0.85, 0.8, 0.9, 0.95] as const;
@@ -130,28 +138,30 @@ export function buildGraph(context: BaseAudioContext): Graph {
     analyser.fftSize = 1024;
     tail.connect(analyser);
   }
-  return { context, kit, master, press, mix, dry, tail, impulse, cloud: null, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, drive, rumble, group, chains };
+  return { context, kit, master, press, mix, dry, tail, impulse, cloud: null, sway: { drive: TRACK_KINDS.map(() => 0), hall: TRACK_KINDS.map(() => 0), kick: 0 }, buses, inlets, hall: hall.input, echo, throwSend, lowpass, highpass, analyser, drive, rumble, group, chains };
 }
 
 export const stepSeconds = (project: Project): number => 15 / project.bpm;
 
 /** Levels, sends, the echo's time and the volume, as the project has them now. */
 export function applyMix(graph: Graph, project: Project, audible: (track: number) => boolean, time: number, glideTime = 0.015): void {
+  const small = 1 - 0.5 * graph.sway.kick;
   graph.buses.forEach((bus, index) => {
     const track = project.tracks[index];
     if (!track) return;
-    const level = audible(index) ? track.level ** 1.5 * (TRIM[index] ?? 1) : 0;
+    // Where the tension lets the kick grow, it is smaller further down the line: behind what makes it hard, so that it is not filled up again.
+    const level = audible(index) ? track.level ** 1.5 * (TRIM[index] ?? 1) * (index === 0 ? small : 1) : 0;
     bus.output.gain.setTargetAtTime(level, time, glideTime);
-    bus.sends.hall.gain.setTargetAtTime(track.hall, time, glideTime);
+    bus.sends.hall.gain.setTargetAtTime(Math.min(1, track.hall + (graph.sway.hall[index] ?? 0)), time, glideTime);
     bus.sends.echo.gain.setTargetAtTime(track.echo, time, glideTime);
     const chain = graph.chains[index];
-    if (chain) driveChain(chain, track.drive, time);
+    if (chain) driveChain(chain, Math.min(1, track.drive + (graph.sway.drive[index] ?? 0)), time);
   });
   shadeDrive(graph.drive, project.hard, time, glideTime);
   shadePress(graph.press, project.pressure, time, glideTime);
   // The Nachbeben is as loud as the kick's ring is set, and silent with it.
   const kick = project.tracks[0];
-  shadeRumble(graph.rumble, project.dirt, project.roll, kick && audible(0) ? kick.level ** 1.5 * (TRIM[0] ?? 1) : 0, time, glideTime);
+  shadeRumble(graph.rumble, project.dirt, project.roll, kick && audible(0) ? kick.level ** 1.5 * (TRIM[0] ?? 1) * small : 0, time, glideTime);
   // A dotted eighth: the echo answers between the beats.
   const echoTime = Math.min(1.9, 3 * stepSeconds(project));
   graph.echo.left.delayTime.setTargetAtTime(echoTime, time, 0.05);
@@ -208,10 +218,13 @@ class Voices {
    * Plays `step` of ring `track` at `time`; `stepTime` is how long one step lasts, `level` scales how loud it is.
    * `quakes` says that the ground shakes in this scene (then an acid machine leaves the lows to it).
    */
-  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number, level = 1, bright = 0, number = 0, quakes = false): void {
+  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number, level = 1, bright = 0, number = 0, quakes = false, long = 0): void {
     const plain = project.tracks[track];
     // Sun and fog reach into the sound itself where a ring has a brightness of its own: note by note, as a filter is played.
-    const settings = plain && bright !== 0 ? { ...plain, x: shaded(plain.x, bright) } : plain;
+    // The piece's tension can push the same way, and along the sound's length too; an acid machine's bite goes with its brightness.
+    const settings = plain && (bright !== 0 || long !== 0)
+      ? { ...plain, x: shaded(plain.x, bright), y: shaded(plain.y, long), acid: plain.acid && bright > 0 ? { ...plain.acid, bite: shaded(plain.acid.bite, bright * 0.6) } : plain.acid }
+      : plain;
     const inlet = this.graph.inlets[track];
     if (!settings || !inlet) return;
     const melodic = TRACK_INFO[TRACK_KINDS[track] ?? "kick"].melodic;
@@ -380,6 +393,7 @@ export class Player {
     this.rolls = [];
     this.gapFrom = BAR;
     this.late = false;
+    this.sway(null, time);
     if (this.plan && !this.filterHeld) {
       const frequency = this.graph.lowpass.frequency;
       frequency.cancelScheduledValues(time);
@@ -420,6 +434,7 @@ export class Player {
     }
     // The riser's tone starts two octaves above the bass's keynote, and ends two octaves higher, in key.
     if (plan.build) lead.bar(plan.build, time, duration, midiToHz(bassMidi(project, 0, 0) + 24), this.thinHeld);
+    this.sway(plan.sway, time);
     const kit = plan.build?.kit;
     this.rolls = plan.build && kit && plan.roll ? rollHits(plan.build.at, kit.bars, kit.gap) : [];
     this.gapFrom = plan.build && kit && plan.build.at === kit.bars - 1 ? BAR - gapSteps(kit) : BAR;
@@ -433,6 +448,22 @@ export class Player {
     this.plan = plan;
     this.barNow = bar;
     this.pieceBar = bar + 1;
+  }
+
+  /**
+   * What the piece's tension does to the mix in the bar that begins (nothing, where the piece moves none of it or no
+   * longer plays): Zerre and hall on top, and the kick's level. Kept on the graph so that the mix takes it along, and
+   * set at once with a glide.
+   */
+  private sway(sway: BarSway | null, time: number): void {
+    const mix = this.graph.sway;
+    const { drive, hall } = mix;
+    const next = { drive: sway?.drive ?? 0, room: sway?.room ?? 0, kick: sway?.kick ?? 0 };
+    if (mix.kick === next.kick && DRIVEN.every((ring) => drive[ring] === next.drive) && ROOMY.every((ring) => hall[ring] === next.room)) return;
+    for (const ring of DRIVEN) drive[ring] = next.drive;
+    for (const ring of ROOMY) hall[ring] = next.room;
+    mix.kick = next.kick;
+    applyMix(this.graph, this.project(), this.audible, time, 0.25);
   }
 
   /** Repeats the two steps just played for as long as it is held. */
@@ -493,9 +524,13 @@ export class Player {
       if (this.pause && track <= 4) continue;
       // In a piece, a ring plays once the tension has reached it; freshly in, it leaves its quiet steps out.
       const gate = this.plan ? (this.plan.gates[track] ?? 0) : 1;
-      if (gate <= 0 || (this.plan && step.vel === 0 && dropsQuiet(gate))) continue;
+      const sway = this.plan?.sway ?? null;
+      if (gate <= 0 || (this.plan && step.vel === 0 && (dropsQuiet(gate) || sway?.thin))) continue;
       fired |= 1 << track;
-      this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, shadesSound(track) ? brightness(over) : 0, hitNumber(pattern, position % pattern.len, this.local), quakes);
+      // What the tension moves in the sound itself: the hi-hat's length up, the kick's down (its level goes down in the mix), the brightness of bass, chords and melody up.
+      const long = !sway ? 0 : track === HAT_TRACK ? sway.hat : track === KICK_RING ? -sway.kick : 0;
+      const lift = sway && track >= BASS_RING ? sway.bright : 0;
+      this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, clamp((shadesSound(track) ? brightness(over) : 0) + lift, -1, 1), hitNumber(pattern, position % pattern.len, this.local), quakes, long);
       if (track === 0) hitRumble(this.graph.rumble, time, duration);
     }
     if (this.plan && !this.pause && !gapped) fired |= this.pieceHits(project, scene, this.plan, inBar, position, chord, time, duration, quakes);

@@ -1,4 +1,4 @@
-import { BAR, BUILD_BARS, BUILD_BIG, BUILD_GAPS, BUILD_MEDIUM, BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, MAX_BARS, MIN_BARS, SCENE_COUNT, TENSION_MAX, TRACK_COUNT, FIRST_ORDER, type Build, type BuildSize, type Piece, type StyleId, wrap } from "./model";
+import { BAR, BUILD_BARS, BUILD_BIG, BUILD_GAPS, BUILD_MEDIUM, BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, MAX_BARS, MIN_BARS, SCENE_COUNT, SWAY_PARTS, TENSION_MAX, TRACK_COUNT, FIRST_ORDER, type Build, type BuildSize, type Piece, type StyleId, type Sway, wrap } from "./model";
 import type { Random } from "./patterns";
 
 /*
@@ -33,6 +33,16 @@ import type { Random } from "./patterns";
  * - "Abwechslung": every eighth bar ends with a kick more, every sixteenth
  *   with two strokes of the tuned drum as well.
  *
+ * And what the tension moves beyond that, each only if the piece says so
+ * (`Sway`, "Was die Spannung bewegt"):
+ *
+ * - The hi-hat rings longer the higher the tension; bass, chords and melody
+ *   get brighter; the kick is shorter and thinner where little is going on;
+ *   the quiet hits fall away there; every ring is driven a little harder
+ *   towards the top; and there is more hall where there is less tension. So a line that climbs by a quarter over sixty-four bars opens
+ *   the sound very slowly, and the stretch above the last ring's entry, where
+ *   the line used to move nothing, means something.
+ *
  * And who plays where, whatever the tension (the roster, "Einsätze"):
  *
  * - A ring can be laid in for a bar, and then plays there in full although
@@ -61,6 +71,51 @@ export const entry = (place: number): number => 0.04 + place * 0.13;
 /** How steep a step between two bars has to be for a drop or a fall (a share of the full height). */
 export const STEEP = 0.28;
 
+/**
+ * What the tension moves in one bar, as amounts the sound can take as they are: how far a sound is pushed along its
+ * brightness or its length is a share of the way to the end of the pad (0..1, see weather's `shaded`).
+ */
+export interface BarSway {
+  /** How far the hi-hat's length is pushed up. */
+  hat: number;
+  /** How far the brightness of bass, chords and melody is pushed up (an acid machine's bite too). */
+  bright: number;
+  /** How far the kick's length is pulled down; its level in the mix goes down by half of that (and the Nachbeben's with it). */
+  kick: number;
+  /** The quiet hits fall away. */
+  thin: boolean;
+  /** Zerre on top for every ring, 0..1. */
+  drive: number;
+  /** Hall on top for everything but kick and bass, 0..1. */
+  room: number;
+}
+
+/** How far each part of a `Sway` reaches, gently and clearly. Set by measurement (see e2e/sway.spec.ts), not by ear. */
+const SWAY_REACH = {
+  hat: [0, 0.4, 0.8],
+  bright: [0, 0.35, 0.7],
+  kick: [0, 0.35, 0.7],
+  // Below this tension the quiet hits fall away.
+  dense: [0, 0.45, 0.7],
+  drive: [0, 0.2, 0.45],
+  room: [0, 0.2, 0.4],
+} as const;
+
+/** What a piece's `Sway` asks for at a tension (0..1). */
+export function swayAt(sway: Readonly<Sway>, tension: number): BarSway {
+  const reach = (part: keyof Sway): number => SWAY_REACH[part][clamp(Math.round(sway[part]), 0, 2)] ?? 0;
+  const share = clamp(tension, 0, 1);
+  return {
+    hat: reach("hat") * share,
+    bright: reach("bright") * share,
+    kick: reach("kick") * (1 - share),
+    thin: share < reach("dense"),
+    // Only the upper half of the line drives harder.
+    drive: reach("drive") * clamp((share - 0.5) * 2, 0, 1),
+    room: reach("room") * (1 - share),
+  };
+}
+
 /** Where a bar stands in a build-up. */
 export interface BuildPlace {
   /** The bar the drop lands in. */
@@ -87,6 +142,8 @@ export interface BarPlan {
   drop: Build | null;
   /** This bar plays the build-up's roll (see `rollHits`). */
   roll: boolean;
+  /** What the tension moves in this bar beyond who plays; `null` where the piece has none of it. */
+  sway: BarSway | null;
   /** The small change this bar ends with (see `varyHits`): 0 none, 1 a kick more, 2 the tuned drum as well. */
   vary: number;
 }
@@ -240,6 +297,7 @@ export function planBar(piece: Piece, bar: number): BarPlan {
     roll: build !== null && build.kit.roll && rosterOf(piece, ROLL_RING, bar) !== ROSTER.rests,
     // The bar right before a drop has enough going on.
     vary: piece.vary && !rise && at % PHRASE === PHRASE - 1 ? (at % (PHRASE * 2) === PHRASE * 2 - 1 ? 2 : 1) : 0,
+    sway: piece.sway ? swayAt(piece.sway, now) : null,
   };
 }
 
@@ -334,7 +392,27 @@ export function tidyPiece(piece: Piece): void {
   if (own.length > 0) piece.drops = own.sort((one, other) => one.bar - other.bar);
   else delete piece.drops;
   if (piece.vary !== true) delete piece.vary;
+  const sway = soundSway(piece.sway);
+  if (sway) piece.sway = sway;
+  else delete piece.sway;
 }
+
+/** A `Sway` as far as a claim plainly says one: each part off, gently or clearly. Nothing for one that moves nothing. */
+export function soundSway(value: unknown): Sway | null {
+  if (typeof value !== "object" || value === null) return null;
+  const claim = value as Record<string, unknown>;
+  const sway = Object.fromEntries(SWAY_PARTS.map((part) => [part, claim[part] === 1 || claim[part] === 2 ? claim[part] : 0])) as unknown as Sway;
+  return SWAY_PARTS.some((part) => sway[part] > 0) ? sway : null;
+}
+
+/** Sets how far the tension moves one thing: 0 not at all, 1 gently, 2 clearly. */
+export function setSway(piece: Piece, part: keyof Sway, depth: number): void {
+  piece.sway = { hat: 0, bright: 0, kick: 0, dense: 0, drive: 0, room: 0, ...piece.sway, [part]: depth };
+  tidyPiece(piece);
+}
+
+/** How many things the tension moves beyond who plays. */
+export const swayCount = (piece: Piece): number => SWAY_PARTS.filter((part) => (piece.sway?.[part] ?? 0) > 0).length;
 
 /** A build-up as far as a claim plainly says one: its length is one a build-up can have, and each part is on only if it says so. */
 export function soundBuild(value: unknown): Build | null {
@@ -686,6 +764,8 @@ export interface PieceExtras {
   build?: unknown;
   drops?: unknown;
   vary?: unknown;
+  /** What the tension moves (see `Piece.sway`). */
+  sway?: unknown;
 }
 
 /**
@@ -715,6 +795,8 @@ export function soundPiece(on: boolean, tension: readonly number[], scenes: read
   };
   const all = soundBuild(extras.build);
   if (all) piece.build = all;
+  const sway = soundSway(extras.sway);
+  if (sway) piece.sway = sway;
   if (Array.isArray(extras.drops)) {
     piece.drops = (extras.drops as unknown[]).slice(0, MAX_OWN_BUILDS).flatMap((entry) => {
       const claim = (typeof entry === "object" && entry !== null ? entry : {}) as { bar?: unknown; build?: unknown };

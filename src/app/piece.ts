@@ -1,5 +1,5 @@
-import { BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, TENSION_MAX, TRACK_COUNT, trackInfo, type Build, type BuildSize, wrap } from "../model";
-import { barCount, buildAt, buildFor, buildOfAll, clearBuild, clearRoster, describeBuild, dicePiece, fillRoster, flipped, isDrop, kickOut, moveInOrder, ownBuild, PHRASE, phraseOf, reached, resizePiece, ROSTER, rosterOf, rotatePiece, setBuild, setKick, setRoster, setVary, shareBuild, smoothPiece, type RosterState } from "../piece";
+import { BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, TENSION_MAX, TRACK_COUNT, trackInfo, type Build, type BuildSize, type Sway, wrap } from "../model";
+import { barCount, buildAt, buildFor, buildOfAll, clearBuild, clearRoster, describeBuild, dicePiece, fillRoster, flipped, isDrop, kickOut, moveInOrder, ownBuild, PHRASE, phraseOf, reached, resizePiece, ROSTER, rosterOf, rotatePiece, setBuild, setKick, setRoster, setSway, setVary, shareBuild, smoothPiece, swayCount, type RosterState } from "../piece";
 import type { App } from "./app";
 
 /** What the wheel shows of the piece while its ring is in focus: the tension to paint, or the roster ("Einsätze") to lay. */
@@ -222,6 +222,17 @@ export class PieceDesk {
   describeDrop(drop: number): string {
     const piece = this.app.project.piece;
     return `Drop in Takt ${drop + 1} · ${describeBuild(buildFor(piece, drop))}`;
+  }
+
+  /** How far the tension moves one thing beyond who plays: 0 not at all, 1 gently, 2 clearly. */
+  setSway(part: keyof Sway, depth: number): void {
+    if ((this.app.project.piece.sway?.[part] ?? 0) === depth) return;
+    this.app.store.edit((project) => setSway(project.piece, part, depth));
+  }
+
+  /** How many things the tension moves beyond who plays. */
+  get swayCount(): number {
+    return swayCount(this.app.project.piece);
   }
 
   /** Fills: small changes by themselves at the end of every eight bars. */

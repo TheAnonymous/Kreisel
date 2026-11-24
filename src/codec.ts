@@ -3,7 +3,7 @@ import { cleanBody } from "./body";
 import { cleanVoice } from "./voice";
 import { cleanRumble } from "./rumble";
 import { cleanWind, packWeather, unpackWeather } from "./weather";
-import { ACID_SOUND, BODY_SOUND, BUILD_BARS, BUILD_GAPS, BUILD_NONE, BUILD_SMALL, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Acid, type Bild, type Body, type Build, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
+import { ACID_SOUND, BODY_SOUND, BUILD_BARS, BUILD_GAPS, BUILD_NONE, BUILD_SMALL, SWAY_PARTS, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Acid, type Bild, type Body, type Build, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { MAX_ROUNDS, orderOfOld, packOrder, unpackOrder } from "./order";
 import { buildOfAll, isDrop, MAX_OWN_BUILDS, soundBuild, soundPiece } from "./piece";
@@ -171,16 +171,42 @@ function unpackRoster(value: unknown, bars: number): number[][] {
   });
 }
 
+/** What a piece has that came after its build-ups, each under a letter of its own and there only if it says something. */
+interface PackedMore {
+  /** What the tension moves (`Piece.sway`): two bits a part, in the order of SWAY_PARTS. */
+  s?: number;
+}
+
+type PackedPiece = [number, string, string, string?, number?, string[]?, number[]?, PackedMore?];
+
+function packMore(piece: Piece): PackedMore | null {
+  const more: PackedMore = {};
+  if (piece.sway) more.s = SWAY_PARTS.reduce((packed, part, index) => packed | ((piece.sway?.[part] ?? 0) & 3) << (index * 2), 0);
+  return Object.keys(more).length > 0 ? more : null;
+}
+
+/** What a link says of the later parts of a piece, as far as it can be read. */
+function unpackMore(value: unknown): { sway?: Record<string, number> } {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  const more = value as Record<string, unknown>;
+  const extras: { sway?: Record<string, number> } = {};
+  const sway = more.s;
+  if (typeof sway === "number" && Number.isInteger(sway) && sway > 0 && sway < 1 << (SWAY_PARTS.length * 2)) {
+    extras.sway = Object.fromEntries(SWAY_PARTS.map((part, index) => [part, (sway >> (index * 2)) & 3]));
+  }
+  return extras;
+}
+
 /**
  * A piece as [on, one byte a bar (tension | scene << 5) in base64, the order of the rings as digits].
  * Only a piece that has them adds more: its bars "ohne Kick" as one bit a bar in base64 (empty for none), what it
  * does by itself as a number (see MOVES, 0 for nothing), its roster (see packRoster, an empty list for none), and
- * its build-ups (see packBuilds). A piece without any of that is packed as it always was, and each of the four is
- * there only if it or one after it says something.
+ * its build-ups (see packBuilds), and whatever came later as one object (see packMore). A piece without any of that
+ * is packed as it always was, and each of the five is there only if it or one after it says something.
  */
-export function packPiece(piece: Piece): [number, string, string, string?, number?, string[]?, number[]?] {
+export function packPiece(piece: Piece): PackedPiece {
   const bytes = piece.tension.map((tension, bar) => (tension & 31) | (((piece.scenes[bar] ?? 0) & 7) << 5));
-  const packed: [number, string, string, string?, number?, string[]?, number[]?] = [piece.on ? 1 : 0, toBase64Url(Uint8Array.from(bytes)), piece.order.join("")];
+  const packed: PackedPiece = [piece.on ? 1 : 0, toBase64Url(Uint8Array.from(bytes)), piece.order.join("")];
   const moves = piece.vary ? MOVES.vary : 0;
   let marks = "";
   if (piece.noKick?.some(Boolean)) {
@@ -190,15 +216,17 @@ export function packPiece(piece: Piece): [number, string, string, string?, numbe
   }
   const roster = packRoster(piece);
   const builds = packBuilds(piece);
-  if (marks !== "" || moves > 0 || roster || builds) packed.push(marks);
-  if (moves > 0 || roster || builds) packed.push(moves);
-  if (roster || builds) packed.push(roster ?? []);
-  if (builds) packed.push(builds);
+  const more = packMore(piece);
+  if (marks !== "" || moves > 0 || roster || builds || more) packed.push(marks);
+  if (moves > 0 || roster || builds || more) packed.push(moves);
+  if (roster || builds || more) packed.push(roster ?? []);
+  if (builds || more) packed.push(builds ?? []);
+  if (more) packed.push(more);
   return packed;
 }
 
 export function unpackPiece(value: unknown, fallbackScene: number): Piece {
-  const [on, bars, order, marks, moves, lists, kits] = Array.isArray(value) ? value : [];
+  const [on, bars, order, marks, moves, lists, kits, more] = Array.isArray(value) ? value : [];
   if (typeof bars !== "string" || bars.length === 0 || bars.length > 400) return firstPiece(fallbackScene);
   let bytes: Uint8Array;
   try {
@@ -220,7 +248,7 @@ export function unpackPiece(value: unknown, fallbackScene: number): Piece {
   const roll = (does & MOVES.roll) !== 0;
   const old = (does & (MOVES.roll | MOVES.kick | MOVES.hat)) !== 0 ? { ...BUILD_SMALL, bars: roll ? 2 : 1, roll, kick: (does & MOVES.kick) !== 0, hat: (does & MOVES.hat) !== 0 } : null;
   const builds = unpackBuilds(kits) ?? { build: old, drops: [] };
-  const extras = { noKick, roster: unpackRoster(lists, bytes.length), build: builds.build, drops: builds.drops, vary: (does & MOVES.vary) !== 0 };
+  const extras = { noKick, roster: unpackRoster(lists, bytes.length), build: builds.build, drops: builds.drops, vary: (does & MOVES.vary) !== 0, ...unpackMore(more) };
   return soundPiece(on === 1, Array.from(bytes, (byte) => byte & 31), Array.from(bytes, (byte) => byte >> 5), typeof order === "string" ? Array.from(order, Number) : [], fallbackScene, extras);
 }
 
@@ -260,7 +288,7 @@ interface Packed {
   f?: string;
   /** Only in links from before the row: how often every filled scene played in turn. */
   n?: number;
-  z?: [number, string, string, string?, number?, string[]?, number[]?];
+  z?: PackedPiece;
   /** Reihum: the rule, whether it is revealed, and the turns as [name, the project then]. */
   y?: { r: number; o: number; t: [string, unknown][] };
 }

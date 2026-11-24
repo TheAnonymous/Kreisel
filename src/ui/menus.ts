@@ -1,6 +1,6 @@
 import type { App, ContextTarget } from "../app/app";
 import { nextHit } from "../acid";
-import { ACID_SOUND, BODY_SOUND, BUILD_SIZES, VOICE_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, trackInfo, trackOf, type Build, type BuildSize, wrap } from "../model";
+import { ACID_SOUND, BODY_SOUND, BUILD_SIZES, VOICE_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, trackInfo, trackOf, type Build, type BuildSize, type Sway, wrap } from "../model";
 import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
@@ -171,6 +171,9 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
   return { title: at === null ? info.name : `${info.name} · Schritt ${at + 1}`, color: info.color, rows };
 }
 
+/** How many things the tension moves, in words. */
+export const swayName = (count: number): string => (count === 0 ? "nur die Einsätze" : count === 1 ? "1 Sache mehr" : `${count} Sachen mehr`);
+
 /** The colour of a drop's mark on the wheel. */
 const DROP_COLOR = "#e4572e";
 
@@ -245,6 +248,34 @@ function kitMenu(app: App, drop: number | null): MenuSpec | null {
   return { title: `Drop in Takt ${drop + 1} · Build-up`, color: DROP_COLOR, rows };
 }
 
+/** What the tension can move beyond who plays, as the page names it and says what it does. */
+const SWAYS: readonly [part: keyof Sway, label: string, does: string][] = [
+  ["hat", "Hi-Hat öffnet sich", "Die Hi-Hat klingt länger aus, je höher die Spannung ist"],
+  ["bright", "Helligkeit", "Bass, Akkorde und Melodie werden mit der Spannung heller, vom Klang des Rings aus; bei einer Acid-Maschine geht der Biss mit"],
+  ["kick", "Kick wächst", "Bei wenig Spannung ist die Kick kürzer und dünner, am Gipfel ist sie ganz da"],
+  ["dense", "Dichte", "Bei wenig Spannung fallen die leisen Schläge weg, am Gipfel spielen alle"],
+  ["drive", "Zerre", "Zum Gipfel hin wird jeder Ring etwas härter verzerrt"],
+  ["room", "Raum", "Je weniger Spannung, desto mehr Hall liegt auf allem außer Kick und Bass"],
+];
+
+/** What the piece's tension moves beyond who plays: each thing off, gently or clearly. */
+function swayMenu(app: App): MenuSpec {
+  const sway = app.project.piece.sway;
+  return {
+    title: "Was die Spannung bewegt",
+    rows: SWAYS.map(([part, label, does]) => ({
+      kind: "choice" as const,
+      label,
+      options: (["aus", "sanft", "deutlich"] as const).map((name, depth) => ({
+        label: name,
+        title: depth === 0 ? `${label}: aus` : `${label}, ${name}: ${does}`,
+        active: (sway?.[part] ?? 0) === depth,
+        run: () => app.piece.setSway(part, depth),
+      })),
+    })),
+  };
+}
+
 function pieceMenu(app: App, bar: number | null, doors: MenuDoors): MenuSpec {
   const project = app.project;
   const piece = project.piece;
@@ -298,6 +329,7 @@ function pieceMenu(app: App, bar: number | null, doors: MenuDoors): MenuSpec {
         { label: "+", title: "Vier Takte länger", disabled: count >= MAX_BARS, run: () => app.piece.resize(count + 4) },
       ],
     },
+    { kind: "action", label: `Die Spannung bewegt: ${swayName(app.piece.swayCount)} …`, run: () => doors.turnTo?.({ kind: "sway" }) },
     { kind: "action", label: `Build-up aller Drops: ${sizeName(app.piece.build(null))} …`, run: () => doors.turnTo?.({ kind: "build", drop: null }) },
     { kind: "action", label: "Fills alle acht Takte", checked: piece.vary ?? false, keep: true, run: () => app.piece.toggleVary() },
   );
@@ -435,6 +467,7 @@ export function buildMenu(app: App, target: ContextTarget, doors: MenuDoors): Me
   if (target.kind === "ring") return ringMenu(app, target.track, target.step);
   if (target.kind === "piece") return pieceMenu(app, target.bar, doors);
   if (target.kind === "build") return kitMenu(app, target.drop);
+  if (target.kind === "sway") return swayMenu(app);
   if (target.kind === "roster") return rosterMenu(app, target.bar);
   if (target.kind === "chord") return chordMenu(app, target.slot);
   if (target.kind === "scene") return sceneMenu(app, target.index);
