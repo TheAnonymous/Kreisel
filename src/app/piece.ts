@@ -1,5 +1,5 @@
-import { BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, TENSION_MAX, TRACK_COUNT, trackInfo, type Build, type BuildSize, type Sway, wrap } from "../model";
-import { barCount, buildAt, buildFor, buildOfAll, clearBuild, clearRoster, describeBuild, dicePiece, fillRoster, flipped, isDrop, kickOut, moveInOrder, ownBuild, PHRASE, phraseOf, reached, resizePiece, ROSTER, rosterOf, rotatePiece, setBuild, setKick, setRoster, setSway, setVary, shareBuild, smoothPiece, swayCount, type RosterState } from "../piece";
+import { BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, TENSION_MAX, TRACK_COUNT, trackInfo, type Build, type BuildSize, type Ends, type Sway, wrap } from "../model";
+import { barCount, buildAt, buildFor, buildOfAll, clearBuild, clearRoster, describeBuild, dicePiece, fillRoster, flipped, isDrop, kickOut, moveInOrder, ownBuild, PHRASE, phraseOf, reached, resizePiece, ROSTER, rosterOf, rotatePiece, endsCount, markNames, marksAt, setBuild, setEnds, setKick, setRoster, setSway, setVary, shareBuild, smoothPiece, swayCount, toggleMark, type RosterState } from "../piece";
 import type { App } from "./app";
 
 /** What the wheel shows of the piece while its ring is in focus: the tension to paint, or the roster ("Einsätze") to lay. */
@@ -233,6 +233,31 @@ export class PieceDesk {
   /** How many things the tension moves beyond who plays. */
   get swayCount(): number {
     return swayCount(this.app.project.piece);
+  }
+
+  /** Switches what happens at the ends of the phrases: the last kick left out, a crash every 16 or 32 bars (0 for none), the backwards cymbal. */
+  setEnds(change: Partial<Ends>): void {
+    this.app.store.edit((project) => setEnds(project.piece, change));
+  }
+
+  /** How many things happen by themselves at the ends of the phrases, the fills among them. */
+  get endsCount(): number {
+    return endsCount(this.app.project.piece);
+  }
+
+  /** Lays one of the five live effects (a bit of MARK) on a bar of the piece, or takes it away again. */
+  toggleMark(bar: number, fx: number): void {
+    if (bar < 0 || bar >= barCount(this.app.project.piece)) return;
+    this.app.store.edit((project) => toggleMark(project.piece, bar, fx));
+  }
+
+  /** The effects laid on a bar, a bit each, and their names. */
+  marksAt(bar: number): number {
+    return marksAt(this.app.project.piece, bar);
+  }
+
+  markNames(bar: number): string[] {
+    return markNames(this.marksAt(bar));
   }
 
   /** Fills: small changes by themselves at the end of every eight bars. */

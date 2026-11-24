@@ -6,7 +6,7 @@ import { cleanWind, packWeather, unpackWeather } from "./weather";
 import { ACID_SOUND, BODY_SOUND, BUILD_BARS, BUILD_GAPS, BUILD_NONE, BUILD_SMALL, SWAY_PARTS, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Acid, type Bild, type Body, type Build, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { MAX_ROUNDS, orderOfOld, packOrder, unpackOrder } from "./order";
-import { buildOfAll, isDrop, MAX_OWN_BUILDS, soundBuild, soundPiece } from "./piece";
+import { buildOfAll, isDrop, MAX_MARKS, MAX_OWN_BUILDS, soundBuild, soundPiece } from "./piece";
 import { LAST_SOUND } from "./sounds/index";
 import { cleanName } from "./relay";
 
@@ -175,6 +175,10 @@ function unpackRoster(value: unknown, bars: number): number[][] {
 interface PackedMore {
   /** What the tension moves (`Piece.sway`): two bits a part, in the order of SWAY_PARTS. */
   s?: number;
+  /** The ends of the phrases (`Piece.ends`): 1 the last kick left out, 2 a crash every 16 bars, 4 every 32, 8 the backwards cymbal. */
+  e?: number;
+  /** The effect marks (`Piece.marks`): bar and effects, one pair after the other. */
+  m?: number[];
 }
 
 type PackedPiece = [number, string, string, string?, number?, string[]?, number[]?, PackedMore?];
@@ -182,14 +186,23 @@ type PackedPiece = [number, string, string, string?, number?, string[]?, number[
 function packMore(piece: Piece): PackedMore | null {
   const more: PackedMore = {};
   if (piece.sway) more.s = SWAY_PARTS.reduce((packed, part, index) => packed | ((piece.sway?.[part] ?? 0) & 3) << (index * 2), 0);
+  if (piece.ends) more.e = (piece.ends.kick ? 1 : 0) | (piece.ends.crash === 16 ? 2 : piece.ends.crash === 32 ? 4 : 0) | (piece.ends.swell ? 8 : 0);
+  if (piece.marks) more.m = piece.marks.flatMap((mark) => [mark.bar, mark.fx]);
   return Object.keys(more).length > 0 ? more : null;
 }
 
 /** What a link says of the later parts of a piece, as far as it can be read. */
-function unpackMore(value: unknown): { sway?: Record<string, number> } {
+function unpackMore(value: unknown): { sway?: Record<string, number>; ends?: { kick: boolean; crash: number; swell: boolean }; marks?: { bar: unknown; fx: unknown }[] } {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
   const more = value as Record<string, unknown>;
-  const extras: { sway?: Record<string, number> } = {};
+  const extras: { sway?: Record<string, number>; ends?: { kick: boolean; crash: number; swell: boolean }; marks?: { bar: unknown; fx: unknown }[] } = {};
+  const ends = more.e;
+  if (typeof ends === "number" && Number.isInteger(ends) && ends > 0 && ends < 16) extras.ends = { kick: (ends & 1) !== 0, crash: (ends & 2) !== 0 ? 16 : (ends & 4) !== 0 ? 32 : 0, swell: (ends & 8) !== 0 };
+  const marks: unknown = more.m;
+  if (Array.isArray(marks) && marks.length <= 2 * MAX_MARKS) {
+    extras.marks = [];
+    for (let index = 0; index + 1 < marks.length; index += 2) extras.marks.push({ bar: marks[index], fx: marks[index + 1] });
+  }
   const sway = more.s;
   if (typeof sway === "number" && Number.isInteger(sway) && sway > 0 && sway < 1 << (SWAY_PARTS.length * 2)) {
     extras.sway = Object.fromEntries(SWAY_PARTS.map((part, index) => [part, (sway >> (index * 2)) & 3]));

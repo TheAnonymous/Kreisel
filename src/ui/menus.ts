@@ -1,6 +1,6 @@
 import type { App, ContextTarget } from "../app/app";
 import { nextHit } from "../acid";
-import { ACID_SOUND, BODY_SOUND, BUILD_SIZES, VOICE_SOUND, currentScene, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, trackInfo, trackOf, type Build, type BuildSize, type Sway, wrap } from "../model";
+import { ACID_SOUND, BODY_SOUND, BUILD_SIZES, VOICE_SOUND, currentScene, MARK_NAMES, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, trackInfo, trackOf, type Build, type BuildSize, type Sway, wrap } from "../model";
 import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
@@ -276,6 +276,35 @@ function swayMenu(app: App): MenuSpec {
   };
 }
 
+/** What each live effect does when it is laid on a bar of the piece, in the order of MARK_NAMES. */
+const MARK_HINTS = [
+  "Dumpf: Dieser Takt klingt dumpf, wie unter der Taste",
+  "Dünn: In diesem Takt fehlen die Tiefen",
+  "Stotter: Die zweite Hälfte dieses Takts stottert",
+  "Echo: Der letzte Schlag dieses Takts geht ins Echo",
+  "Pause: Im letzten Schlag dieses Takts setzen Drums und Bass aus",
+] as const;
+
+/** What happens by itself where a phrase of eight bars ends and the next begins. */
+function endsMenu(app: App): MenuSpec {
+  const piece = app.project.piece;
+  const crash = piece.ends?.crash ?? 0;
+  return {
+    title: "Phrasen-Enden",
+    rows: [
+      { kind: "action", label: "Fills", note: "Jeder achte Takt endet mit einer Kick mehr, jeder sechzehnte dazu mit zwei Schlägen der Trommel", checked: piece.vary ?? false, keep: true, run: () => app.piece.toggleVary() },
+      { kind: "action", label: "Letzte Kick fehlt", note: "Die letzte Kick jeder Phrase bleibt weg, die Eins danach trifft härter", checked: piece.ends?.kick ?? false, keep: true, run: () => app.piece.setEnds({ kick: !(piece.ends?.kick ?? false) }) },
+      {
+        kind: "choice",
+        label: "Crash auf die Eins",
+        options: ([[0, "aus", "Kein Crash an den Phrasen"], [16, "alle 16", "Ein Crash auf die Eins alle 16 Takte"], [32, "alle 32", "Ein Crash auf die Eins alle 32 Takte"]] as const)
+          .map(([every, label, title]) => ({ label, title, active: crash === every, run: () => app.piece.setEnds({ crash: every }) })),
+      },
+      { kind: "action", label: "Rückwärts-Becken", note: "Ein Becken schwillt rückwärts in den Anfang jeder Phrase", checked: piece.ends?.swell ?? false, keep: true, run: () => app.piece.setEnds({ swell: !(piece.ends?.swell ?? false) }) },
+    ],
+  };
+}
+
 function pieceMenu(app: App, bar: number | null, doors: MenuDoors): MenuSpec {
   const project = app.project;
   const piece = project.piece;
@@ -311,6 +340,9 @@ function pieceMenu(app: App, bar: number | null, doors: MenuDoors): MenuSpec {
         ],
       },
     );
+    // One or more of the five live effects, laid on this bar: they play there by themselves, once.
+    const marks = app.piece.marksAt(at);
+    rows.push({ kind: "choice", label: "Effekt", options: MARK_NAMES.map((label, bit) => ({ label, title: MARK_HINTS[bit] ?? label, active: (marks & (1 << bit)) !== 0, run: () => app.piece.toggleMark(at, 1 << bit) })) });
     // A bar that leads up to a drop, or the drop itself: the way to its build-up.
     const drop = app.piece.dropNear(at);
     if (drop !== null) rows.push({ kind: "action", label: `Build-up vor dem Drop in Takt ${drop + 1} …`, note: app.piece.describeDrop(drop).split(" · ")[1] ?? "", run: () => doors.turnTo?.({ kind: "build", drop }) });
@@ -332,6 +364,7 @@ function pieceMenu(app: App, bar: number | null, doors: MenuDoors): MenuSpec {
     { kind: "action", label: `Die Spannung bewegt: ${swayName(app.piece.swayCount)} …`, run: () => doors.turnTo?.({ kind: "sway" }) },
     { kind: "action", label: `Build-up aller Drops: ${sizeName(app.piece.build(null))} …`, run: () => doors.turnTo?.({ kind: "build", drop: null }) },
     { kind: "action", label: "Fills alle acht Takte", checked: piece.vary ?? false, keep: true, run: () => app.piece.toggleVary() },
+    { kind: "action", label: `Phrasen-Enden: ${app.piece.endsCount === 0 ? "nichts" : app.piece.endsCount} …`, run: () => doors.turnTo?.({ kind: "ends" }) },
   );
   return { title: at === null ? "Stück" : `Stück · Takt ${at + 1}`, rows };
 }
@@ -468,6 +501,7 @@ export function buildMenu(app: App, target: ContextTarget, doors: MenuDoors): Me
   if (target.kind === "piece") return pieceMenu(app, target.bar, doors);
   if (target.kind === "build") return kitMenu(app, target.drop);
   if (target.kind === "sway") return swayMenu(app);
+  if (target.kind === "ends") return endsMenu(app);
   if (target.kind === "roster") return rosterMenu(app, target.bar);
   if (target.kind === "chord") return chordMenu(app, target.slot);
   if (target.kind === "scene") return sceneMenu(app, target.index);

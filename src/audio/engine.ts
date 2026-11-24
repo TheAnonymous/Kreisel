@@ -21,14 +21,14 @@ import {
 } from "klangwerk";
 import { charged, noteSeconds } from "../acid";
 import { CHOKE_SECONDS, HAT_TRACK, hatChokes, isOpenHat, OPEN_HATS } from "../hat";
-import { ACID_SOUND, BAR, BODY_SOUND, clamp, currentScene, emptyStep, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Project, type Scene, type Step, type Track, wrap } from "../model";
+import { ACID_SOUND, BAR, BODY_SOUND, clamp, currentScene, emptyStep, MARK, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Project, type Scene, type Step, type Track, wrap } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
 import { hasRumble } from "../rumble";
 import { barCount, dropsQuiet, gapSteps, gateLevel, planBar, ROLL_RING, rollHits, varyHits, type BarPlan, type BarSway } from "../piece";
 import { playBild } from "./bild";
 import { playBody } from "./body";
-import { BuildUp, rise, type Riser } from "./build";
+import { BuildUp, rise, swell, type Riser } from "./build";
 import { buildDrive, buildGroup, shadeDrive, shadeGroup, type KickDrive, type KickGroup } from "./kick";
 import { playVoice } from "./voice";
 import { buildRumble, hitRumble, shadeRumble, stepRumble, stillRumble, type Rumble } from "./rumble";
@@ -343,6 +343,8 @@ export class Player {
   private gapFrom = BAR;
   /** The bar that sounds is a late drop: on its first beat only kick and bass play. */
   private late = false;
+  /** What the effect marks of the bar that sounds hold just now, and so have to let go at the next bar line. */
+  private marked = { dull: false, thin: false, stutter: false };
   /** How much the kick and its Nachbeben are pressed into one right now; −1 before the first step. */
   private glued = -1;
 
@@ -393,6 +395,7 @@ export class Player {
     this.rolls = [];
     this.gapFrom = BAR;
     this.late = false;
+    this.unmark(time);
     this.sway(null, time);
     if (this.plan && !this.filterHeld) {
       const frequency = this.graph.lowpass.frequency;
@@ -420,9 +423,14 @@ export class Player {
       this.skip.clear();
     }
     this.queued = null;
-    const { lowpass } = this.graph;
+    const { lowpass, highpass } = this.graph;
     const lead = this.lead;
     this.late = false;
+    // What the effect marks of the bar before held is let go, and the ones of this bar take hold.
+    this.unmark(time);
+    const dull = (plan.marks & MARK.dumpf) !== 0 && !this.filterHeld;
+    const thin = (plan.marks & MARK.duenn) !== 0 && !this.thinHeld;
+    if (plan.crash) crash(this.graph.kit, this.graph.mix, time, 0.24, 1.3).connect(this.graph.hall);
     if (lead.drop !== null && plan.build?.drop !== lead.drop) {
       // The build-up that was going on is over: its drop lands here, or the piece went elsewhere.
       if (bar === lead.drop && plan.drop) {
@@ -433,21 +441,47 @@ export class Player {
       }
     }
     // The riser's tone starts two octaves above the bass's keynote, and ends two octaves higher, in key.
-    if (plan.build) lead.bar(plan.build, time, duration, midiToHz(bassMidi(project, 0, 0) + 24), this.thinHeld);
+    if (plan.build) lead.bar(plan.build, time, duration, midiToHz(bassMidi(project, 0, 0) + 24), this.thinHeld || thin);
+    if (thin) {
+      // "Dünn" for this one bar: the lows go, as under the key.
+      highpass.frequency.setTargetAtTime(1300, time, 0.03);
+      highpass.Q.setTargetAtTime(5, time, 0.03);
+      this.marked.thin = true;
+    }
     this.sway(plan.sway, time);
     const kit = plan.build?.kit;
     this.rolls = plan.build && kit && plan.roll ? rollHits(plan.build.at, kit.bars, kit.gap) : [];
     this.gapFrom = plan.build && kit && plan.build.at === kit.bars - 1 ? BAR - gapSteps(kit) : BAR;
-    if (!this.filterHeld) {
+    if (dull) {
+      // "Dumpf" for this one bar: the sum is muffled, as under the key; the line has the filter back at the next bar.
+      lowpass.frequency.cancelScheduledValues(time);
+      lowpass.frequency.setValueAtTime(this.cutoff, time);
+      lowpass.frequency.exponentialRampToValueAtTime(300, time + 0.08);
+      lowpass.Q.setTargetAtTime(6, time, 0.03);
+      this.marked.dull = true;
+    } else if (!this.filterHeld) {
       lowpass.frequency.cancelScheduledValues(time);
       lowpass.frequency.setValueAtTime(this.cutoff, time);
       if (plan.cutoff !== this.cutoff) lowpass.frequency.exponentialRampToValueAtTime(plan.cutoff, time + 0.14);
       if (plan.cutoffEnd !== plan.cutoff) lowpass.frequency.exponentialRampToValueAtTime(plan.cutoffEnd, time + BAR * duration);
     }
-    this.cutoff = plan.cutoffEnd;
+    this.cutoff = dull ? 300 : plan.cutoffEnd;
     this.plan = plan;
     this.barNow = bar;
     this.pieceBar = bar + 1;
+  }
+
+  /** Lets go of what the effect marks of a bar held: the filters get their plain shape back, a stutter ends. */
+  private unmark(time: number): void {
+    const { lowpass, highpass } = this.graph;
+    if (this.marked.dull && !this.filterHeld) lowpass.Q.setTargetAtTime(0.7, time, 0.03);
+    if (this.marked.thin && !this.thinHeld) {
+      highpass.frequency.cancelScheduledValues(time);
+      highpass.frequency.setTargetAtTime(this.lead.lowCut, time, 0.03);
+      highpass.Q.setTargetAtTime(0.7, time, 0.03);
+    }
+    if (this.marked.stutter) this.stutter = null;
+    this.marked = { dull: false, thin: false, stutter: false };
   }
 
   /**
@@ -482,8 +516,15 @@ export class Player {
     if (project.piece.on && (this.plan !== null || this.local % BAR === 0)) {
       if (this.plan === null) this.pieceSteps = 0;
       if (this.pieceSteps % BAR === 0) this.barLine(project, time, duration);
-      if (this.plan?.fall && this.pieceSteps % BAR === BAR - 4) {
-        // Before a steep fall, the last beat is thrown into the echo.
+      const marks = this.plan?.marks ?? 0;
+      if ((marks & MARK.stotter) !== 0 && this.pieceSteps % BAR === BAR / 2 && !this.stutter) {
+        // "Stotter" for the second half of this bar.
+        this.setStutter(true);
+        this.marked.stutter = true;
+      }
+      if (this.plan?.swell && this.pieceSteps % BAR === BAR / 2) swell(this.graph.kit, this.graph.mix, time, time + (BAR / 2) * duration, 0.1);
+      if ((this.plan?.fall || (marks & MARK.echo) !== 0) && this.pieceSteps % BAR === BAR - 4) {
+        // Before a steep fall, and where "Echo" is laid, the last beat is thrown into the echo.
         this.graph.throwSend.gain.setValueAtTime(0.85, time);
         this.graph.throwSend.gain.setValueAtTime(0, time + 4 * duration);
       }
@@ -503,7 +544,10 @@ export class Player {
     // The gap before a drop: nothing plays. And a late drop: on the one only kick and bass.
     const gapped = this.plan !== null && inBar >= this.gapFrom;
     const late = this.plan !== null && this.late && inBar < BAR / 4;
-    const shaking = kicks && this.audible(0) && !this.pause && !gapped && (!this.plan || (this.plan.gates[0] ?? 0) > 0);
+    // "Pause" laid on the bar: drums and bass drop out for its last beat. And the last kick of a phrase can be left out.
+    const hush = this.plan !== null && (this.plan.marks & MARK.pause) !== 0 && inBar >= BAR - 4;
+    const noKick = this.plan !== null && this.plan.lastKick && inBar >= BAR - 4;
+    const shaking = kicks && this.audible(0) && !this.pause && !hush && !gapped && (!this.plan || (this.plan.gates[0] ?? 0) > 0);
     const quakes = Boolean(shaking && kicks && hasRumble(scene, kicks.len));
     // A roll before a drop takes the snare's ring over: what the ring would play itself waits for the drop.
     const rolling = this.plan !== null && this.plan.roll;
@@ -521,7 +565,8 @@ export class Player {
       if (this.skip.delete(`${track}:${this.local}`)) continue;
       if (step.chance > 0 && this.random() >= (CHANCES[step.chance] ?? 1)) continue;
       if (!this.audible(track)) continue;
-      if (this.pause && track <= 4) continue;
+      if ((this.pause || hush) && track <= 4) continue;
+      if (noKick && track === KICK_RING) continue;
       // In a piece, a ring plays once the tension has reached it; freshly in, it leaves its quiet steps out.
       const gate = this.plan ? (this.plan.gates[track] ?? 0) : 1;
       const sway = this.plan?.sway ?? null;

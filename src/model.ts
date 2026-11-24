@@ -210,7 +210,32 @@ export interface Piece {
   vary?: boolean;
   /** What the tension moves beyond who plays. Absent while it moves nothing more. */
   sway?: Sway;
+  /** What else happens by itself where a phrase of eight bars ends and the next begins. Absent while nothing does. */
+  ends?: Ends;
+  /**
+   * Effect marks: a bar in which one or more of the five live effects play by themselves, once. `fx` has a bit an
+   * effect, in the order of MARK_NAMES. Sorted by bar, a bar at most once; absent while there is none.
+   */
+  marks?: { bar: number; fx: number }[];
 }
+
+/** What happens by itself at the ends of the phrases, beside the fills. */
+export interface Ends {
+  /** The last kick of every phrase is left out. */
+  kick: boolean;
+  /** A crash on the one every 16 or 32 bars (0 for none). */
+  crash: number;
+  /** A cymbal played backwards swells into the beginning of every phrase. */
+  swell: boolean;
+}
+
+/**
+ * The live effects that can be laid on a bar of the piece, in the order of their bits, as the page names them. Each
+ * has its own stretch of the bar: Dumpf and Dünn the whole of it, Stotter its second half, Echo and Pause its last beat.
+ */
+export const MARK_NAMES = ["Dumpf", "Dünn", "Stotter", "Echo", "Pause"] as const;
+export const MARK = { dumpf: 1, duenn: 2, stotter: 4, echo: 8, pause: 16 } as const;
+export const MARK_ALL = 31;
 
 /**
  * What the tension moves beyond who plays and how open the sum is ("Was die Spannung bewegt"). Each is 0 for off,

@@ -325,6 +325,16 @@ export class RingView {
     return { x: box.left + (geometry.center + Math.cos(angle) * radius) * scale, y: box.top + (geometry.center + Math.sin(angle) * radius) * scale };
   }
 
+  /** Where the dot of an effect mark on bar `bar` is on the page: outside the rim, at the middle of the bar. For the browser tests. */
+  markPosition(bar: number): { x: number; y: number } {
+    const geometry = this.geometry();
+    const angle = TOP + ((bar + 0.5) / this.app.project.piece.tension.length) * TAU;
+    const radius = geometry.piece.outer + 5;
+    const box = this.canvas.getBoundingClientRect();
+    const scale = box.width / Math.max(1, this.size);
+    return { x: box.left + (geometry.center + Math.cos(angle) * radius) * scale, y: box.top + (geometry.center + Math.sin(angle) * radius) * scale };
+  }
+
   /** Where a bar of the piece is on the page in a ring's lane of the roster: for the browser tests. */
   rosterPosition(ring: number, bar: number): { x: number; y: number } {
     const geometry = this.geometry();
@@ -423,8 +433,9 @@ export class RingView {
     if (laying) this.drawRosterMarks(frame);
     const piece = this.drawPiece(geometry, playhead !== null);
     this.drawRim(frame);
-    // The wedges of the drops sit on the rim: they come after it.
+    // The wedges of the drops sit on the rim: they come after it. So do the dots of the effect marks.
     this.drawDropMarks(piece);
+    this.drawEffectMarks(piece);
     this.drawBrush();
     this.drawMark(frame);
   }
@@ -1377,6 +1388,27 @@ export class RingView {
       context.globalAlpha = fade;
       context.strokeStyle = build.bars > 0 ? ink : DROP_COLOR;
       context.lineWidth = (build.bars > 0 ? 1 : 1.6) + (pointed === drop ? 0.8 : 0);
+      context.stroke();
+    }
+    context.globalAlpha = 1;
+  }
+
+  /** A dot outside the rim for every bar that has an effect laid on it; pointing at the bar says which. */
+  private drawEffectMarks(shape: PieceShape): void {
+    const piece = this.app.project.piece;
+    if (!piece.marks) return;
+    const context = this.context;
+    const { center, outer, cell, focus } = shape;
+    const { bg, ink } = this.palette;
+    context.globalAlpha = piece.on ? 1 : 0.4;
+    for (const mark of piece.marks) {
+      const angle = TOP + (mark.bar + 0.5) * cell;
+      context.beginPath();
+      context.arc(center + Math.cos(angle) * (outer + 5), center + Math.sin(angle) * (outer + 5), 2.2 + focus * 1.2, 0, TAU);
+      context.fillStyle = ink;
+      context.fill();
+      context.lineWidth = 1;
+      context.strokeStyle = bg;
       context.stroke();
     }
     context.globalAlpha = 1;

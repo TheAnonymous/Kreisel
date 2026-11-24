@@ -14,7 +14,7 @@ const PIECE_TOOLS: readonly { id: PieceTool; name: string; hint: string; icon: s
 
 const HINTS: Record<PieceTool, string> = {
   spannung: "Mal die Spannung in den äußeren Ring: außen ist viel los, innen wenig. Ein roter Keil am Rand ist ein Drop, ein Klick darauf stellt seinen Build-up ein. Am inneren Rand liegen die Szenen. Ein Rechtsklick auf einen Takt zeigt, was dort geht.",
-  einsaetze: "Die sieben Ringe zeigen das ganze Stück: gefüllt heißt, der Ring spielt dort. Ein Klick schaltet das für acht Takte um, ziehen malt weiter. Heller Rand und gestrichelte Linie zeigen, wo du die Spannung überstimmst.",
+  einsaetze: "Die sieben Ringe zeigen das ganze Stück: gefüllt heißt, der Ring spielt dort. Ein Klick schaltet acht Takte um, ziehen malt weiter. Heller Rand und Strichlinie: Dort überstimmst du die Spannung.",
 };
 
 /*
@@ -26,6 +26,8 @@ export class PiecePanel {
   /** What the piece does by itself: the build-up before its drops (the button opens the kit for all of them), and the fills. */
   private readonly kit = button("chip", "alle Drops: klein ▾", "");
   /** What the tension moves beyond who plays: the button opens the list. */
+  /** What else happens at the ends of the phrases: the button opens the list. */
+  private readonly ends = button("chip", "Phrasen-Enden ▾", "Was an den Enden der Phrasen von selbst passiert: Fills, die letzte Kick fehlt, ein Crash auf die Eins, ein Rückwärts-Becken");
   private readonly sway = button("chip", "nur die Einsätze ▾", "Was die Spannung außer den Einsätzen bewegt: Hi-Hat, Helligkeit, Kick, Dichte, Zerre und Raum, jedes aus, sanft oder deutlich");
   private readonly vary = button("chip", "alle 8 Takte", "Fills: Jeder achte Takt endet mit einer Kick mehr, jeder sechzehnte dazu mit zwei Schlägen der Trommel");
   /** The piece's tools beside the wheel, in the order of PIECE_TOOLS. */
@@ -97,8 +99,12 @@ export class PiecePanel {
     this.vary.id = "piece-vary";
     this.vary.addEventListener("click", () => app.piece.toggleVary());
     this.vary.setAttribute("aria-label", "Fills alle acht Takte");
+    this.ends.id = "piece-ends";
+    this.ends.setAttribute("aria-haspopup", "menu");
+    this.ends.setAttribute("aria-expanded", "false");
+    this.ends.addEventListener("click", (event) => this.panels.onMenuUnder(this.ends, { kind: "ends" }, event.detail === 0));
     const also = el("div", "line");
-    also.append(el("span", "label", "Fills"), this.vary);
+    also.append(el("span", "label", "Fills"), this.vary, this.ends);
     const fill = button("chip", "alle spielen", "Alle sieben Ringe spielen im ganzen Stück, was auch die Spannung sagt: der Anfang, um wegzunehmen");
     fill.id = "roster-fill";
     fill.addEventListener("click", () => app.piece.fillRoster(null));
@@ -166,6 +172,8 @@ export class PiecePanel {
     const title = `Der Build-up vor jedem Drop: ${describeBuild(all).replace(/^Build-up /, "")}. ${own > 0 ? `${own === 1 ? "Ein Drop hat" : `${own} Drops haben`} einen eigenen: Der Keil am Stück-Ring stellt ihn ein. ` : ""}Ein Drop ist ein Takt, in dem die Spannung springt oder die Kick aus einem Break zurückkommt.`;
     if (this.kit.title !== title) this.kit.title = title;
     this.vary.setAttribute("aria-pressed", String(piece.vary ?? false));
+    const ending = app.piece.endsCount === 0 ? "Phrasen-Enden ▾" : `Phrasen-Enden: ${app.piece.endsCount} ▾`;
+    if (this.ends.textContent !== ending) this.ends.textContent = ending;
     const moving = `${swayName(app.piece.swayCount)} ▾`;
     if (this.sway.textContent !== moving) this.sway.textContent = moving;
     for (const node of this.panels.pieceBox.querySelectorAll<HTMLButtonElement>(".line .button")) {

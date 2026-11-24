@@ -1,4 +1,4 @@
-import { BAR, BUILD_BARS, BUILD_BIG, BUILD_GAPS, BUILD_MEDIUM, BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, MAX_BARS, MIN_BARS, SCENE_COUNT, SWAY_PARTS, TENSION_MAX, TRACK_COUNT, FIRST_ORDER, type Build, type BuildSize, type Piece, type StyleId, type Sway, wrap } from "./model";
+import { BAR, BUILD_BARS, BUILD_BIG, BUILD_GAPS, BUILD_MEDIUM, BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, MARK_ALL, MARK_NAMES, MAX_BARS, MIN_BARS, SCENE_COUNT, SWAY_PARTS, TENSION_MAX, TRACK_COUNT, FIRST_ORDER, type Build, type BuildSize, type Ends, type Piece, type StyleId, type Sway, wrap } from "./model";
 import type { Random } from "./patterns";
 
 /*
@@ -32,6 +32,13 @@ import type { Random } from "./patterns";
  *   unless it says otherwise.
  * - "Abwechslung": every eighth bar ends with a kick more, every sixteenth
  *   with two strokes of the tuned drum as well.
+ *
+ * And at the ends of the phrases, each only if the piece says so (`Ends`):
+ * the last kick of a phrase is left out, a crash falls on the one every 16
+ * or 32 bars, a cymbal played backwards swells into the next phrase.
+ *
+ * And once, where it is laid (`Piece.marks`): a bar can carry one or more of
+ * the five live effects, which then play there by themselves.
  *
  * And what the tension moves beyond that, each only if the piece says so
  * (`Sway`, "Was die Spannung bewegt"):
@@ -144,6 +151,14 @@ export interface BarPlan {
   roll: boolean;
   /** What the tension moves in this bar beyond who plays; `null` where the piece has none of it. */
   sway: BarSway | null;
+  /** The phrase ends with this bar and its last kick is left out. */
+  lastKick: boolean;
+  /** A crash falls on the one of this bar (a drop that lands with its own crash has none more). */
+  crash: boolean;
+  /** A cymbal played backwards swells through the second half of this bar into the next phrase. */
+  swell: boolean;
+  /** The effects laid on this bar, a bit each (see MARK). */
+  marks: number;
   /** The small change this bar ends with (see `varyHits`): 0 none, 1 a kick more, 2 the tuned drum as well. */
   vary: number;
 }
@@ -209,6 +224,12 @@ function lands(piece: Piece, bar: number): boolean {
 function falls(piece: Piece, bar: number): boolean {
   return share(piece, bar) - share(piece, bar + 1) >= STEEP || (!kickOut(piece, bar) && kickIn(piece, bar) && kickOut(piece, bar + 1));
 }
+
+/** The effects laid on bar `bar`, a bit each (see MARK); 0 for none. */
+export const marksAt = (piece: Piece, bar: number): number => piece.marks?.find((mark) => mark.bar === bar)?.fx ?? 0;
+
+/** The names of the effects in `fx`, in the order of their bits. */
+export const markNames = (fx: number): string[] => MARK_NAMES.filter((_, bit) => (fx & (1 << bit)) !== 0);
 
 /** Whether a drop lands in bar `bar`. */
 export const isDrop = (piece: Piece, bar: number): boolean => lands(piece, bar - 1);
@@ -298,6 +319,11 @@ export function planBar(piece: Piece, bar: number): BarPlan {
     // The bar right before a drop has enough going on.
     vary: piece.vary && !rise && at % PHRASE === PHRASE - 1 ? (at % (PHRASE * 2) === PHRASE * 2 - 1 ? 2 : 1) : 0,
     sway: piece.sway ? swayAt(piece.sway, now) : null,
+    lastKick: piece.ends?.kick === true && at % PHRASE === PHRASE - 1,
+    crash: (piece.ends?.crash ?? 0) > 0 && at % (piece.ends?.crash ?? 1) === 0 && !(isDrop(piece, bar) && buildFor(piece, at).bars > 0),
+    // Where a build-up's riser already swells into the bar that follows, there is no cymbal as well.
+    swell: piece.ends?.swell === true && at % PHRASE === PHRASE - 1 && !(build !== null && build.kit.riser > 0),
+    marks: marksAt(piece, at),
   };
 }
 
@@ -395,6 +421,60 @@ export function tidyPiece(piece: Piece): void {
   const sway = soundSway(piece.sway);
   if (sway) piece.sway = sway;
   else delete piece.sway;
+  const ends = soundEnds(piece.ends);
+  if (ends) piece.ends = ends;
+  else delete piece.ends;
+  const marks = soundMarks(piece.marks, count);
+  if (marks.length > 0) piece.marks = marks;
+  else delete piece.marks;
+}
+
+/** `Ends` as far as a claim plainly says them; nothing for a claim that says nothing. */
+export function soundEnds(value: unknown): Ends | null {
+  if (typeof value !== "object" || value === null) return null;
+  const claim = value as Record<string, unknown>;
+  const ends: Ends = { kick: claim.kick === true, crash: claim.crash === 16 || claim.crash === 32 ? claim.crash : 0, swell: claim.swell === true };
+  return ends.kick || ends.crash > 0 || ends.swell ? ends : null;
+}
+
+/** How many effect marks a piece can carry. */
+export const MAX_MARKS = 64;
+
+/** Effect marks as far as a claim plainly says them: bars of the piece, each once, with effects that exist; sorted by bar. */
+export function soundMarks(value: unknown, count: number): { bar: number; fx: number }[] {
+  if (!Array.isArray(value)) return [];
+  const marks: { bar: number; fx: number }[] = [];
+  for (const entry of value as unknown[]) {
+    const claim = (typeof entry === "object" && entry !== null ? entry : {}) as { bar?: unknown; fx?: unknown };
+    const { bar, fx } = claim;
+    if (typeof bar !== "number" || typeof fx !== "number" || !Number.isInteger(bar) || !Number.isInteger(fx)) continue;
+    if (bar < 0 || bar >= count || (fx & MARK_ALL) === 0 || fx !== (fx & MARK_ALL) || marks.some((mark) => mark.bar === bar)) continue;
+    if (marks.length < MAX_MARKS) marks.push({ bar, fx });
+  }
+  return marks.sort((one, other) => one.bar - other.bar);
+}
+
+/** Switches one of the things at the ends of the phrases: the last kick left out, the crash (0, 16 or 32), the backwards cymbal. */
+export function setEnds(piece: Piece, change: Partial<Ends>): void {
+  piece.ends = { kick: false, crash: 0, swell: false, ...piece.ends, ...change };
+  tidyPiece(piece);
+}
+
+/** How many things happen by themselves at the ends of the phrases, the fills among them. */
+export const endsCount = (piece: Piece): number => (piece.vary ? 1 : 0) + (piece.ends?.kick ? 1 : 0) + ((piece.ends?.crash ?? 0) > 0 ? 1 : 0) + (piece.ends?.swell ? 1 : 0);
+
+/** Lays effect `fx` (one bit of MARK) on bar `bar`, or takes it away again. */
+export function toggleMark(piece: Piece, bar: number, fx: number): void {
+  const now = marksAt(piece, bar);
+  piece.marks = [...(piece.marks ?? []).filter((mark) => mark.bar !== bar), { bar, fx: now ^ fx }];
+  tidyPiece(piece);
+}
+
+/** Takes every effect mark away from bar `bar`, or with `null` from the whole piece. */
+export function clearMarks(piece: Piece, bar: number | null): void {
+  if (bar === null) delete piece.marks;
+  else if (piece.marks) piece.marks = piece.marks.filter((mark) => mark.bar !== bar);
+  tidyPiece(piece);
 }
 
 /** A `Sway` as far as a claim plainly says one: each part off, gently or clearly. Nothing for one that moves nothing. */
@@ -547,11 +627,14 @@ export function resizePiece(piece: Piece, bars: number): void {
   const roster = piece.roster?.map((list) => (list.length === 0 ? [] : Array.from({ length: count }, (_, index) => list[at(index)] ?? 0)));
   // A drop moves with the bar it lands in: to the first bar of the new line that is taken from it.
   const drops = piece.drops?.map((entry) => ({ ...entry, bar: Math.ceil((entry.bar * count) / old) }));
+  // An effect mark goes to the first bar that is taken from its own; in a shorter piece the first of two that meet stays.
+  const marks = piece.marks?.map((mark) => ({ ...mark, bar: Math.ceil((mark.bar * count) / old) }));
   piece.tension = tension;
   piece.scenes = scenes;
   piece.noKick = noKick;
   if (roster) piece.roster = roster;
   if (drops) piece.drops = drops;
+  if (marks) piece.marks = marks;
   tidyPiece(piece);
 }
 
@@ -566,6 +649,7 @@ export function rotatePiece(piece: Piece, by: number): void {
   if (piece.noKick) piece.noKick = turn(Array.from({ length: count }, (_, bar) => piece.noKick?.[bar] === true));
   if (piece.roster) piece.roster = piece.roster.map((list) => (list.length === 0 ? [] : turn(Array.from({ length: count }, (_, bar) => list[bar] ?? 0))));
   if (piece.drops) piece.drops = piece.drops.map((entry) => ({ ...entry, bar: (entry.bar + shift) % count })).sort((one, other) => one.bar - other.bar);
+  if (piece.marks) piece.marks = piece.marks.map((mark) => ({ ...mark, bar: (mark.bar + shift) % count })).sort((one, other) => one.bar - other.bar);
 }
 
 /** Rounds the line off: every bar moves halfway towards the mean of its neighbours. Steep steps soften. */
@@ -690,15 +774,16 @@ function sizeDrops(piece: Piece): void {
  * last section. In techno it is a techno form (see `technoSections`), where
  * the piece is long enough for one; its breaks are "ohne Kick". The scenes
  * stay as they are, and so do the build-up of all drops and the Abwechslung;
- * bars that were "ohne Kick", whatever else the roster held, and the
- * build-ups that drops had of their own belonged to the old line and go with
- * it. A techno form whose drops all have the small build-up gets bigger ones
+ * bars that were "ohne Kick", whatever else the roster held, the build-ups
+ * that drops had of their own and the effect marks belonged to the old line
+ * and go with it. A techno form whose drops all have the small build-up gets bigger ones
  * towards its end (see `sizeDrops`).
  */
 export function dicePiece(piece: Piece, random: Random, style: StyleId = "frei"): void {
   const count = barCount(piece);
   delete piece.roster;
   delete piece.drops;
+  delete piece.marks;
   if (style === "techno" && count >= TECHNO_FORM_MIN) {
     const line = technoLine(count, random);
     piece.tension = line.tension;
@@ -766,6 +851,9 @@ export interface PieceExtras {
   vary?: unknown;
   /** What the tension moves (see `Piece.sway`). */
   sway?: unknown;
+  /** What happens at the ends of the phrases (see `Piece.ends`), and the effect marks (see `Piece.marks`). */
+  ends?: unknown;
+  marks?: unknown;
 }
 
 /**
@@ -797,6 +885,10 @@ export function soundPiece(on: boolean, tension: readonly number[], scenes: read
   if (all) piece.build = all;
   const sway = soundSway(extras.sway);
   if (sway) piece.sway = sway;
+  const ends = soundEnds(extras.ends);
+  if (ends) piece.ends = ends;
+  const marks = soundMarks(extras.marks, count);
+  if (marks.length > 0) piece.marks = marks;
   if (Array.isArray(extras.drops)) {
     piece.drops = (extras.drops as unknown[]).slice(0, MAX_OWN_BUILDS).flatMap((entry) => {
       const claim = (typeof entry === "object" && entry !== null ? entry : {}) as { bar?: unknown; build?: unknown };

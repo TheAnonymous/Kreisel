@@ -98,6 +98,8 @@ declare global {
       lane(track: number, bar: number): { x: number; y: number };
       /** Where the mark of the drop that lands in bar `bar` is on the page. */
       drop(bar: number): { x: number; y: number };
+      /** Where the dot of an effect mark on bar `bar` is on the page. */
+      mark(bar: number): { x: number; y: number };
       /** Where a chord field is on the page. */
       slot(slot: number): { x: number; y: number };
       /** Where a place on the body on the workbench is on the page (0 its middle, 1 its edge), and where its two grips are. */
@@ -130,6 +132,7 @@ window.kreisel = {
   bar: (bar, height) => ring.barPosition(bar, height),
   lane: (track, bar) => ring.rosterPosition(track, bar),
   drop: (bar) => ring.dropPosition(bar),
+  mark: (bar) => ring.markPosition(bar),
   slot: (slot) => ring.slotPosition(slot),
   knock: (where) => bench.position(where),
   grip: (what) => bench.grip(what),

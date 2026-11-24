@@ -767,6 +767,43 @@ The rules are in `src/piece.ts` (`swayAt`; `planBar` gives each bar its
 `src/audio/engine.ts`; the list is `swayMenu` in `src/ui/menus.ts`; the
 browser tests are `e2e/sway.spec.ts`.
 
+## Phrase ends and effect marks
+
+Small tension every eight bars, and the live effects as events of the piece.
+
+- **Phrase ends** ("Phrasen-Enden" beside the fills in the piece's panel, and
+  in the piece's menu), each to choose and all off to begin with: the last
+  kick of every phrase is left out, so that the one after it hits harder; a
+  crash falls on the one every 16 or 32 bars (not where a drop lands with a
+  crash of its own); a cymbal played backwards swells through the last half
+  bar into the next phrase (not where a build-up's riser already does). The
+  fills are in the same list.
+- **Effect marks.** The right button on a bar of the piece has a row
+  "Effekt": Dumpf, Dünn, Stotter, Echo, Pause. Each can be laid on that one
+  bar and then plays there by itself, once: Dumpf and Dünn for the whole bar,
+  Stotter through its second half, Echo on its last beat (thrown into the
+  echo), Pause on its last beat (drums and bass drop out). A dot outside the
+  rim marks the bar, and pointing at the bar says which effects lie there.
+  These are the one-time events that keep a loop from being predictable.
+- **Marks belong to the line:** they stretch and turn with the piece and go
+  with a line that is diced anew. While an effect key is held, the mark of
+  the same effect leaves the filter to the key.
+- **In the link** both are entries of the piece's eighth part (`e` a number,
+  `m` pairs of bar and effects).
+- **Measured** on eight bars at the top with one ring by itself: without its
+  last kick the last beat of the phrase is empty; with no ring at all a
+  crash is heard on the first beat and a swell through the last half bar,
+  loudest right before the next phrase; "Dumpf" takes a third or more of the
+  bass's sharpness for its bar, "Dünn" 10 dB or more of the kick's deep lows,
+  "Stotter" and "Pause" empty the kick's second half and last beat, and
+  "Echo" rings on into the next bar where the dry snare is silent.
+
+The rules are in `src/piece.ts` (`setEnds`, `toggleMark`; `planBar` gives
+each bar `lastKick`, `crash`, `swell` and `marks`), with
+`tests/ends.test.ts`; the player plays them in `src/audio/engine.ts`; the
+menus are `endsMenu` and the row "Effekt" in `src/ui/menus.ts`; the browser
+tests are `e2e/ends.spec.ts`.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the

@@ -119,6 +119,24 @@ export function rise(kit: Kit, out: AudioNode, start: number, end: number, peak:
   return riser;
 }
 
+/**
+ * A cymbal played backwards: hiss that swells from next to nothing up to `peak` at `end`, and is gone there. For the
+ * turn from one phrase into the next.
+ */
+export function swell(kit: Kit, out: AudioNode, start: number, end: number, peak: number): void {
+  const source = kit.context.createBufferSource();
+  source.buffer = kit.noise;
+  source.loop = true;
+  const high = kit.filter("highpass", 5200, 0.7);
+  const amp = kit.gain(0);
+  amp.gain.setValueAtTime(peak * 0.004, start);
+  amp.gain.exponentialRampToValueAtTime(peak, end - EDGE);
+  amp.gain.setTargetAtTime(0, end, 0.006);
+  source.connect(high).connect(amp).connect(out);
+  source.start(start);
+  source.stop(end + 0.1);
+}
+
 /** The cloud of hall a build-up can raise: a hall of its own, so that it can be gone with the drop while the other rings on. Built when the first build-up asks for it. */
 function cloudOf(outs: BuildOuts): { send: GainNode; output: GainNode } {
   if (!outs.cloud) {

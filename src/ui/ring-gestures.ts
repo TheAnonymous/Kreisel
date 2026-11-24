@@ -560,7 +560,7 @@ export class RingGestures {
       const tension = Math.round(((piece.tension[spot.bar] ?? 0) / TENSION_MAX) * 100);
       text = spot.lane && this.app.piece.focused
         ? `Szene ${SCENE_NAMES[project.scene]} hierher malen · Takt ${spot.bar + 1}`
-        : `Stück · Takt ${spot.bar + 1} von ${piece.tension.length} · ${tension} % Spannung · Szene ${SCENE_NAMES[piece.scenes[spot.bar] ?? 0]}${this.app.piece.dropNear(spot.bar) === null ? "" : " · Build-up"} · Rechtsklick: ab hier spielen und mehr`;
+        : `Stück · Takt ${spot.bar + 1} von ${piece.tension.length} · ${tension} % Spannung · Szene ${SCENE_NAMES[piece.scenes[spot.bar] ?? 0]}${this.app.piece.dropNear(spot.bar) === null ? "" : " · Build-up"}${this.app.piece.marksAt(spot.bar) === 0 ? "" : ` · Effekt: ${this.app.piece.markNames(spot.bar).join(", ")}`} · Rechtsklick: ab hier spielen und mehr`;
     } else if (spot.kind === "drop") {
       text = `${this.app.piece.describeDrop(spot.bar)} · klicken zum Ändern`;
     } else if (spot.kind === "roster") {

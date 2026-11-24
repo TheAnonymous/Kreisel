@@ -33,6 +33,8 @@ export type ContextTarget =
   | { kind: "piece"; bar: number | null }
   /** What the piece's tension moves beyond who plays. */
   | { kind: "sway" }
+  /** What happens by itself at the ends of the piece's phrases. */
+  | { kind: "ends" }
   /** The kit of a build-up: of the drop that lands in bar `drop`, or of all drops that have none of their own. */
   | { kind: "build"; drop: number | null }
   /** The roster ("Einsätze") of the phrase around a bar of the piece: all seven rings. */
