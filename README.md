@@ -540,8 +540,8 @@ techno track.
   piece of more than 128 bars).
 - **The techno dice** make their breaks without the kick: the drums around it
   and the bass play on, and through the break's second half the tension climbs
-  until the chords are there. The techno Kreisel's own piece has such a break
-  of sixteen bars. Free dice take the marks away with the old line; what the
+  until the chords are there. The plain techno form, which an empty techno
+  Kreisel starts with, has such a break of sixteen bars. Free dice take the marks away with the old line; what the
   piece does by itself stays as it was set.
 - **In the link** a piece that has none of this is packed as it always was.
   One that has adds its marked bars as one bit a bar and what it does by itself
@@ -687,7 +687,7 @@ before it, or the bar in which the kick comes back from a break.
   drop gets the big one (the middle one where the sections are eight bars
   long), in a long piece the drops between the first and the last get the
   middle one, and the first stays small. Only while the piece's build-up for
-  all drops is the small one. The techno Kreisel's own piece has the big one
+  all drops is the small one. The plain techno form has the big one
   before its drop in bar 65.
 - **Getting quieter sits behind the master.** The master's compressor and
   limiter even out what comes in: turned down before them, 2.9 dB arrived as
@@ -887,6 +887,68 @@ The shapes are `shapeLine` in `src/piece.ts`, with `nextDrop`, `protocol` and
 The wedges and ramps of the drops, which this step of the plan also named,
 came with the build-up kit.
 
+## The techno Kreisel's own piece
+
+The techno Kreisel comes with a track that works with tension, to be looked at
+and taken apart: 160 bars, a little over four minutes, switched off until it is
+asked for. Every means of the seven steps above is in it once, where it has a
+reason, and none of them everywhere. It is `masterPiece` in `src/model.ts`.
+
+| Bars | What plays | What it shows |
+| --- | --- | --- |
+| 1–32 | kick; + hi-hat; + tuned drum; + acid line | A ring a phrase. The line climbs slowly, so the sum opens, the hi-hat is only its open hits and the kick is small. The acid line is quiet and without its quiet notes at first (a ring that has only just come in). A beat of nothing before the tuned drum comes ("Pause"). |
+| 33–64 | + clap; then the stab for the tuned drum; then without the hi-hat | The first drop brings something new, the clap, after two bars of riser and roll. Sixteen bars in which nothing changes. At the half one ring hands over to another (with a stutter into it); eight bars before the break the hi-hat is taken away (its last beat into the echo). |
+| 65–72 | clap, hi-hat, acid line | The short break: the kick goes and the hi-hat is back, so something rhythmic stays. Four bars of build-up while the lows go, the last bar without the hi-hat, and the drop comes late: kick and acid line on the one, the rest a beat later. |
+| 73–104 | kick, hi-hat, clap, acid line, stab (melody); then without the stab; then without the clap | The second full section stands higher than the first and takes a small step up at its half. Then it is stripped, after a bar without lows ("Dünn"), and cools down while the line sinks. |
+| 105–120 | stab and open hi-hat; then + acid line | The long break is the lowest point of the piece: kick and bass go first. Its first half ends muffled ("Dumpf"). Then the acid line fades in under the big build-up: eight bars of riser with a tone, roll, the lows going, a cloud of hall, the level sinking, and half a bar of nothing. |
+| 121–128 | kick and acid line | The anti-drop: the big build-up lands on the least it could, dry. Two bars of roll, the last without the kick. |
+| 129–144 | everything | The top: the only sixteen bars at the highest tension, and the only place where all rings play together. The tuned drum is back after eighty bars. |
+| 145–160 | less and less | The outro is the line's alone: it sinks, and the rings go in the order they came, down to the kick. The last bar leads into the first. |
+
+- **Who plays is laid only where the line could not say it.** The piece has an
+  order of its own (kick, hi-hat, tuned drum, acid line, clap, stab, melody),
+  so that intro and outro need nothing laid; the roster takes the hi-hat away
+  while the acid line stays, keeps the stab back, and makes the anti-drop.
+- **The line is free for what it moves.** All six are on: the hi-hat opens and
+  the acid line gets brighter (both clearly), the quiet hits fall away below
+  the full sections (clearly, so the breaks have only the open hi-hat), the
+  kick grows, a little more Zerre towards the top, a little more hall towards
+  the bottom (all three gently).
+- **The ends of the phrases** have fills, a crash every sixteen bars and a
+  cymbal backwards into each. Seven of them have an effect laid on them, each
+  of the five at least once; none lies where a build-up runs.
+- **No two of the four drops have the same build-up**, and between them they
+  use every part of the kit.
+- **The pull of the loop itself** is on the scene, so the Kreisel has it
+  without the piece too: rain (echo) where the stab strikes, with a tide of
+  twelve bars, and sun (brighter) on the hi-hat's open hits, with a tide of
+  twenty. Both run against the phrases of eight bars and meet
+  at nothing every sixty bars, which in the piece is the bar the big drop
+  lands in (bar 121): it lands dry. The tuned drum's ring of twelve rubs
+  against the sixteens as it always did.
+- **An empty techno Kreisel** starts with the plain techno form (`technoPiece`,
+  112 bars with one break) and a clear sky: the piece above belongs to the
+  rings it was made for. The tests of the Kreisel's tools begin with that
+  plain one too.
+- **A pause silences the fill.** Under "Pause" laid on a bar, the fill and the
+  roll stay out with the drums, as they do under the key.
+- **Measured, not listened to.** The whole piece was rendered and measured
+  bar by bar. Wherever the kick plays, a phrase is as loud as any other to
+  within a dB, the kick alone as much as the top: "Druck" holds the sum at
+  one level. So the arc is not in the level. It is in who plays, in the
+  spectrum and in the breaks: through the intro the highs rise by nearly
+  6 dB; the short break is 8 dB quieter than the full sections and the first
+  half of the long one 13 dB, both with 20 dB less deep down; the bar under
+  "Dünn" is 10 dB quieter than its neighbours and the bar without the kick
+  before the top 8 dB; the top is 2.6 times as sharp as the anti-drop. By
+  themselves the rain lifts the stab by up to 1.4 dB at the top of its tide
+  and the sun the hi-hat by up to 2 dB. Whether the full sections can be told
+  apart by ear, and whether the long break is too empty, nobody has heard.
+
+`tests/master.test.ts` holds the arc bar by bar; `e2e/master.spec.ts` looks at
+what the page shows of it and measures the stretch from the cool-down to the
+top.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the
@@ -937,7 +999,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/menu.ts`, `menus.ts`, `bar-menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the same menu under the bar's buttons; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
 | `scripts/level-sounds.mjs` | `npm run level`: measures every ready-made sound and writes `src/sounds/trims.ts` |
-| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`, `kick`, `bar`, `scenes`, `roster`, `techno-sounds`, `arrange`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit |
+| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`, `kick`, `bar`, `scenes`, `roster`, `techno-sounds`, `arrange`, `master`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit; the tests of a techno Kreisel's tools begin with the plain one (`window.plainTechno()`: a clear sky and the plain techno form), `master` looks at the techno Kreisel as it comes |
 
 ## License
 

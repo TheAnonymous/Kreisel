@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, type Download, type Page } from "@playwright/test";
 import { serialize } from "../src/codec";
-import { factoryProject } from "../src/model";
+import { factoryProject, technoPiece } from "../src/model";
 import { readOggOpus } from "../src/ogg";
 import { STORAGE_KEY } from "../src/store";
 
@@ -18,6 +18,13 @@ import { STORAGE_KEY } from "../src/store";
 declare global {
   interface Window {
     cspViolations: string[];
+    /**
+     * Puts the plain techno Kreisel on the table: the techno Kreisel under a clear sky, with the plain techno form as
+     * its piece (112 bars, a break in bars 49 to 64, drops in bar 17 and bar 65). The tests of the Kreisel's tools
+     * begin with it, so that what they lay and measure stands by itself. The techno Kreisel as it comes has weather
+     * with tides and a piece that uses every one of those tools: master.spec.ts looks at that one.
+     */
+    plainTechno(): void;
   }
 }
 
@@ -31,10 +38,23 @@ async function watch(page: Page): Promise<string[]> {
   page.on("console", (message) => {
     if (message.type() === "error") problems.push(message.text());
   });
-  await page.addInitScript(() => {
+  await page.addInitScript((plain) => {
     window.cspViolations = [];
     document.addEventListener("securitypolicyviolation", (event) => window.cspViolations.push(`${event.violatedDirective} ${event.blockedURI}`));
-  });
+    window.plainTechno = () => {
+      const app = window.kreisel.app;
+      app.newProject(false, "techno");
+      // Not a step of its own: one step back from here is the Kreisel that was on the table before.
+      app.store.touch((project) => {
+        project.piece = structuredClone(plain);
+        for (const scene of project.scenes) {
+          if (!scene) continue;
+          scene.weather = scene.weather.map((rings) => rings.map((line) => line.map(() => 0)));
+          delete scene.tide;
+        }
+      });
+    };
+  }, technoPiece());
   return problems;
 }
 

@@ -19,7 +19,7 @@ test.describe("am Laptop", () => {
     expect(Object.keys(await pieceOf(page))).toEqual(["on", "tension", "scenes", "order"]);
 
     // The techno Kreisel's piece has a break of sixteen bars.
-    await page.evaluate(() => window.kreisel.app.newProject(false, "techno"));
+    await page.evaluate(() => window.plainTechno());
     await focusPiece(page);
     expect(await marked(page)).toEqual(range(48, 64));
     await expect(page.locator("#panel")).toContainText("112 Takte");
@@ -84,7 +84,7 @@ test.describe("am Laptop", () => {
 
   test("stellt den Build-up aller Drops im Feld des Stücks ein, und schaltet die Fills dort und im Menü", async ({ page }) => {
     const problems = await open(page);
-    await page.evaluate(() => window.kreisel.app.newProject(false, "techno"));
+    await page.evaluate(() => window.plainTechno());
     await focusPiece(page);
     const kit = page.locator("#piece-build");
     const vary = page.locator("#piece-vary");
@@ -163,7 +163,7 @@ test.describe("am Laptop", () => {
     // A techno piece of eight bars at full height; `solo` is the one ring that is heard, `setup` shapes the piece.
     const hear = (solo: number, setup: string) => page.evaluate(async ([ring, code]) => {
       const app = window.kreisel.app;
-      app.newProject(false, "techno");
+      window.plainTechno();
       app.setGlobal({ pressure: 0 });
       for (let track = 0; track < 7; track += 1) app.rings.setTrack(track, { mute: track !== ring, hall: 0, echo: 0 });
       app.store.edit((project) => { project.piece = { on: true, tension: Array.from({ length: 8 }, () => 31), scenes: Array.from({ length: 8 }, () => 0), order: [0, 2, 1, 3, 4, 5, 6] }; });
@@ -210,7 +210,7 @@ test.describe("am Handy", () => {
   test("hat am Handy Build-up und Fills im Feld des Stücks, und alles passt in die Breite", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => {
-      window.kreisel.app.newProject(false, "techno");
+      window.plainTechno();
       window.kreisel.app.piece.focus();
     });
     const kit = page.locator("#piece-build");

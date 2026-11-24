@@ -518,9 +518,9 @@ export function factoryProject(): Project {
 export const TECHNO_ORDER = [0, 2, 1, 3, 4, 5, 6] as const;
 
 /**
- * The piece a techno Kreisel starts with, in the sections such a track has:
- * sixteen bars that build from the kick, thirty-two at full height, a break
- * of sixteen without the kick (the acid line and the drums around it play on
+ * The plain techno form, which an empty techno Kreisel starts with: sixteen
+ * bars that build from the kick, thirty-two at full height, a break of
+ * sixteen without the kick (the acid line and the drums around it play on
  * and lift, and the last eight are a big build-up), thirty-two at the top,
  * sixteen that take it apart again. It waits switched off.
  */
@@ -533,19 +533,144 @@ export function technoPiece(scene = 0): Piece {
 }
 
 /**
+ * The order the techno Kreisel's own piece brings its rings in by: kick, hi-hat, the tuned drum and the acid line make
+ * the intro; the clap is kept for the first drop, stab and melody for later.
+ */
+export const MASTER_ORDER = [0, 2, 3, 4, 1, 5, 6] as const;
+
+/**
+ * The piece the techno Kreisel comes with: a track of 160 bars that works with tension by every means a piece has,
+ * each where it has a reason. It is meant to be looked at and taken apart. It waits switched off.
+ *
+ * The arc, phrase by phrase (eight bars each; bars counted from 1 here, as the page counts them):
+ *
+ * - 1–32, the intro: the kick alone, small and muffled; then the hi-hat, only its open hits; the tuned drum on its
+ *   ring of twelve; the acid line, quiet and without its quiet notes. A ring a phrase. Two bars of roll and riser lead to
+ * - 33–64, the first full section, which the clap arrives with. Sixteen bars in which nothing changes; then the tuned
+ *   drum goes and the stab comes in its place; then the hi-hat is taken away, eight bars before
+ * - 65–72, the short break: the kick goes, and the hi-hat is back in its place. Clap and acid line play on; four bars
+ *   of build-up, the last without the hi-hat, and the drop comes late.
+ * - 73–104, the second full section, higher than the first, with the stab (and the melody) and still without the
+ *   tuned drum; a small step up at its half; then stripped to kick, hi-hat, clap and acid line; then the clap goes
+ *   too and the line sinks.
+ * - 105–120, the long break, the lowest point: kick and bass go first, only the stab and the open hi-hat are left.
+ *   Then the acid line fades in again under the big build-up, eight bars that end in half a bar of nothing.
+ * - 121–128, the anti-drop: only kick and acid line, dry. Two bars of roll, the last without the kick, lead to
+ * - 129–144, the top: everything, at the highest tension of the piece, which the line reaches nowhere else. Only
+ *   here do all rings play together: the tuned drum is back after eighty bars.
+ * - 145–160, the outro: the line alone takes the piece apart, in the order the rings came, down to the kick, and the
+ *   ring closes into its first bar.
+ *
+ * Who plays is laid only where the line could not say it (the roster): the line is free for what it moves beside.
+ * All six of those are on: the hi-hat opens, the acid line gets brighter, the kick grows, the quiet hits fall away
+ * below the full sections, a little more Zerre towards the top, a little more hall towards the bottom. The ends of
+ * the phrases have fills, a crash every sixteen bars and a cymbal backwards; seven of them have an effect laid on
+ * them, each of the five at least once. No two of the four drops have the same build-up.
+ */
+export function masterPiece(scene = 0): Piece {
+  const hold = (level: number, bars = 8): number[] => Array.from({ length: bars }, () => level);
+  const tension = [
+    // The intro: a ring a phrase, the line climbing a step every two bars, more slowly once the acid line is there.
+    4, 4, 4, 4, 5, 5, 5, 5,
+    6, 6, 7, 7, 8, 8, 9, 9,
+    10, 10, 11, 11, 12, 12, 13, 13,
+    14, 14, 14, 14, 15, 15, 15, 15,
+    // The first full section, a step up at its half.
+    ...hold(24, 16), ...hold(25, 16),
+    // The short break lifts a little towards the drop.
+    18, 18, 18, 18, 19, 19, 20, 20,
+    // The second full section, higher; then the cool-down.
+    ...hold(27, 12), ...hold(28, 12),
+    26, 25, 24, 23, 22, 21, 20, 19,
+    // The long break: at the bottom, then climbing under the build-up.
+    11, 11, 11, 11, 12, 12, 12, 12,
+    14, 15, 16, 17, 18, 19, 20, 20,
+    // The anti-drop holds back; the top is the top.
+    ...hold(22), ...hold(TENSION_MAX, 16),
+    // The outro: the line lets the rings go one after another.
+    26, 24, 22, 21, 19, 17, 16, 14,
+    13, 12, 10, 9, 7, 6, 4, 4,
+  ];
+  const bars = tension.length;
+  // Who plays against what the line says, as stretches of bars (counted from 0, up to but not including `to`).
+  const laid = (stretches: readonly (readonly [from: number, to: number, state: 1 | 2])[]): number[] => {
+    const list = Array.from({ length: bars }, () => 0);
+    for (const [from, to, state] of stretches) for (let bar = from; bar < to; bar += 1) list[bar] = state;
+    return list;
+  };
+  const roster = [
+    [],
+    // The clap rests through the cool-down and the anti-drop; its last two bars there are the roll's.
+    laid([[96, 104, 2], [120, 126, 2]]),
+    // The hi-hat is taken away before the short break, and rests through the anti-drop.
+    laid([[56, 64, 2], [120, 128, 2]]),
+    // The tuned drum makes room for the stab at the half of the first full section, and is back only at the top.
+    laid([[48, 128, 2]]),
+    [],
+    // The stab is kept back for the half of the first full section, rests where the second is stripped, and is what is left in the long break.
+    laid([[32, 48, 2], [88, 104, 2], [104, 120, 1], [120, 128, 2]]),
+    // The melody goes where the stab goes when the second full section is stripped.
+    laid([[88, 104, 2]]),
+  ];
+  const parts = { riser: 0, roll: false, lows: false, wash: false, dip: false, kick: false, hat: false, gap: 0, late: false };
+  return {
+    on: false,
+    tension,
+    scenes: tension.map(() => scene),
+    order: [...MASTER_ORDER],
+    noKick: tension.map((_, bar) => (bar >= 64 && bar < 72) || (bar >= 104 && bar < 120)),
+    roster,
+    drops: [
+      // Into the first full section: two bars of riser and roll.
+      { bar: 32, build: { ...parts, bars: 2, riser: 1, roll: true } },
+      // Out of the short break: four bars while the lows go, the last without the hi-hat, and the drop comes late.
+      { bar: 72, build: { ...parts, bars: 4, riser: 1, roll: true, lows: true, hat: true, late: true } },
+      // Out of the long break: the big one, with half a bar of nothing before the drop.
+      { bar: 120, build: { ...BUILD_BIG, gap: 2 } },
+      // To the top: two bars of riser and roll again, the last without the kick.
+      { bar: 128, build: { ...parts, bars: 2, riser: 1, roll: true, kick: true } },
+    ],
+    vary: true,
+    sway: { hat: 2, bright: 2, kick: 1, dense: 2, drive: 1, room: 1 },
+    ends: { kick: false, crash: 16, swell: true },
+    marks: [
+      // A beat of nothing before the tuned drum comes.
+      { bar: 15, fx: MARK.pause },
+      // A stutter where the tuned drum hands over to the stab, an echo as the hi-hat leaves.
+      { bar: 47, fx: MARK.stotter },
+      { bar: 55, fx: MARK.echo },
+      // A bar without lows, so that the stripped phrase hits harder; a beat of nothing before the cool-down.
+      { bar: 87, fx: MARK.duenn },
+      { bar: 95, fx: MARK.pause },
+      // The long break closes all the way before the acid line comes back.
+      { bar: 111, fx: MARK.dumpf },
+      // The top's last beat flies into the echo.
+      { bar: 143, fx: MARK.echo },
+    ],
+  };
+}
+
+/**
  * The techno Kreisel, which a first visit starts with: 150 beats a minute and
  * no swing, G Phrygian over one chord, the kick on every beat with the ground
  * shaking between, a drum machine's hi-hat that is open on the off-beats (and
  * cut off by the closed hit after it, see src/hat.ts), many hands clapping on
  * two and four, a low drum on a ring of twelve, and an acid machine whose line
- * slides three times.
+ * slides three times. Two kinds of weather lie on it with tides of their own,
+ * and its piece is a track that works with tension (see `masterPiece`).
  */
 export function technoProject(): Project {
+  // The pull of the loop itself: rain (echo) where the stab strikes, sun (brighter) on the hi-hat's open hits and what follows them.
+  const weather = emptyWeather();
+  for (const step of [4, 5, 6, 7, 12, 13, 14, 15]) (weather[3]?.[5] ?? [])[step] = 10;
+  for (const step of [2, 3, 6, 7, 10, 11, 14, 15]) (weather[1]?.[2] ?? [])[step] = 10;
   const scene: Scene = {
     // Between two kicks the ground swells and is gone before the next: the Nachbeben's off-beat shape for a kick on every beat.
     rumble: Array.from({ length: MAX_STEPS }, (_, step) => (step < 16 ? ([0, 12, 15, 12][step % 4] ?? 0) : 0)),
-    weather: emptyWeather(),
+    weather,
     wind: emptyWind(),
+    // Each swells and ebbs in a length of its own, against the phrases of eight bars. They meet at nothing every sixty bars.
+    tide: [0, 20, 0, 12, 0, 0],
     chords: [0],
     patterns: [
       pattern(16, [0, 4, 8, 12]),
@@ -592,7 +717,7 @@ export function technoProject(): Project {
     scene: 0,
     chain: false,
     order: [0],
-    piece: technoPiece(),
+    piece: masterPiece(),
     relay: null,
   };
 }

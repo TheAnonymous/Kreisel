@@ -274,6 +274,7 @@ describe("build-ups in a link", () => {
     }
     // In a whole Kreisel, through a link.
     const project = technoProject();
+    project.piece = technoPiece();
     setBuild(project.piece, null, BUILD_MEDIUM);
     const back = await decodeLink(await encodeLink(project));
     expect(back.piece).toEqual(project.piece);

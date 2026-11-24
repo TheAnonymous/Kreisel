@@ -120,8 +120,8 @@ test.describe("am Laptop", () => {
     const problems = await open(page);
     await page.evaluate(() => window.kreisel.app.newProject(false, "techno"));
     await focusPiece(page);
-    await expect(status(page)).toContainText("Stück: 112 Takte, 2:59 Minuten");
-    expect((await pieceOf(page)).order).toEqual([0, 2, 1, 3, 4, 5, 6]);
+    await expect(status(page)).toContainText("Stück: 160 Takte, 4:16 Minuten");
+    expect((await pieceOf(page)).order).toEqual([0, 2, 3, 4, 1, 5, 6]);
 
     await page.locator(".panel-piece").getByRole("button", { name: "256", exact: true }).click();
     await expect(status(page)).toContainText("Stück: 256 Takte, 6:50 Minuten");

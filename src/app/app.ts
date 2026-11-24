@@ -1,5 +1,5 @@
 import { Engine, type FxName } from "../audio/engine";
-import { BAR, clamp, currentScene, emptySceneFor, patternOf, startProject, TRACK_COUNT, trackOf, wrap, type Project, type StyleId } from "../model";
+import { BAR, clamp, currentScene, emptySceneFor, patternOf, startProject, technoPiece, TRACK_COUNT, trackOf, wrap, type Project, type StyleId } from "../model";
 import { chordAt } from "../music";
 import { seeded } from "../patterns";
 import { barCount } from "../piece";
@@ -356,7 +356,11 @@ export class App {
    */
   newProject(empty: boolean, style: StyleId = this.project.style): void {
     const project = startProject(style);
-    if (empty) project.scenes[0] = emptySceneFor(style);
+    if (empty) {
+      project.scenes[0] = emptySceneFor(style);
+      // The techno Kreisel's own piece belongs to its rings: an empty one starts with the plain form.
+      if (style === "techno") project.piece = technoPiece();
+    }
     this.store.replace(project);
     if (this.playing) this.engine.queueScene(0);
     this.say(empty ? "Ein leerer Kreisel." : style === "techno" ? "Der Techno-Kreisel ist da." : "Der Werks-Kreisel ist wieder da.", this.takeBack);

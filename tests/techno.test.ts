@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodeLink, encodeLink, pack, unpack } from "../src/codec";
-import { ACID_SOUND, currentScene, emptySceneFor, factoryProject, FIRST_ORDER, MAX_BARS, patternOf, PITCH_MAX, PITCH_MIN, startProject, stepAt, TECHNO_ORDER, technoPiece, technoProject, TENSION_MAX, TRACK_COUNT, wrap, type Pattern, type Piece } from "../src/model";
+import { ACID_SOUND, currentScene, emptySceneFor, factoryProject, FIRST_ORDER, MASTER_ORDER, masterPiece, MAX_BARS, patternOf, PITCH_MAX, PITCH_MIN, startProject, stepAt, TECHNO_ORDER, technoPiece, technoProject, TENSION_MAX, TRACK_COUNT, wrap, type Pattern, type Piece } from "../src/model";
 import { nextHit, slidesInto } from "../src/acid";
 import { ACID_ROOT, activeSteps, dice, seeded } from "../src/patterns";
 import { barCount, dicePiece, planBar, resizePiece, soundPiece, technoSections } from "../src/piece";
@@ -77,14 +77,24 @@ describe("the techno Kreisel", () => {
     expect(activeSteps(acid).filter((index) => stepAt(acid, index).vel === 2)).toEqual([3, 7, 12]);
   });
 
-  it("builds from the kick: its piece has the kick in first and a techno form", () => {
-    expect(project.piece.order).toEqual([...TECHNO_ORDER]);
+  it("builds from the kick: its piece has the kick in first and is a whole track (see master.test.ts)", () => {
+    expect(project.piece).toEqual(masterPiece());
+    expect(project.piece.order).toEqual([...MASTER_ORDER]);
     expect(project.piece.on).toBe(false);
-    expect(barCount(project.piece)).toBe(112);
+    expect(barCount(project.piece)).toBe(160);
     expect(playing(project.piece, 0)).toEqual([0]);
-    expect(playing(project.piece, 16)).toHaveLength(TRACK_COUNT);
-    // The full sections take a run-up, the break throws the echo.
-    expect([planBar(project.piece, 15).rise, planBar(project.piece, 47).fall, planBar(project.piece, 63).rise]).toEqual([true, true, true]);
+    expect(playing(project.piece, 128)).toHaveLength(TRACK_COUNT);
+    // The full sections take a run-up, the breaks throw the echo.
+    expect([31, 71, 119, 127].map((bar) => planBar(project.piece, bar).rise)).toEqual([true, true, true, true]);
+    expect([63, 103].map((bar) => planBar(project.piece, bar).fall)).toEqual([true, true]);
+  });
+
+  it("has a plain form for an empty Kreisel: the kick in first, a break, the top, an outro", () => {
+    const plain = technoPiece();
+    expect([plain.order, plain.on, barCount(plain)]).toEqual([[...TECHNO_ORDER], false, 112]);
+    expect(playing(plain, 0)).toEqual([0]);
+    expect(playing(plain, 16)).toHaveLength(TRACK_COUNT);
+    expect([planBar(plain, 15).rise, planBar(plain, 47).fall, planBar(plain, 63).rise]).toEqual([true, true, true]);
   });
 
   it("travels in a link with its style; a link from before there were styles is free", async () => {

@@ -27,11 +27,11 @@ const red = [228, 87, 46];
 const near = (color: number[], want: number[]): boolean => Math.abs(color[0]! - want[0]!) + Math.abs(color[1]! - want[1]!) + Math.abs(color[2]! - want[2]!) < 60;
 const menuOf = (page: Page) => page.locator("#context");
 
-/** The techno Kreisel with its own piece of 112 bars: drops in bar 17 (small) and in bar 65 (out of the break, big). The piece is switched on and in focus. */
+/** The plain techno Kreisel, whose piece has 112 bars: drops in bar 17 (small) and in bar 65 (out of the break, big). The piece is switched on and in focus. */
 async function technoPiece(page: Page): Promise<string[]> {
   const problems = await open(page);
   await page.evaluate(() => {
-    window.kreisel.app.newProject(false, "techno");
+    window.plainTechno();
     window.kreisel.app.store.edit((project) => { project.piece.on = true; });
     window.kreisel.app.dismiss();
   });
@@ -49,7 +49,7 @@ const DROP = 32;
  */
 const hear = (page: Page, build: Record<string, unknown>, solo = -1, parts = 1, setup = "") => page.evaluate(async ([kit, only, split, code]) => {
   const app = window.kreisel.app;
-  app.newProject(false, "techno");
+  window.plainTechno();
   if (only >= 0) {
     app.setGlobal({ pressure: 0 });
     for (let track = 0; track < 7; track += 1) app.rings.setTrack(track, { mute: track !== only, hall: 0, echo: 0 });
@@ -333,7 +333,7 @@ test.describe("am Handy", () => {
 
   test("öffnet am Handy mit einem Tippen auf den Keil den Baukasten, und er passt auf die Seite", async ({ page }) => {
     const problems = await open(page);
-    await page.evaluate(() => { window.kreisel.app.newProject(false, "techno"); window.kreisel.app.dismiss(); });
+    await page.evaluate(() => { window.plainTechno(); window.kreisel.app.dismiss(); });
     await focusPiece(page);
     const mark = await wedge(page, 64);
     await page.touchscreen.tap(mark.x, mark.y);

@@ -23,7 +23,7 @@ interface Half { loud: number; sharp: number; peak: number; floor: number }
 const hear = async (page: Page, solo: number, low: number, sway: Record<string, number>, setup = ""): Promise<{ low: Half; top: Half }> => {
   const parts = await page.evaluate(async ([ring, tension, moves, code]) => {
     const app = window.kreisel.app;
-    app.newProject(false, "techno");
+    window.plainTechno();
     app.setGlobal({ pressure: 0 });
     for (let track = 0; track < 7; track += 1) app.rings.setTrack(track, { mute: track !== ring, hall: 0, echo: 0, ...(track === ring ? { level: 0.3 } : {}) });
     new Function("app", code)(app);
@@ -56,7 +56,7 @@ test.describe("am Laptop", () => {
 
   test("stellt im Feld des Stücks ein, was die Spannung bewegt, und der Link nimmt es mit", async ({ page }) => {
     const problems = await open(page);
-    await page.evaluate(() => { window.kreisel.app.newProject(false, "techno"); window.kreisel.app.dismiss(); });
+    await page.evaluate(() => { window.plainTechno(); window.kreisel.app.dismiss(); });
     await focusPiece(page);
     const button = page.locator("#piece-sway");
     const menu = menuOf(page);

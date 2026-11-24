@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUILD_SMALL, factoryProject, technoProject, TENSION_MAX, type Piece } from "../src/model";
+import { BUILD_SMALL, factoryProject, technoPiece, technoProject, TENSION_MAX, type Piece } from "../src/model";
 import { clearRoster, dicePiece, fillRoster, flipped, planBar, playsThere, resizePiece, rosterOf, ROSTER, rotatePiece, setKick, setRoster, soundPiece } from "../src/piece";
 import { deserialize, pack, packPiece, serialize, unpack, unpackPiece } from "../src/codec";
 import { seeded } from "../src/patterns";
@@ -160,7 +160,7 @@ describe("the roster in a link and in the browser's memory", () => {
   it("costs nothing in a link while nothing is laid, and comes after the marks when something is", () => {
     const plain = factoryProject().piece;
     expect(packPiece(plain)).toHaveLength(3);
-    const techno = technoProject().piece;
+    const techno = technoPiece();
     // Without the build-up that its drop out of the break has of its own: build-ups come after the roster (see build.test.ts).
     delete techno.drops;
     const before = packPiece(techno);
@@ -177,13 +177,13 @@ describe("the roster in a link and in the browser's memory", () => {
   });
 
   it("reads a link from before as it always did", () => {
-    const techno = technoProject().piece;
+    const techno = technoPiece();
     expect(unpackPiece(packPiece(techno), 0)).toEqual(techno);
     expect(unpackPiece([1, packPiece(techno)[1], "0213456"], 0).roster).toBeUndefined();
   });
 
   it("does not take from a link what is not a roster", () => {
-    const techno = technoProject().piece;
+    const techno = technoPiece();
     const packed = [...packPiece(techno)] as unknown[];
     const read = (lists: unknown): Piece => unpackPiece([packed[0], packed[1], packed[2], packed[3], 0, lists], 0);
     expect(read("nonsense").roster).toBeUndefined();

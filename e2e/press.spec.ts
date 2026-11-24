@@ -40,7 +40,7 @@ test.describe("am Laptop", () => {
     // The techno Kreisel's acid line by itself and not pressed, clean and driven: its peaks come down to its body, and it is about as loud.
     const bass = (amount: number) => page.evaluate(async (much) => {
       const app = window.kreisel.app;
-      app.newProject(false, "techno");
+      window.plainTechno();
       app.setGlobal({ pressure: 0 });
       for (let ring = 0; ring < 7; ring += 1) app.rings.setTrack(ring, { mute: ring !== 4, drive: ring === 4 ? much : 0 });
       return window.kreisel.whole();
@@ -107,7 +107,7 @@ test.describe("am Laptop", () => {
     expect(Math.abs(louder(together, apart))).toBeLessThan(3);
 
     // The techno Kreisel starts driven and pressed, without clipping.
-    await page.evaluate(() => window.kreisel.app.newProject(false, "techno"));
+    await page.evaluate(() => window.plainTechno());
     await page.locator("#sound").click();
     await expect(slider).toHaveValue("35");
     await page.keyboard.press("Escape");

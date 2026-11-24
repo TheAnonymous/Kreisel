@@ -35,10 +35,10 @@ const paint = (page: Page, ring: number, bar: number): Promise<number[]> =>
     return Array.from(canvas.getContext("2d")!.getImageData(Math.round((at.x - box.left) * scale), Math.round((at.y - box.top) * scale), 1, 1).data);
   }, [ring, bar]);
 const tool = (page: Page, name: string) => page.locator("#piece-tools").getByRole("radio", { name });
-/** The techno Kreisel with its own piece of 112 bars (a break in bars 49 to 64), the piece in focus. */
+/** The plain techno Kreisel, whose piece has 112 bars (a break in bars 49 to 64), the piece in focus. */
 async function technoPiece(page: Page): Promise<string[]> {
   const problems = await open(page);
-  await page.evaluate(() => { window.kreisel.app.newProject(false, "techno"); window.kreisel.app.dismiss(); });
+  await page.evaluate(() => { window.plainTechno(); window.kreisel.app.dismiss(); });
   await focusPiece(page);
   return problems;
 }
@@ -256,7 +256,7 @@ test.describe("am Laptop", () => {
     // A techno piece of eight bars at one tension; `solo` is the one ring that is heard, `state` what is laid on it.
     const hear = (solo: number, tension: number, state: number) => page.evaluate(async ([ring, level, lay]) => {
       const app = window.kreisel.app;
-      app.newProject(false, "techno");
+      window.plainTechno();
       app.setGlobal({ pressure: 0 });
       for (let track = 0; track < 7; track += 1) app.rings.setTrack(track, { mute: track !== ring, hall: 0, echo: 0 });
       app.store.edit((project) => { project.piece = { on: true, tension: Array.from({ length: 8 }, () => level), scenes: Array.from({ length: 8 }, () => 0), order: [0, 2, 1, 3, 4, 5, 6] }; });

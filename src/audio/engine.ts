@@ -636,7 +636,8 @@ export class Player {
       this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, clamp((shadesSound(track) ? brightness(over) : 0) + lift, -1, 1), hitNumber(pattern, position % pattern.len, this.local), quakes, long);
       if (track === 0) hitRumble(this.graph.rumble, time, duration);
     }
-    if (this.plan && !this.pause && !gapped) fired |= this.pieceHits(project, scene, this.plan, inBar, position, chord, time, duration, quakes);
+    // Under a pause, held or laid on the bar, the roll and the fill stay out with the drums.
+    if (this.plan && !this.pause && !hush && !gapped) fired |= this.pieceHits(project, scene, this.plan, inBar, position, chord, time, duration, quakes);
     if (this.hand && !this.pause) fired |= this.roll(project, this.handRolls, this.plan ? inBar : this.local % BAR, chord, time, duration, quakes);
     // The Nachbeben: as much as the line in the kick's ring lets out at this step, at the pitch of the bar's chord.
     stepRumble(this.graph.rumble, shaking ? (scene.rumble[position % kicks.len] ?? 0) : 0, midiToHz(bassMidi(project, chord, 0)), time, duration);

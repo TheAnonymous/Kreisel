@@ -18,7 +18,7 @@ test.describe("am Laptop", () => {
     test.slow();
     const problems = await open(page);
     await page.evaluate(() => {
-      window.kreisel.app.newProject(false, "techno");
+      window.plainTechno();
       window.kreisel.app.dismiss();
       window.kreisel.app.setGlobal({ bpm: 200 });
     });
@@ -93,7 +93,7 @@ test.describe("am Laptop", () => {
     const problems = await open(page);
     await page.evaluate(() => {
       const app = window.kreisel.app;
-      app.newProject(false, "techno");
+      window.plainTechno();
       app.dismiss();
       app.setGlobal({ bpm: 220 });
       app.store.edit((project) => {

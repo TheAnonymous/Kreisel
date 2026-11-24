@@ -14,7 +14,7 @@ test.describe("am Laptop", () => {
 
   test("würfelt das Stück in vier Formen: Plateau, Zwei Drops, Wellen, Lang gezogen", async ({ page }) => {
     const problems = await open(page);
-    await page.evaluate(() => { window.kreisel.app.newProject(false, "techno"); window.kreisel.app.dismiss(); });
+    await page.evaluate(() => { window.plainTechno(); window.kreisel.app.dismiss(); });
     await focusPiece(page);
     const menu = menuOf(page);
     const breaks = async (): Promise<number> => ((await pieceOf(page)).noKick ?? []).filter(Boolean).length;
@@ -61,7 +61,7 @@ test.describe("am Laptop", () => {
     const problems = await open(page);
     await page.evaluate(() => {
       const app = window.kreisel.app;
-      app.newProject(false, "techno");
+      window.plainTechno();
       app.dismiss();
       app.setGlobal({ bpm: 220 });
     });
@@ -85,7 +85,7 @@ test.describe("am Laptop", () => {
 
   test("schreibt das Stück als Protokoll auf: wer in welchen acht Takten spielt, und wo Break, Build-up und Drop liegen", async ({ page, browserName }) => {
     const problems = await open(page);
-    await page.evaluate(() => { window.kreisel.app.newProject(false, "techno"); window.kreisel.app.dismiss(); });
+    await page.evaluate(() => { window.plainTechno(); window.kreisel.app.dismiss(); });
     await focusPiece(page);
     const bar = await barAt(page, 30, 0.5);
     await page.mouse.click(bar.x, bar.y, { button: "right" });

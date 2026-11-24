@@ -25,7 +25,7 @@ const colour = (page: Page, at: { x: number; y: number }): Promise<number[]> =>
  */
 const hear = (page: Page, solo: number, setup: string) => page.evaluate(async ([ring, code]) => {
   const app = window.kreisel.app;
-  app.newProject(false, "techno");
+  window.plainTechno();
   app.setGlobal({ pressure: 0 });
   app.rumble.shape(-1);
   for (let track = 0; track < 7; track += 1) app.rings.setTrack(track, { mute: track !== ring, hall: 0, echo: 0, ...(track === ring ? { level: 0.3 } : {}) });
@@ -49,7 +49,7 @@ test.describe("am Laptop", () => {
   test("stellt die Phrasen-Enden im Feld des Stücks ein und legt Effekte auf einen Takt", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => {
-      window.kreisel.app.newProject(false, "techno");
+      window.plainTechno();
       window.kreisel.app.store.edit((project) => { project.piece.on = true; });
       window.kreisel.app.dismiss();
     });
@@ -163,6 +163,21 @@ test.describe("am Laptop", () => {
     const thrown = await hear(page, 1, "app.piece.toggleMark(3, 8);");
     expect(over(quietest(thrown, 4), quietest(dry, 4))).toBeGreaterThan(10);
     expect(Math.abs(over(quietest(thrown, 2), quietest(dry, 2)))).toBeLessThan(1);
+    expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
+    expect(problems).toEqual([]);
+  });
+
+  test("lässt unter einer „Pause“ auch das Fill weg: Der letzte Schlag des Takts ist leer", async ({ page }) => {
+    // Two renders of eight bars.
+    test.setTimeout(90_000);
+    const problems = await open(page);
+    // The fill at the end of a phrase: a kick more in the second half of the last beat, where the bar before has only the last kick ringing out.
+    const fill = await hear(page, 0, "app.piece.toggleVary();");
+    expect(most(fill, 7, 14, 16)).toBeGreaterThan(most(fill, 6, 14, 16) * 2);
+    // A pause laid on that bar empties its last beat, and the fill stays out with everything else.
+    const paused = await hear(page, 0, "app.piece.toggleVary(); app.piece.toggleMark(7, 16);");
+    expect(most(paused, 7, 8, 10)).toBeGreaterThan(0.02);
+    expect(most(paused, 7, 13, 16)).toBeLessThan(most(paused, 7, 8, 10) * 0.2);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });

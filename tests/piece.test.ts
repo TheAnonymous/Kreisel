@@ -317,6 +317,7 @@ describe("a piece in a link", () => {
     expect(unpackPiece(packPiece(plain), 0)).toEqual(plain);
     // In a whole Kreisel, through a link.
     const project = technoProject();
+    project.piece = technoPiece();
     setVary(project.piece, true);
     const back = await decodeLink(await encodeLink(project));
     expect(back.piece).toEqual(project.piece);

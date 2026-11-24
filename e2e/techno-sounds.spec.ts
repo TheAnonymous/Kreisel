@@ -36,7 +36,7 @@ test.describe("am Laptop", () => {
     await expect(dice).toHaveAttribute("title", "Irgendeinen Klang aus der Palette nehmen");
 
     // A techno Kreisel's palette begins with the ring's techno group: ten of the fifty, shown a second time.
-    await page.evaluate(() => window.kreisel.app.newProject(false, "techno"));
+    await page.evaluate(() => window.plainTechno());
     await expect(palette(page).locator(".palette-name")).toHaveText(["Techno · zehn von den fünfzig", "Seide", "Blech", "Shaker", "Zisch", "Becken"]);
     await expect(group(page)).toHaveText(["Maschine", "Blech", "Schelle", "Rost", "Offen", "Zisch", "Shaker", "Ride", "Crash", "China"]);
     await expect(fifty(page)).toHaveCount(50);
@@ -144,7 +144,7 @@ test.describe("am Laptop", () => {
     // The techno Kreisel's own hi-hat is open far enough to ring into the closed hit after it; all of it is no louder than before.
     const whole = await page.evaluate(async () => {
       const app = window.kreisel.app;
-      app.newProject(false, "techno");
+      window.plainTechno();
       const open = app.project.scenes[0]!.patterns[2]!.steps.filter((step) => step.on && step.pitch > 0).map((step) => step.pitch);
       return { open, heard: await window.kreisel.whole() };
     });
@@ -162,7 +162,7 @@ test.describe("am Handy", () => {
   test("zeigt am Handy die Techno-Gruppe zuerst, drei nebeneinander, und ein Finger wählt", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => {
-      window.kreisel.app.newProject(false, "techno");
+      window.plainTechno();
       window.kreisel.app.select(1);
     });
     await page.locator("#sound-pick").scrollIntoViewIfNeeded();

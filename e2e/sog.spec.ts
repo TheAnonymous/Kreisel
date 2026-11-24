@@ -64,7 +64,7 @@ test.describe("am Laptop", () => {
     // Fog over every step of the hi-hat, on a piece of four bars at the top; the hi-hat by itself.
     const hear = (tide: number) => page.evaluate(async (bars) => {
       const app = window.kreisel.app;
-      app.newProject(false, "techno");
+      window.plainTechno();
       app.setGlobal({ pressure: 0 });
       for (let track = 0; track < 7; track += 1) app.rings.setTrack(track, { mute: track !== 2, hall: 0, echo: 0, ...(track === 2 ? { level: 0.3 } : {}) });
       app.store.edit((project) => {
@@ -131,7 +131,7 @@ test.describe("am Laptop", () => {
     // strikes every twelve steps and so on step 5 of the ninth bar; aligned, it begins again with the ninth bar.
     const hear = (align: boolean) => page.evaluate(async (on) => {
       const app = window.kreisel.app;
-      app.newProject(false, "techno");
+      window.plainTechno();
       app.setGlobal({ pressure: 0 });
       for (let track = 0; track < 7; track += 1) app.rings.setTrack(track, { mute: track !== 2, hall: 0, echo: 0, ...(track === 2 ? { level: 0.3 } : {}) });
       app.rings.clear(2);

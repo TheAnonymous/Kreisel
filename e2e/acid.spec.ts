@@ -69,7 +69,7 @@ test.describe("am Laptop", () => {
     expect((await track(4)).acid?.decay).toBe(0.1);
 
     // The techno Kreisel's bass has so many hits that the line telling of them takes two rows: the panel still holds everything.
-    await page.evaluate(() => { window.kreisel.app.newProject(false, "techno"); window.kreisel.app.select(4); });
+    await page.evaluate(() => { window.plainTechno(); window.kreisel.app.select(4); });
     await expect(group).toBeVisible();
     await expect(page.locator(".panel-ring .info")).toContainText("11 Schläge");
     expect(await page.evaluate(() => {
@@ -139,7 +139,7 @@ test.describe("am Laptop", () => {
     /** The machine alone on the bass ring of the techno Kreisel, not driven and not pressed, with `setup` applied; rendered and measured. */
     const hear = (setup: string) => page.evaluate(async (code) => {
       const app = window.kreisel.app;
-      app.newProject(false, "techno");
+      window.plainTechno();
       app.setGlobal({ pressure: 0 });
       for (let ring = 0; ring < 7; ring += 1) app.rings.setTrack(ring, { mute: ring !== 4, drive: 0 });
       app.select(4);
