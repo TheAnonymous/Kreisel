@@ -6,7 +6,7 @@ import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
 import { hasWeather, WEATHER_NAMES, windName } from "../weather";
 import { MAX_ROUNDS } from "../order";
-import { barCount, buildReach, kickOut, phraseOf, ROSTER, rosterOf, sizeName, sizeOf } from "../piece";
+import { barCount, buildReach, kickOut, phraseOf, ROSTER, rosterOf, SHAPE_HINTS, SHAPE_NAMES, SHAPES, sizeName, sizeOf } from "../piece";
 import { SOUND_COUNT } from "../sounds/index";
 import type { MenuRow, MenuSpec } from "./menu";
 import { soundLabel } from "./sound-palette";
@@ -21,6 +21,8 @@ import { soundLabel } from "./sound-palette";
 export interface MenuDoors {
   relay(): void;
   help(): void;
+  /** The piece written down phrase by phrase. */
+  protocol?(): void;
   /** Opens another menu in this one's place: for a row that leads on (from a bar of the piece to the build-up it is part of). */
   turnTo?(target: ContextTarget): void;
 }
@@ -351,6 +353,7 @@ function pieceMenu(app: App, bar: number | null, doors: MenuDoors): MenuSpec {
   rows.push(
     { kind: "action", label: "Nach dem Stück spielen", checked: piece.on, keep: true, run: () => app.piece.toggle() },
     { kind: "action", label: "Würfeln", hint: "N", keep: true, run: () => app.piece.dice() },
+    { kind: "choice", label: "Form würfeln", options: SHAPES.map((shape) => ({ label: SHAPE_NAMES[shape], title: SHAPE_HINTS[shape], run: () => app.piece.dice(shape) })) },
     { kind: "action", label: "Glätten", keep: true, run: () => app.piece.smooth() },
     {
       kind: "choice",
@@ -365,6 +368,7 @@ function pieceMenu(app: App, bar: number | null, doors: MenuDoors): MenuSpec {
     { kind: "action", label: `Build-up aller Drops: ${sizeName(app.piece.build(null))} …`, run: () => doors.turnTo?.({ kind: "build", drop: null }) },
     { kind: "action", label: "Fills alle acht Takte", checked: piece.vary ?? false, keep: true, run: () => app.piece.toggleVary() },
     { kind: "action", label: `Phrasen-Enden: ${app.piece.endsCount === 0 ? "nichts" : app.piece.endsCount} …`, run: () => doors.turnTo?.({ kind: "ends" }) },
+    { kind: "action", label: "Protokoll …", run: () => doors.protocol?.() },
   );
   return { title: at === null ? "Stück" : `Stück · Takt ${at + 1}`, rows };
 }
@@ -461,6 +465,7 @@ function hubMenu(app: App, doors: MenuDoors): MenuSpec {
       { kind: "action", label: app.playing ? "Anhalten" : "Starten", hint: "Leertaste", run: () => app.togglePlay() },
       { kind: "action", label: app.engine.recording ? "Aufnahme beenden" : "Aufnehmen", run: () => void app.files.toggleRecording() },
       { kind: "action", label: "Alle Ringe würfeln", run: () => app.rings.diceAll() },
+      { kind: "action", label: "Alle acht Takte neu ausrichten", note: "Ungleich lange Ringe reiben acht Takte lang und beginnen dann gemeinsam neu", checked: app.project.align ?? false, keep: true, run: () => app.toggleAlign() },
       { kind: "action", label: "Rückgängig", hint: "Strg+Z", disabled: !app.store.canUndo, keep: true, run: () => app.undo() },
       { kind: "action", label: "Wiederholen", hint: "Strg+Y", disabled: !app.store.canRedo, keep: true, run: () => app.redo() },
       { kind: "heading", label: "Weitergeben" },

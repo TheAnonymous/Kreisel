@@ -220,6 +220,21 @@ export class App {
     this.engine.toggle();
   }
 
+  /** How many steps the scene that sounds has played, with fractions (the playhead goes round with the rings; this goes on). `null` while nothing plays. */
+  clock(): number | null {
+    return this.engine.clock();
+  }
+
+  /** "Ausrichten": every eight bars all rings begin together again, or they run free. */
+  toggleAlign(): void {
+    const on = !(this.project.align ?? false);
+    this.store.edit((project) => {
+      if (on) project.align = true;
+      else delete project.align;
+    });
+    this.say(on ? "Alle acht Takte beginnen die Ringe gemeinsam neu: Ungleich lange Ringe reiben in der Phrase und lösen sich an ihrem Anfang." : "Die Ringe laufen wieder frei gegeneinander.");
+  }
+
   setFx(name: FxName, on: boolean): void {
     // Letting go of a latched effect's key does not release it: only the latch does.
     if (!on && this.latched.has(name)) return;

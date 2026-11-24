@@ -33,7 +33,7 @@ test.describe("am Laptop", () => {
     await expect(page.locator("#toast")).toContainText("Nachbeben: Offbeat");
     await page.locator("#rumble-off").click();
     expect((await line()).every((value) => value === 0)).toBe(true);
-    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16");
+    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
 
     // Painting: one stroke along the ring. Far out is a lot, further in is less; the kicks stay as they are.
     await page.locator("#rumble-paint").click();

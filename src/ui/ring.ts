@@ -2,7 +2,7 @@ import { nextHit, slidesInto } from "../acid";
 import { ACID_SOUND, BAR, currentScene, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, WEATHER_MAX, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, type Pattern, type Scene, type Step, wrap } from "../model";
 import { chordAt, chordName } from "../music";
 import { drawMouth } from "./booth";
-import { WEATHER_COLORS, windDrift } from "../weather";
+import { tideShare, WEATHER_COLORS, windDrift } from "../weather";
 import { Lights } from "./lights";
 import { approach, compare, DEAL, dealt, face, hop, MANY, POP, rest, SHRINK, SLIDE, SWELL, swell, unface } from "./motion";
 import { buildFor, buildReach, dropsOf, entry, gapSteps, PHRASE, planBar, playsThere, reached, ROSTER, rosterOf } from "../piece";
@@ -1550,16 +1550,19 @@ export class RingView {
     const middle = (band.inner + band.outer) / 2;
     // In focus the weather is what one looks at; otherwise it stays behind the hits.
     const strong = this.app.weather.focused ? 1 : 0.6;
+    const clock = this.app.clock();
     const point = (radius: number, angle: number): [number, number] => [center + Math.cos(angle) * radius, center + Math.sin(angle) * radius];
     for (let kind = 0; kind < scene.weather.length; kind += 1) {
       const line = scene.weather[kind]?.[track];
       if (!line) continue;
       const drift = windDrift(playhead ?? 0, scene.wind[kind] ?? 0);
+      // Under a tide the weather is as strong as it is heard just now; while nothing plays it is shown whole.
+      const tide = clock === null ? 1 : tideShare(clock, scene.tide?.[kind] ?? 0);
       const color = WEATHER_COLORS[kind] ?? this.palette.ink;
       for (let index = 0; index < length; index += 1) {
         const value = line[index] ?? 0;
         if (value === 0) continue;
-        const share = value / WEATHER_MAX;
+        const share = (value / WEATHER_MAX) * (0.12 + 0.88 * tide);
         const from = TOP + (index + drift) * cell;
         const mid = from + cell / 2;
         context.fillStyle = color;

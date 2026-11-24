@@ -25,7 +25,7 @@ import { ACID_SOUND, BAR, BODY_SOUND, BUILD_MEDIUM, clamp, currentScene, emptySt
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
 import { hasRumble } from "../rumble";
-import { barCount, dropsQuiet, gapSteps, gateLevel, planBar, ROLL_RING, rollHits, varyHits, type BarPlan, type BarSway } from "../piece";
+import { barCount, dropsQuiet, gapSteps, gateLevel, PHRASE, planBar, ROLL_RING, rollHits, varyHits, type BarPlan, type BarSway } from "../piece";
 import { playBild } from "./bild";
 import { playBody } from "./body";
 import { BuildUp, rise, swell, type Riser } from "./build";
@@ -585,7 +585,11 @@ export class Player {
       if (this.local % BAR === 0) this.changeScene(project);
     }
     const scene = project.scenes[this.scene] ?? currentScene(project);
-    const position = this.stutter ? this.stutter.start + ((this.local - this.stutter.at) % 2) : this.local;
+    const free = this.stutter ? this.stutter.start + ((this.local - this.stutter.at) % 2) : this.local;
+    // "Ausrichten": every eight bars the rings begin together again; by a piece, with the piece's own phrases.
+    const position = !project.align ? free
+      : this.plan && !this.stutter ? (this.barNow % PHRASE) * BAR + (this.pieceSteps % BAR)
+      : free % (PHRASE * BAR);
     const chord = chordAt(scene, position);
     this.chord = chord;
     let fired = 0;
@@ -892,6 +896,14 @@ export class Engine {
     if (!this.playing || !heard) return null;
     const share = (this.host.visualTime() - heard.time) / heard.duration;
     return heard.position + Math.max(0, Math.min(1, share));
+  }
+
+  /** How many steps the scene that sounds has played, with fractions; unlike `cursor` it does not go round with anything. `null` when nothing plays. */
+  clock(): number | null {
+    const heard = this.heard;
+    if (!this.playing || !heard) return null;
+    const share = (this.host.visualTime() - heard.time) / heard.duration;
+    return heard.local + Math.max(0, Math.min(1, share));
   }
 
   /** Where a piece is, in bars with fractions; `null` when none plays. */

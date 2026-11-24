@@ -1,5 +1,5 @@
 import { BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, TENSION_MAX, TRACK_COUNT, trackInfo, type Build, type BuildSize, type Ends, type Sway, wrap } from "../model";
-import { barCount, buildAt, buildFor, buildOfAll, clearBuild, clearRoster, describeBuild, dicePiece, fillRoster, flipped, isDrop, kickOut, moveInOrder, ownBuild, PHRASE, phraseOf, reached, resizePiece, ROSTER, rosterOf, rotatePiece, endsCount, markNames, marksAt, setBuild, setEnds, setKick, setRoster, setSway, setVary, shareBuild, smoothPiece, swayCount, toggleMark, type RosterState } from "../piece";
+import { barCount, buildAt, buildFor, buildOfAll, clearBuild, clearRoster, describeBuild, dicePiece, fillRoster, flipped, isDrop, kickOut, moveInOrder, ownBuild, PHRASE, phraseOf, reached, resizePiece, ROSTER, rosterOf, rotatePiece, endsCount, markNames, marksAt, nextDrop, protocolLines, setBuild, setEnds, setKick, setRoster, setSway, setVary, shareBuild, smoothPiece, swayCount, toggleMark, type RosterState, type ShapeId } from "../piece";
 import type { App } from "./app";
 
 /** What the wheel shows of the piece while its ring is in focus: the tension to paint, or the roster ("Einsätze") to lay. */
@@ -76,12 +76,15 @@ export class PieceDesk {
    * tension the hand holds: the player has read the bar that sounds already, so the hand is heard from the next one.
    */
   heard(): void {
-    if (!this.riding || !this.app.project.piece.on) return;
+    if (!this.app.project.piece.on) return;
     const at = this.playhead();
     if (at === null) return;
     const bar = Math.floor(at);
     if (bar === this.ridden) return;
     this.ridden = bar;
+    // A new bar: the status line counts the bars to the next drop.
+    this.app.notify();
+    if (!this.riding) return;
     this.paintTension(wrap(bar + 1, barCount(this.app.project.piece)), this.hand, "einspielen");
   }
 
@@ -325,8 +328,30 @@ export class PieceDesk {
     if (this.key !== null) this.key = Math.min(this.key, count - 1);
   }
 
-  dice(): void {
-    this.app.store.edit((project) => dicePiece(project.piece, this.app.random, project.style));
+  /** A new line for the piece: in the form of the Kreisel's style, or in one of the dice's shapes. */
+  dice(shape: ShapeId | null = null): void {
+    this.app.store.edit((project) => dicePiece(project.piece, this.app.random, project.style, shape));
+  }
+
+  /** How many bars from where the piece is to its next drop; `null` while it does not play, or has none. */
+  dropAhead(): number | null {
+    const at = this.playhead();
+    return at === null ? null : nextDrop(this.app.project.piece, Math.floor(at));
+  }
+
+  /** The piece written down phrase by phrase, as lines of text. */
+  protocol(): string[] {
+    return protocolLines(this.app.project.piece, Array.from({ length: TRACK_COUNT }, (_, ring) => trackInfo(ring).name));
+  }
+
+  /** Puts the written-down piece on the clipboard, and says whether the browser let it. */
+  async copyProtocol(): Promise<boolean> {
+    try {
+      await navigator.clipboard.writeText(this.protocol().join("\n"));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   smooth(): void {

@@ -748,6 +748,150 @@ function technoLine(count: number, random: Random): { tension: number[]; noKick:
   return { tension, noKick };
 }
 
+/** The shapes the dice can give a piece's line beside the form of its style. */
+export const SHAPES = ["plateau", "zwei", "wellen", "lang"] as const;
+export type ShapeId = (typeof SHAPES)[number];
+export const SHAPE_NAMES: Record<ShapeId, string> = { plateau: "Plateau", zwei: "Zwei Drops", wellen: "Wellen", lang: "Lang gezogen" };
+export const SHAPE_HINTS: Record<ShapeId, string> = {
+  plateau: "Plateau: eine lange Ebene, die alle sechzehn Takte einen kleinen Schritt steigt, ohne Break und ohne Drop",
+  zwei: "Zwei Drops: zwei Breaks, nach jedem ein Drop, der zweite größer und spät",
+  wellen: "Wellen: heben, senken, wieder heben, jede Welle etwas höher",
+  lang: "Lang gezogen: ein einziger Anstieg über das ganze Stück",
+};
+
+/**
+ * A line in one of the shapes, over `count` bars: the tension, the bars "ohne Kick", and the build-ups the shape has
+ * in mind for the bars in which its drops land.
+ *
+ * - Plateau: a long level that takes a small step up every sixteen bars (eight in a short piece). No break and no
+ *   drop: the pull is in what does not change.
+ * - Zwei Drops: an intro, a full section, a short break and a drop, a fuller section, a longer break and a second
+ *   drop that is bigger and comes late, the fullest section, an outro.
+ * - Wellen: the line is lifted, lowered and lifted again; every wave arrives at once and stands a little higher than
+ *   the one before, and sinks slowly.
+ * - Lang gezogen: one climb through the whole piece, at the top for its last bars.
+ */
+export function shapeLine(shape: ShapeId, count: number, random: Random): { tension: number[]; noKick: boolean[]; builds: Map<number, Build> } {
+  const between = (low: number, high: number): number => low + random() * (high - low);
+  const levels: number[] = [];
+  const noKick: boolean[] = [];
+  const builds = new Map<number, Build>();
+  const add = (bars: number, from: number, to: number, out = false): void => {
+    for (let bar = 0; bar < bars; bar += 1) {
+      levels.push(bars <= 1 ? to : from + ((to - from) * bar) / (bars - 1));
+      noKick.push(out);
+    }
+  };
+  // Sections are counted in fours; a piece that is no multiple of four keeps the rest for its last stretch.
+  const unit = count >= 64 ? 16 : 8;
+  if (shape === "lang") {
+    const top = Math.max(2, Math.min(8, Math.floor(count / 4)));
+    add(count - top, between(0.08, 0.14), 1);
+    add(top, 1, 1);
+  } else if (shape === "plateau") {
+    const start = between(0.5, 0.58);
+    const step = between(0.04, 0.07);
+    for (let bar = 0; bar < count; bar += 1) {
+      levels.push(Math.min(0.97, start + step * Math.floor(bar / unit)));
+      noKick.push(false);
+    }
+  } else if (shape === "wellen" || count < 28) {
+    // An intro that climbs, then waves: at the top for a section, then sinking through the next. The last wave is not let down again.
+    add(Math.min(unit, count), between(0.08, 0.14), between(0.44, 0.52));
+    let peak = between(0.76, 0.82);
+    while (levels.length < count) {
+      const left = count - levels.length;
+      const high = Math.min(unit, left);
+      add(high, peak, peak);
+      const low = Math.min(unit, left - high);
+      if (low > 0) add(low, peak - 0.06, left - high - low >= unit / 2 ? peak - between(0.34, 0.4) : peak - 0.12);
+      peak = Math.min(1, peak + between(0.07, 0.1));
+    }
+  } else {
+    // Zwei Drops. Each stretch gets its share of the piece in fours; the fullest section takes what is left.
+    const fours = (share: number): number => Math.max(4, Math.round((count * share) / 4) * 4);
+    const sizes = { intro: fours(0.12), first: fours(0.2), shortBreak: fours(0.08), second: fours(0.22), longBreak: fours(0.12), outro: fours(0.1) };
+    let third = count - Object.values(sizes).reduce((sum, bars) => sum + bars, 0);
+    // Too little left for the last section: the sections before it give some up.
+    for (const part of ["second", "first", "longBreak", "intro", "outro"] as const) {
+      while (third < 4 && sizes[part] > 4) {
+        sizes[part] -= 4;
+        third += 4;
+      }
+    }
+    add(sizes.intro, between(0.08, 0.14), between(0.44, 0.5));
+    add(sizes.first, 0.84, 0.84);
+    add(sizes.shortBreak, between(0.58, 0.62), between(0.68, 0.72), true);
+    builds.set(levels.length, BUILD_MEDIUM);
+    add(sizes.second, 0.92, 0.92);
+    add(sizes.longBreak, between(0.54, 0.58), between(0.72, 0.76), true);
+    builds.set(levels.length, { ...BUILD_BIG, late: true });
+    add(Math.max(1, third), 1, 1);
+    add(sizes.outro, between(0.7, 0.78), between(0.08, 0.14));
+  }
+  return {
+    tension: Array.from({ length: count }, (_, bar) => clamp(Math.round((levels[bar] ?? levels[levels.length - 1] ?? 0) * TENSION_MAX), 0, TENSION_MAX)),
+    noKick: Array.from({ length: count }, (_, bar) => noKick[bar] === true),
+    builds,
+  };
+}
+
+/** How many bars after `bar` the next drop lands (1 for the very next bar); `null` in a piece without one. */
+export function nextDrop(piece: Piece, bar: number): number | null {
+  const count = barCount(piece);
+  for (let ahead = 1; ahead <= count; ahead += 1) if (isDrop(piece, bar + ahead)) return ahead;
+  return null;
+}
+
+/** One phrase of a piece as it plays: which rings play all through it, which only in part of it, and what happens in it. */
+export interface PhraseNote {
+  from: number;
+  to: number;
+  /** Per ring: 2 plays all through, 1 only in some of its bars, 0 not at all. */
+  rings: number[];
+  /** A bar of it is "ohne Kick". */
+  break: boolean;
+  /** A build-up of more than a bar runs in it. */
+  build: boolean;
+  /** The bars of it in which a drop lands. */
+  drops: number[];
+}
+
+/**
+ * The piece written down phrase by phrase (eight bars each): who plays, and where its breaks, build-ups and drops
+ * are. What one would write down of a track while listening to it, so that the two can be laid side by side.
+ */
+export function protocol(piece: Piece): PhraseNote[] {
+  const count = barCount(piece);
+  const notes: PhraseNote[] = [];
+  for (let from = 0; from < count; from += PHRASE) {
+    const to = Math.min(count, from + PHRASE);
+    const plans = Array.from({ length: to - from }, (_, index) => planBar(piece, from + index));
+    notes.push({
+      from,
+      to,
+      rings: Array.from({ length: TRACK_COUNT }, (_, ring) => {
+        const playing = plans.filter((plan) => (plan.gates[ring] ?? 0) > 0).length;
+        return playing === plans.length ? 2 : playing > 0 ? 1 : 0;
+      }),
+      break: plans.some((_, index) => kickOut(piece, from + index)),
+      build: plans.some((plan) => plan.build !== null && plan.build.kit.bars > 1),
+      drops: plans.flatMap((plan, index) => (plan.drop ? [from + index] : [])),
+    });
+  }
+  return notes;
+}
+
+/** The same as lines of text, with the rings called by `names`. */
+export function protocolLines(piece: Piece, names: readonly string[]): string[] {
+  return protocol(piece).map((note) => {
+    const playing = note.rings.flatMap((state, ring) => (state === 0 ? [] : [`${names[ring] ?? ring}${state === 1 ? " (teils)" : ""}`]));
+    const who = playing.length === 0 ? "niemand" : note.rings.every((state) => state === 2) ? "alle" : playing.join(", ");
+    const what = [...(note.break ? ["Break"] : []), ...(note.build ? ["Build-up"] : []), ...note.drops.map((bar) => `Drop in Takt ${bar + 1}`)];
+    return `Takt ${note.from + 1}–${note.to}: ${who}${what.length > 0 ? ` · ${what.join(" · ")}` : ""}`;
+  });
+}
+
 /**
  * Lets a techno form grow towards its end: its last drop gets the biggest build-up the piece has room for (the big
  * one where the sections are sixteen bars long, the middle one where they are eight), and in a long piece the drops
@@ -779,11 +923,26 @@ function sizeDrops(piece: Piece): void {
  * and go with it. A techno form whose drops all have the small build-up gets bigger ones
  * towards its end (see `sizeDrops`).
  */
-export function dicePiece(piece: Piece, random: Random, style: StyleId = "frei"): void {
+export function dicePiece(piece: Piece, random: Random, style: StyleId = "frei", shape: ShapeId | null = null): void {
   const count = barCount(piece);
   delete piece.roster;
   delete piece.drops;
   delete piece.marks;
+  if (shape !== null) {
+    const line = shapeLine(shape, count, random);
+    piece.tension = line.tension;
+    piece.noKick = line.noKick;
+    tidyPiece(piece);
+    // Its drops get the build-ups the shape has in mind, unless one was chosen for all of them.
+    if (!piece.build) {
+      piece.drops = dropsOf(piece).flatMap((bar) => {
+        const build = line.builds.get(bar);
+        return build ? [{ bar, build: { ...build } }] : [];
+      });
+      tidyPiece(piece);
+    }
+    return;
+  }
   if (style === "techno" && count >= TECHNO_FORM_MIN) {
     const line = technoLine(count, random);
     piece.tension = line.tension;

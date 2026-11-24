@@ -1,5 +1,5 @@
 import type { App } from "../app/app";
-import { describeWeather, hasWeather, WEATHER_COLORS, WEATHER_HINTS, WEATHER_NAMES, windName, WINDS } from "../weather";
+import { describeWeather, hasWeather, TIDES, WEATHER_COLORS, WEATHER_HINTS, WEATHER_NAMES, windName, WINDS } from "../weather";
 import { currentScene } from "../model";
 import { byId, el, button } from "./dom";
 import type { Panels } from "./panels";
@@ -23,6 +23,8 @@ export class WeatherPanel {
   readonly cloudButtons: HTMLButtonElement[] = [];
   private readonly windInputs: HTMLInputElement[] = [];
   private readonly windNames: HTMLElement[] = [];
+  /** The tide of each kind of weather: over how many bars it swells and ebbs. */
+  private readonly tides: HTMLSelectElement[] = [];
   private weatherFocused = false;
 
   constructor(private readonly panels: Panels, private readonly app: App) {}
@@ -53,7 +55,7 @@ export class WeatherPanel {
     doing.append(roll, this.sky.clear);
 
     const winds = el("div", "group");
-    winds.append(el("h3", "", "Wind: so zieht jedes Wetter um das Rad"));
+    winds.append(el("h3", "", "Wind: so zieht jedes Wetter um das Rad · Gezeiten: über so viele Takte schwillt es an und ab"));
     WEATHER_NAMES.forEach((name, kind) => {
       const line = el("label", "line sky");
       const swatch = el("span", "swatch");
@@ -72,10 +74,20 @@ export class WeatherPanel {
       });
       input.addEventListener("contextmenu", (event) => event.preventDefault());
       const speed = el("output");
-      line.append(swatch, el("span", "label", name), input, speed);
+      const tide = el("select", "tide");
+      tide.title = `Gezeiten: Über so viele Takte schwillt ${name} an und wieder ab. Schiefe Längen wie 12 oder 20 laufen gegen die Phrasen`;
+      tide.setAttribute("aria-label", `Gezeiten für ${name}, in Takten`);
+      for (const bars of TIDES) {
+        const option = el("option", "", bars === 0 ? "–" : String(bars));
+        option.value = String(bars);
+        tide.append(option);
+      }
+      tide.addEventListener("change", () => app.weather.setTide(kind, Number(tide.value)));
+      line.append(swatch, el("span", "label", name), input, speed, tide);
       winds.append(line);
       this.windInputs.push(input);
       this.windNames.push(speed);
+      this.tides.push(tide);
     });
     const hint = el("p", "easel-hint", "Mal Wetter auf das Rad: Wie weit außen, sagt welcher Ring, der Winkel sagt wann. Ein Strich quer über mehrere Ringe trifft sie alle. Noch einmal darüber macht es stärker, die rechte Taste nimmt es weg, das Mausrad ändert die Pinselbreite. Mit Wind zieht das Wetter Takt für Takt weiter.");
     this.weatherBox.append(head, this.sky.info, doing, winds, hint);
@@ -116,6 +128,10 @@ export class WeatherPanel {
       const index = WINDS.indexOf(wind as (typeof WINDS)[number]);
       if (document.activeElement !== input || index >= 0) input.value = String(index >= 0 ? index : WINDS.findIndex((value) => value >= wind));
       this.windNames[kind]!.textContent = windName(wind);
+    });
+    this.tides.forEach((select, kind) => {
+      const bars = String(scene.tide?.[kind] ?? 0);
+      if (select.value !== bars) select.value = bars;
     });
   }
 }

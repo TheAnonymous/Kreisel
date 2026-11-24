@@ -5,9 +5,9 @@ import { describeBody } from "../body";
 import { describeRumble, hasRumble } from "../rumble";
 import { describeVoice, FIELD_LETTERS } from "../voice";
 import { describeWeather } from "../weather";
-import { ACID_SOUND, clamp, currentScene, VOICE_SOUND, MAX_STEPS, MIN_STEPS, patternOf, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
+import { ACID_SOUND, BAR, clamp, currentScene, VOICE_SOUND, MAX_STEPS, MIN_STEPS, patternOf, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
 import { NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
-import { activeSteps, describe } from "../patterns";
+import { activeSteps, behindKick, describe, meeting } from "../patterns";
 import { describePiece } from "../piece";
 import type { BenchView } from "./bench";
 import type { BoothView } from "./booth";
@@ -225,6 +225,28 @@ export class Panels {
     this.boothWindow.lightSyllable();
   }
 
+  /** While the piece plays, the status line counts the bars to its next drop. */
+  private ahead(): string {
+    const bars = this.app.piece.dropAhead();
+    return bars === null ? "" : ` · Drop in ${bars === 1 ? "1 Takt" : `${bars} Takten`}`;
+  }
+
+  /**
+   * What the status line says of the pull between the rings: how far the ring in focus lies behind the kick, and after
+   * how many bars rings of unequal length are together again.
+   */
+  private pull(selected: number): string {
+    const project = this.app.project;
+    const patterns = currentScene(project).patterns;
+    const kick = patterns[0];
+    const own = patterns[selected];
+    const behind = selected === 0 || !kick || !own ? null : behindKick(kick, own);
+    const steps = meeting(patterns);
+    const bars = steps === null ? null : steps / BAR;
+    return `${behind === null ? "" : behind === 0 ? " · mit der Kick" : ` · ${behind} ${behind === 1 ? "Schritt" : "Schritte"} hinter der Kick`}${
+      bars === null ? "" : ` · Gleichstand alle ${Number.isInteger(bars) ? bars : bars.toFixed(1).replace(".", ",")} Takte${project.align ? ", alle 8 neu ausgerichtet" : ""}`}`;
+  }
+
   keyLabel(code: string): string {
     return this.labels.get(code) ?? code.replace(/^Key|^Digit/, "");
   }
@@ -327,6 +349,17 @@ export class Panels {
 
   startTour(): void {
     this.tourGuide.start();
+  }
+
+  /** The piece written down phrase by phrase, in a window of its own. */
+  showProtocol(): void {
+    const dialog = byId<HTMLDialogElement>("protokoll");
+    byId("protokoll-lines").replaceChildren(...this.app.piece.protocol().map((line) => el("li", "", line)));
+    // The window lies over the page's messages: the button itself says how copying went.
+    const copy = byId<HTMLButtonElement>("protokoll-copy");
+    copy.textContent = "Als Text kopieren";
+    copy.onclick = () => void this.app.piece.copyProtocol().then((copied) => { copy.textContent = copied ? "Kopiert" : "Der Browser gibt die Zwischenablage nicht frei"; });
+    if (!dialog.open) dialog.showModal();
   }
 
   showRelay(): void {
@@ -878,11 +911,11 @@ export class Panels {
       : app.piece.laying && app.piece.key !== null
       ? app.piece.describeRoster(app.piece.lane, app.piece.key)
       : app.piece.focused
-      ? `Stück: ${describePiece(project.piece, project.bpm)}${project.piece.on ? "" : " (aus)"}`
+      ? `Stück: ${describePiece(project.piece, project.bpm)}${project.piece.on ? "" : " (aus)"}${this.ahead()}`
       : app.relay.veiled(selected) ? `${info.name}: verdeckt (Stille Post)`
       : app.paint.isOpen ? `Klangmalerei ${info.name}: ${describeBild(settings.bild)}`
       : app.body.isOpen ? `Klangkörper ${info.name}: ${describeBody(settings.body)}`
       : app.voice.isOpen ? `Stimme ${info.name}: ${describeVoice(settings.voice)}`
-      : `${info.name}: ${describe(pattern)}${selected === 0 && hasRumble(currentScene(project), pattern.len) ? ` · ${describeRumble(currentScene(project), pattern)}` : ""}`;
+      : `${info.name}: ${describe(pattern)}${selected === 0 && hasRumble(currentScene(project), pattern.len) ? ` · ${describeRumble(currentScene(project), pattern)}` : ""}${this.pull(selected)}${this.ahead()}`;
   }
 }

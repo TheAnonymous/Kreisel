@@ -164,6 +164,11 @@ export interface Scene {
   weather: number[][][];
   /** How fast each kind of weather drifts around the wheel, in quarter steps a bar (negative: against the clock). */
   wind: number[];
+  /**
+   * The tides: over how many bars each kind of weather swells and ebbs (0 for a weather that is simply there).
+   * Absent while no weather has one.
+   */
+  tide?: number[];
 }
 
 export const MIN_BARS = 4;
@@ -362,6 +367,11 @@ export interface Project {
   scene: number;
   /** Play the row instead of looping the scene on the table. */
   chain: boolean;
+  /**
+   * "Ausrichten": every eight bars all rings begin together again, so that rings of unequal length rub against one
+   * another within a phrase and are resolved where the next begins. Absent while they run free.
+   */
+  align?: boolean;
   /** The row ("Folge"): scenes in the order they play, one entry a round (a scene once through its chords). See order.ts. */
   order: number[];
   piece: Piece;

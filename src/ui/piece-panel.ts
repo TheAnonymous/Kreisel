@@ -3,6 +3,7 @@ import type { PieceTool } from "../app/piece";
 import { MAX_BARS, MIN_BARS, TENSION_MAX, trackInfo } from "../model";
 import { barCount, describeBuild, describePiece, sizeName } from "../piece";
 import { byId, el, button } from "./dom";
+import { onContext } from "./menu";
 import { swayName } from "./menus";
 import type { Panels } from "./panels";
 
@@ -50,8 +51,11 @@ export class PiecePanel {
     head.append(el("span", "dot"), el("h2", "", "Stück"));
 
     const doing = el("div", "doing");
-    const roll = button("button small", "Würfeln", "Einen neuen Verlauf würfeln (N)");
+    const roll = button("button small", "Würfeln", "Einen neuen Verlauf würfeln (N) · Rechtsklick: eine Form wählen (Plateau, Zwei Drops, Wellen, Lang gezogen)");
+    roll.id = "piece-dice";
     roll.addEventListener("click", () => app.piece.dice());
+    // The right button on the dice shows the piece's menu, where the shapes are.
+    onContext(roll, (x, y, byKeyboard) => app.openContext({ kind: "piece", bar: null }, x, y, byKeyboard));
     const smooth = button("button small", "Glätten", "Die Linie abrunden: steile Stufen werden sanfter");
     smooth.addEventListener("click", () => app.piece.smooth());
     const top = button("button small", "Von vorn", "Das Stück beginnt wieder beim ersten Takt");

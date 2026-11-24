@@ -38,7 +38,7 @@ const panels = new Panels(app, ring, easel, bench, mouth);
 const context = document.getElementById("context");
 if (!context) throw new Error("page without a menu");
 const menu = new ContextMenu(context);
-const doors = { relay: () => panels.showRelay(), help: () => panels.showHelp(), tour: () => panels.startTour(), get stageKey() { return panels.keyLabel("KeyO"); } };
+const doors = { relay: () => panels.showRelay(), help: () => panels.showHelp(), protocol: () => panels.showProtocol(), tour: () => panels.startTour(), get stageKey() { return panels.keyLabel("KeyO"); } };
 app.onContext = (target, x, y, byKeyboard) => {
   app.chords.close();
   // A row that leads on to another menu opens that one where this one was.

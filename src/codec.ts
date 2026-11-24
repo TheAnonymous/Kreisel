@@ -2,7 +2,7 @@ import { cleanAcid, takesAcid } from "./acid";
 import { cleanBody } from "./body";
 import { cleanVoice } from "./voice";
 import { cleanRumble } from "./rumble";
-import { cleanWind, packWeather, unpackWeather } from "./weather";
+import { cleanTide, cleanWind, packWeather, unpackWeather } from "./weather";
 import { ACID_SOUND, BODY_SOUND, BUILD_BARS, BUILD_GAPS, BUILD_NONE, BUILD_SMALL, SWAY_PARTS, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Acid, type Bild, type Body, type Build, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { MAX_ROUNDS, orderOfOld, packOrder, unpackOrder } from "./order";
@@ -272,6 +272,8 @@ interface PackedScene {
   /** Weather and winds. */
   x?: string;
   d?: number[];
+  /** The tides of the weather, in bars a kind, where any has one. */
+  e?: number[];
 }
 
 /** Where a ring's Zerre stands in its packed list: after its settings (0 to 6) and its picture, body and voice (7 to 9). */
@@ -297,6 +299,8 @@ interface Packed {
   w?: [number, number] | [number, number, number];
   i: number;
   k: number;
+  /** "Ausrichten": 1 where every eight bars the rings begin together again. */
+  a?: 1;
   /** The row, a digit a round, where it is not simply every filled scene once in turn. */
   f?: string;
   /** Only in links from before the row: how often every filled scene played in turn. */
@@ -357,6 +361,7 @@ export function packState(project: Project): Packed {
       const sky = packWeather(scene.weather);
       if (sky) packed.x = sky;
       if (sky && scene.wind.some((wind) => wind !== 0)) packed.d = scene.wind;
+      if (sky && scene.tide?.some((bars) => bars > 0)) packed.e = scene.tide;
       return packed;
     }),
     w: project.hard > 0
@@ -366,6 +371,7 @@ export function packState(project: Project): Packed {
     k: project.chain ? 1 : 0,
     z: packPiece(project.piece),
   };
+  if (project.align) packed.a = 1;
   // The row, a digit a round. While it is every filled scene once in turn it goes without saying.
   if (packOrder(project.order) !== packOrder(orderOfOld(project.scenes, 1))) packed.f = packOrder(project.order);
   return packed;
@@ -413,7 +419,8 @@ export function unpackRumble(value: unknown): number[] {
 
 function unpackScene(value: unknown): Scene | null {
   if (typeof value !== "object" || value === null) return null;
-  const { h, p, q, x, d } = value as { h?: unknown; p?: unknown; q?: unknown; x?: unknown; d?: unknown };
+  const { h, p, q, x, d, e } = value as { h?: unknown; p?: unknown; q?: unknown; x?: unknown; d?: unknown; e?: unknown };
+  const tide = cleanTide(e);
   const chords = (Array.isArray(h) ? h : []).slice(0, MAX_CHORDS).map((chord) => integer(chord, 0, 6, 0));
   const patterns = Array.isArray(p) ? p : [];
   return {
@@ -422,6 +429,7 @@ function unpackScene(value: unknown): Scene | null {
     rumble: unpackRumble(q),
     weather: unpackWeather(x),
     wind: cleanWind(d),
+    ...(tide ? { tide } : {}),
   };
 }
 
@@ -516,6 +524,7 @@ export function unpack(value: unknown, inTurn = false): Project {
     scenes,
     scene: scenes[wanted] ? wanted : scenes.findIndex((scene) => scene !== null),
     chain: data.k === 1,
+    ...(data.a === 1 ? { align: true } : {}),
     order,
     piece,
     relay: inTurn ? null : unpackRelay(data.y),

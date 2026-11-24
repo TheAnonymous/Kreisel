@@ -1,5 +1,5 @@
 import type { FxName } from "../audio/engine";
-import { diceWeather, hasWeather, WEATHER_STROKE, windOffset } from "../weather";
+import { diceWeather, hasWeather, TIDES, WEATHER_STROKE, windOffset } from "../weather";
 import { clamp, currentScene, WEATHER_COUNT, WEATHER_MAX, WIND_MAX, wrap } from "../model";
 import type { App } from "./app";
 
@@ -87,6 +87,18 @@ export class WeatherDesk {
     this.app.store.edit((project) => { currentScene(project).wind[kind] = next; }, key ? `${key}${kind}` : undefined);
   }
 
+  /** Over how many bars weather `kind` swells and ebbs (one of TIDES; 0 for a weather that is simply there). */
+  setTide(kind: number, bars: number): void {
+    if (!TIDES.some((tide) => tide === bars) || (currentScene(this.app.project).tide?.[kind] ?? 0) === bars) return;
+    this.app.store.edit((project) => {
+      const scene = currentScene(project);
+      const tide = scene.wind.map((_, which) => scene.tide?.[which] ?? 0);
+      tide[kind] = bars;
+      if (tide.some((length) => length > 0)) scene.tide = tide;
+      else delete scene.tide;
+    });
+  }
+
   /** Clears the sky: all of it, one kind of weather, or what lies over one ring. */
   clear(kind?: number, ring?: number): void {
     if (!hasWeather(currentScene(this.app.project), kind, ring)) return;
@@ -98,7 +110,9 @@ export class WeatherDesk {
           if (ring === undefined || ring === where) line.fill(0);
         });
         if (ring === undefined) scene.wind[which] = 0;
+        if (ring === undefined && scene.tide) scene.tide[which] = 0;
       });
+      if (scene.tide && !scene.tide.some((bars) => bars > 0)) delete scene.tide;
     });
   }
 

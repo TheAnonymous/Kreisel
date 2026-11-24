@@ -37,6 +37,22 @@ export function windName(wind: number): string {
   return `${steps} je Takt ${wind > 0 ? "↻" : "↺"}`;
 }
 
+/** The tides a kind of weather can have: the bars over which it swells and ebbs once, 0 for none. Odd lengths (12, 20) run against the phrases. */
+export const TIDES = [0, 4, 8, 12, 16, 20, 32, 64] as const;
+
+/**
+ * How much of a weather is there after `local` steps of playing under a tide of `bars` bars: nothing where the tide
+ * turns (as the scene begins), all of it halfway through. Without a tide all of it is always there.
+ */
+export const tideShare = (local: number, bars: number): number => (bars > 0 ? 0.5 - 0.5 * Math.cos((2 * Math.PI * local) / (bars * BAR)) : 1);
+
+/** Tides as far as a claim plainly says them: a length a tide can have for each kind of weather. Nothing where no weather has one. */
+export function cleanTide(value: unknown): number[] | undefined {
+  const list = Array.isArray(value) ? value : [];
+  const tide = emptyWind().map((_, kind) => TIDES.find((bars) => bars === list[kind]) ?? 0);
+  return tide.some((bars) => bars > 0) ? tide : undefined;
+}
+
 /** How many whole steps a kind of weather has drifted after `local` steps of playing (what is heard). */
 export const windOffset = (local: number, wind: number): number => Math.floor((local * wind) / (4 * BAR));
 /** The same without the rounding (what is seen: the clouds do not jump). */
@@ -46,7 +62,7 @@ export const windDrift = (local: number, wind: number): number => (local * wind)
 export function weatherAt(scene: Scene, kind: number, ring: number, position: number, local: number): number {
   const length = scene.patterns[ring]?.len ?? 16;
   const value = scene.weather[kind]?.[ring]?.[wrap(position - windOffset(local, scene.wind[kind] ?? 0), length)] ?? 0;
-  return value / WEATHER_MAX;
+  return (value / WEATHER_MAX) * tideShare(local, scene.tide?.[kind] ?? 0);
 }
 
 /** All six kinds at once. */

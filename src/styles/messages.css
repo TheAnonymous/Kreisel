@@ -100,3 +100,14 @@
   margin: 0;
   color: var(--soft);
 }
+
+/* The piece written down phrase by phrase: a line a phrase, without numbers of its own (each line names its bars). */
+.protokoll {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}

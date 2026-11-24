@@ -457,3 +457,39 @@ export function describe(pattern: Pattern): string {
   if (hits.length === 0) return `leer, ${pattern.len} Schritte`;
   return `${hits.length} ${hits.length === 1 ? "Schlag" : "Schläge"} auf ${hits.map((index) => index + 1).join(", ")} von ${pattern.len}`;
 }
+
+const gcd = (one: number, other: number): number => (other === 0 ? one : gcd(other, one % other));
+
+/**
+ * After how many steps rings of these lengths all begin together again, where that is more than the longest of them
+ * takes for its round (rings of 16 and 12 steps: after 48). `null` where every ring's length goes into the longest
+ * one's: then they are together again with every round of it, and there is nothing to wait for.
+ */
+export function meetSteps(lengths: readonly number[]): number | null {
+  const sizes = lengths.filter((length) => Number.isInteger(length) && length > 0);
+  if (sizes.length < 2) return null;
+  const together = sizes.reduce((steps, length) => (steps * length) / gcd(steps, length), 1);
+  return together > Math.max(...sizes) ? together : null;
+}
+
+/** The same for the rings of a scene that have hits. */
+export const meeting = (patterns: readonly Pattern[]): number | null => meetSteps(patterns.filter((pattern) => activeSteps(pattern).length > 0).map((pattern) => pattern.len));
+
+/**
+ * How many steps a ring's hits lie behind the kick's: for most of its hits, how long ago the kick last struck (0 for
+ * a ring that plays with the kick). `null` where the kick is silent, the ring is, or its hits lie this way and that.
+ */
+export function behindKick(kick: Pattern, pattern: Pattern): number | null {
+  const kicks = activeSteps(kick);
+  const hits = activeSteps(pattern);
+  if (kicks.length === 0 || hits.length === 0) return null;
+  const counts = new Map<number, number>();
+  for (const hit of hits) {
+    const at = hit % kick.len;
+    // The kick's last strike at or before this step of its own round, going round if need be.
+    const last = [...kicks].reverse().find((step) => step <= at) ?? (kicks[kicks.length - 1] as number) - kick.len;
+    counts.set(at - last, (counts.get(at - last) ?? 0) + 1);
+  }
+  const [behind, count] = [...counts.entries()].sort((one, other) => other[1] - one[1])[0] ?? [0, 0];
+  return count * 2 > hits.length ? behind : null;
+}

@@ -830,6 +830,60 @@ The held build-up is the same sound as a build-up of the piece
 `e2e/ride.spec.ts`: they hold the key while the Kreisel plays and watch the
 low cut rise and fall back, and they ride a line in.
 
+## The pull of a loop
+
+What keeps a loop interesting without a break: slow drift, and rings that
+rub against one another ("Sog").
+
+- **Tides for the weather.** In the weather's panel every kind of weather has,
+  beside its wind, a tide: the number of bars over which it swells from
+  nothing to all of it and ebbs again (4, 8, 12, 16, 20, 32 or 64). The wind
+  moves a weather around the wheel; the tide makes it stronger and weaker
+  over time. Odd lengths like 12 or 20 run against the phrases. This is an
+  automation in a length of its own without a curve to draw. On the wheel
+  the weather fades and returns with its tide while the Kreisel plays.
+- **Gleichstand.** Where rings with hits have lengths that do not go into
+  one another, the status line says after how many bars they are together
+  again (16 and 12 steps: every 3 bars; 16 and 5: every 5). Both Kreisels one
+  can start with have such a ring.
+- **Ausrichten.** The right button on the hub has a switch "Alle acht Takte
+  neu ausrichten": then every ring begins again with every phrase, so that
+  unequal rings rub within the phrase and are resolved where the next
+  begins. By a piece these are the piece's own phrases.
+- **Behind the kick.** For the ring in focus the status line says how many
+  steps most of its hits lie behind the kick's last strike ("2 Schritte
+  hinter der Kick" for a hi-hat on the off-beats, "mit der Kick" for a clap
+  on two and four), where its hits lie one way.
+
+Tides are `Scene.tide` (in a link `e` beside the winds), aligning is
+`Project.align` (`a`). The rules are `tideShare` in `src/weather.ts` and
+`meetSteps` and `behindKick` in `src/patterns.ts`, with `tests/sog.test.ts`;
+the browser tests are `e2e/sog.spec.ts`. Measured there: under a tide of four
+bars a fog over the hi-hat is gone as the scene begins and thickest after two
+bars; a ring of twelve steps with one hit strikes on step 5 of the ninth bar
+when it runs free and on its one when aligned.
+
+## Seeing the arc and dicing it
+
+- **Shapes for the dice.** The right button on "Würfeln" in the piece's
+  panel (or the piece's menu) has "Form würfeln": Plateau (a long level that
+  takes a small step up every sixteen bars, no break, no drop), Zwei Drops
+  (two breaks, a drop after each, the second with the big build-up and
+  late), Wellen (lifted, lowered and lifted again, every wave arriving at
+  once and a little higher), Lang gezogen (one climb through the whole
+  piece). The plain dice still throw the form of the Kreisel's style.
+- **The next drop.** While the piece plays, the status line counts the bars
+  to its next drop ("Drop in 5 Takten").
+- **Protokoll.** The piece's menu opens a window with the piece written down
+  phrase by phrase: who plays in which eight bars (in part of them:
+  "teils"), and where break, build-up and drop are. It can be copied as
+  text, to lay beside a track written down the same way.
+
+The shapes are `shapeLine` in `src/piece.ts`, with `nextDrop`, `protocol` and
+`protocolLines`; `tests/shapes.test.ts` and `e2e/shapes.spec.ts` test them.
+The wedges and ramps of the drops, which this step of the plan also named,
+came with the build-up kit.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the
