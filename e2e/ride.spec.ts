@@ -3,7 +3,7 @@ import { barAt, buildKey, focusPiece, onLaptop, onPhone, open, pieceOf } from ".
 
 /*
  * Playing the tension by hand: the key "Build-up" builds up for as long as it
- * is held and lands on the next one when it is let go, and "Einspielen" on
+ * is held and lands on the next one when it is let go, and "Play in" on
  * the piece's ring writes the tension into the line while the piece plays.
  */
 
@@ -11,10 +11,10 @@ import { barAt, buildKey, focusPiece, onLaptop, onPhone, open, pieceOf } from ".
 const lowCut = (page: Page): Promise<number> => page.evaluate(() => (window.kreisel.app.engine as unknown as { host: { graph: { highpass: BiquadFilterNode } | null } }).host.graph?.highpass.frequency.value ?? 20);
 const held = (page: Page): Promise<boolean> => page.evaluate(() => ((window.kreisel.app.engine as unknown as { player: { hand: unknown } | null }).player?.hand ?? null) !== null);
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("baut auf, solange die Taste „Build-up“ gehalten ist, und landet beim Loslassen auf der nächsten Eins", async ({ page }) => {
+  test("builds up while the key “Build-up” is held, and lands on the next one when let go", async ({ page }) => {
     test.slow();
     const problems = await open(page);
     await page.evaluate(() => {
@@ -65,7 +65,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("lässt Komma und Punkt bei den Szenen: die Taste „Build-up“ nimmt keine andere Taste weg", async ({ page }) => {
+  test("leaves comma and period with the scenes: the key “Build-up” takes no other key away", async ({ page }) => {
     const problems = await open(page);
     const scene = (): Promise<number> => page.evaluate(() => window.kreisel.app.project.scene);
     const pad = page.locator('#fx [data-fx="aufbau"]');
@@ -88,7 +88,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("spielt die Spannung ein: Mausrad und Pfeiltasten schreiben sie Takt für Takt in die Linie", async ({ page }) => {
+  test("plays the tension in: mouse wheel and arrow keys write it into the line bar by bar", async ({ page }) => {
     test.slow();
     const problems = await open(page);
     await page.evaluate(() => {
@@ -103,14 +103,14 @@ test.describe("am Laptop", () => {
     });
     await focusPiece(page);
     const ride = page.locator("#piece-ride");
-    await expect(ride).toContainText("Einspielen");
+    await expect(ride).toContainText("Play in");
     await expect(ride).toHaveAttribute("aria-pressed", "false");
     await ride.click();
     await expect(ride).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator("#panel")).toContainText("Einspielen: 32 % Spannung");
+    await expect(page.locator("#panel")).toContainText("Play in: 32 % tension");
     // The arrows are the hand: ten steps up.
     for (let press = 0; press < 10; press += 1) await page.keyboard.press("ArrowUp");
-    await expect(page.locator("#panel")).toContainText("Einspielen: 65 % Spannung");
+    await expect(page.locator("#panel")).toContainText("Play in: 65 % tension");
     expect((await pieceOf(page)).tension.every((tension) => tension === 10)).toBe(true);
     // The piece plays: every bar that begins hands the tension to the one after it.
     await page.evaluate(() => window.kreisel.app.piece.playFrom(0));
@@ -122,7 +122,7 @@ test.describe("am Laptop", () => {
     const over = await barAt(page, 8, 0.5);
     await page.mouse.move(over.x, over.y);
     await page.mouse.wheel(0, -180);
-    await expect(page.locator("#panel")).toContainText("Einspielen: 77 % Spannung");
+    await expect(page.locator("#panel")).toContainText("Play in: 77 % tension");
     const now = Math.floor(await page.evaluate(() => window.kreisel.app.piece.playhead() ?? 0));
     await expect.poll(() => page.evaluate(() => window.kreisel.app.piece.playhead() ?? 0), { timeout: 10_000 }).toBeGreaterThan(now + 2.2);
     expect((await pieceOf(page)).tension[(now + 3) % 16]).toBe(24);
@@ -133,16 +133,16 @@ test.describe("am Laptop", () => {
     // The key E switches it off again; then the wheel turns the piece as before.
     await page.keyboard.press("e");
     await expect(ride).toHaveAttribute("aria-pressed", "false");
-    await expect(page.locator("#panel")).not.toContainText("Einspielen:");
+    await expect(page.locator("#panel")).not.toContainText("Play in:");
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("hat am Handy sechs Effekt-Tasten, und nichts ist breiter als der Bildschirm", async ({ page }) => {
+  test("has six effect keys on a phone, and nothing is wider than the screen", async ({ page }) => {
     const problems = await open(page);
     await expect(page.locator("#fx .pad-fx")).toHaveCount(6);
     await expect(page.locator('#fx [data-fx="aufbau"]')).toBeVisible();

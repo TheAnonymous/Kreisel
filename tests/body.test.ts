@@ -117,8 +117,8 @@ describe("bodies as values", () => {
         if (track < 3) expect(sustains(made)).toBe(false);
       }
     }
-    expect(describeBody(body({ size: 0.9, material: 0.1, exciter: 0, where: 0 }))).toBe("Fell, groß, Holz, weich angeschlagen, Mitte");
-    expect(describeBody(null)).toBe("noch kein Körper");
+    expect(describeBody(body({ size: 0.9, material: 0.1, exciter: 0, where: 0 }))).toBe("Skin, big, Wood, struck softly, Middle");
+    expect(describeBody(null)).toBe("no body yet");
   });
 
   it("travels in the link, and a ring cannot play a body it does not have", () => {

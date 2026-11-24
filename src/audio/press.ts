@@ -2,7 +2,7 @@ import type { Kit } from "klangwerk";
 import { clipCurve, FIRST, MONO_BELOW, pressGains, SECOND } from "../press";
 
 /*
- * "Druck": where everything meets on its way to the master. At rest it lets
+ * "Pressure": where everything meets on its way to the master. At rest it lets
  * all of it through as it comes. Turned up, the sum is clipped softly in two
  * stages, and what lies below 150 Hz is brought to the middle, where a club's
  * subwoofers want it. The master's own filters, compressor and limiter come

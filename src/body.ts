@@ -10,12 +10,12 @@ import type { Random } from "./patterns";
  * arithmetic, so a body sounds the same live, in a WAV and in a test.
  */
 
-export const BODY_NAMES = ["Fell", "Saite", "Stab", "Rohr", "Schale"] as const;
-export const EXCITER_NAMES = ["Weich", "Hart", "Zupfen", "Streichen", "Blasen"] as const;
+export const BODY_NAMES = ["Skin", "String", "Rod", "Tube", "Bowl"] as const;
+export const EXCITER_NAMES = ["Soft", "Hard", "Pluck", "Bow", "Blow"] as const;
 /** What the tightness of each body is called. */
-export const TIGHT_NAMES = ["Spannung", "Spannung", "Dicke", "Enge", "Wandstärke"] as const;
+export const TIGHT_NAMES = ["Tension", "Tension", "Thickness", "Narrowness", "Wall thickness"] as const;
 /** Where a body is struck, from 0 to 1. */
-export const WHERE_NAMES = [["Mitte", "Rand"], ["Mitte", "Ende"], ["Mitte", "Ende"], ["Boden", "Öffnung"], ["Bauch", "Rand"]] as const;
+export const WHERE_NAMES = [["Middle", "Edge"], ["Middle", "End"], ["Middle", "End"], ["Bottom", "Opening"], ["Belly", "Edge"]] as const;
 
 const lerp = (from: number, to: number, share: number): number => from + (to - from) * share;
 const expo = (from: number, to: number, share: number): number => from * (to / from) ** share;
@@ -122,15 +122,15 @@ export function diceBody(track: number, random: Random): Body {
 
 const third = <T>(value: number, words: readonly [T, T, T]): T => words[value < 0.34 ? 0 : value < 0.67 ? 1 : 2];
 
-export const materialName = (material: number): string => (material < 0.25 ? "Holz" : material < 0.42 ? "hartes Holz" : material < 0.62 ? "Metall" : material < 0.8 ? "helles Metall" : "Glas");
+export const materialName = (material: number): string => (material < 0.25 ? "Wood" : material < 0.42 ? "hard wood" : material < 0.62 ? "Metal" : material < 0.8 ? "bright metal" : "Glass");
 
 /** A body in a few words, for the status line. */
 export function describeBody(body: Body | null): string {
-  if (!body) return "noch kein Körper";
+  if (!body) return "no body yet";
   const names = WHERE_NAMES[body.kind] ?? WHERE_NAMES[0];
-  const where = third(body.where, [names[0], `zwischen ${names[0]} und ${names[1]}`, names[1]]);
-  const how = ["weich angeschlagen", "hart angeschlagen", "gezupft", "gestrichen", "angeblasen"][body.exciter] ?? "";
-  return `${BODY_NAMES[body.kind]}, ${third(body.size, ["klein", "mittelgroß", "groß"])}, ${materialName(body.material)}, ${how}, ${where}`;
+  const where = third(body.where, [names[0], `between ${names[0]} and ${names[1]}`, names[1]]);
+  const how = ["struck softly", "struck hard", "plucked", "bowed", "blown"][body.exciter] ?? "";
+  return `${BODY_NAMES[body.kind]}, ${third(body.size, ["small", "medium-sized", "big"])}, ${materialName(body.material)}, ${how}, ${where}`;
 }
 
 // ---- the modes ------------------------------------------------------------------

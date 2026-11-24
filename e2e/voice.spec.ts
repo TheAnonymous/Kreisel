@@ -6,10 +6,10 @@ import { copyLink, heard, onLaptop, onPhone, open, pickSound, soundOf, state, st
  * Stimme: a ring that sings a typed line, a syllable a hit.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("gibt einem Ring eine Stimme", async ({ page }) => {
+  test("gives a ring a voice", async ({ page }) => {
     const problems = await open(page);
     const booth = page.locator("#booth");
     const line = page.locator("#voice-text");
@@ -17,19 +17,19 @@ test.describe("am Laptop", () => {
     await page.keyboard.press("7");
     await page.locator("#voice-edit").click();
     await expect(booth).toBeVisible();
-    await expect(page.locator("#booth-title")).toHaveText("Stimme: Melodie");
-    await expect(status(page)).toContainText("Stimme Melodie:");
+    await expect(page.locator("#booth-title")).toHaveText("Voice: Melody");
+    await expect(status(page)).toContainText("Voice Melody:");
     // A ring without a voice gets a first line to sing, and sings from then on; the line is ready to be typed over.
     expect((await voiceOf(page, 6))!.text).not.toBe("");
     expect(await soundOf(page, 6)).toBe(6);
-    await expect(page.locator(".track.selected .sound")).toHaveText("Stimme");
+    await expect(page.locator(".track.selected .sound")).toHaveText("Voice");
     await expect(line).toBeFocused();
 
     // The line is cut into syllables as it is typed; typing plays nothing.
     await page.keyboard.type("Kaffeepause jetzt");
     await expect(chips).toHaveText(["Kaf", "fee", "pau", "se", "jetzt"]);
-    await expect(status(page)).toHaveText("Stimme Melodie: „Kaf·fee·pau·se jetzt“, 5 Silben");
-    await expect(page.locator("#voice-pick")).toContainText("Stimme: Kaffeepause jetzt");
+    await expect(status(page)).toHaveText("Voice Melody: “Kaf·fee·pau·se jetzt”, 5 syllables");
+    await expect(page.locator("#voice-pick")).toContainText("Voice: Kaffeepause jetzt");
     expect(await page.evaluate(() => window.kreisel.app.playing)).toBe(false);
     // A hyphen cuts where it stands; what is no letter is not sung, and does not stay in the line.
     await line.fill("Kre-i-sel 123!");
@@ -65,7 +65,7 @@ test.describe("am Laptop", () => {
     // In the ring's field the voice is one of its sounds: picked with a click, written further with the next.
     const pick = page.locator("#voice-pick");
     await expect(pick).toHaveAttribute("aria-pressed", "true");
-    await pickSound(page, "Glocke");
+    await pickSound(page, "Bell");
     expect(await soundOf(page, 6)).toBe(1);
     await expect(letters.first()).toBeHidden();
     await pick.click();
@@ -89,10 +89,10 @@ test.describe("am Laptop", () => {
     const kick = await where(page, 0, 2);
     await page.mouse.click(kick.x, kick.y, { button: "right" });
     const menu = page.locator("#context");
-    await expect(menu.getByRole("menuitemradio", { name: "Noch keine Zeile geschrieben" })).toBeDisabled();
-    await menu.getByRole("menuitem", { name: "Die Zeile schreiben, die dieser Ring singt" }).click();
+    await expect(menu.getByRole("menuitemradio", { name: "No line written yet" })).toBeDisabled();
+    await menu.getByRole("menuitem", { name: "Write the line this ring sings" }).click();
     await expect(booth).toBeVisible();
-    await expect(page.locator("#booth-title")).toHaveText("Stimme: Kick");
+    await expect(page.locator("#booth-title")).toHaveText("Voice: Kick");
     expect(await soundOf(page, 0)).toBe(6);
     // Taken back, the voice is gone, and its window with it.
     await page.evaluate(() => window.kreisel.app.undo());
@@ -103,7 +103,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("lässt die Stimme hören: Silbe für Silbe, und ein a ist kein i", async ({ page }) => {
+  test("lets the voice be heard: syllable by syllable, and an a is not an i", async ({ page }) => {
     const problems = await open(page);
     /**
      * Saves the scene with only the bass heard, singing `text` on two long notes a bar, and listens to the file:
@@ -130,7 +130,7 @@ test.describe("am Laptop", () => {
       }, [text, shape.mouth ?? 0.5, shape.x ?? 0.5, shape.y ?? 0.5] as const);
       await page.locator("#record-more").click();
       const rendered = page.waitForEvent("download");
-      await page.locator("#context").getByText("Als Opus speichern").click();
+      await page.locator("#context").getByText("Save as Opus").click();
       const bytes = readFileSync(await (await rendered).path());
       return page.evaluate(async ([data, first, second]) => {
         const context = new AudioContext();
@@ -180,7 +180,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("nimmt die Stimme im Link und in der Datei mit", async ({ page, context }) => {
+  test("carries the voice in the link and in the file", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     const problems = await open(page);
     // Only the kick is heard, and it sings.
@@ -196,31 +196,31 @@ test.describe("am Laptop", () => {
     });
     const shared = await state(page);
     await copyLink(page);
-    await expect(page.locator("#toast")).toContainText("Link kopiert");
+    await expect(page.locator("#toast")).toContainText("Link copied");
     const link = await page.evaluate(() => navigator.clipboard.readText());
     const other = await context.newPage();
     await open(other);
     await other.goto(link);
-    await expect(other.locator("#toast")).toContainText("Ein geteilter Kreisel");
+    await expect(other.locator("#toast")).toContainText("A shared Kreisel");
     expect(await state(other)).toBe(shared);
     expect(await voiceOf(other, 0)).toEqual({ text: "Bumm-tschak geht's", mouth: 0.8, breath: 0.3 });
     expect(await soundOf(other, 0)).toBe(6);
-    await expect(other.locator(".track").filter({ hasText: "Kick" }).locator(".sound")).toHaveText("Stimme");
+    await expect(other.locator(".track").filter({ hasText: "Kick" }).locator(".sound")).toHaveText("Voice");
 
     // The saved file holds the voice.
     await other.locator("#record-more").click();
     const rendered = other.waitForEvent("download");
-    await other.locator("#context").getByText("Als Opus speichern").click();
+    await other.locator("#context").getByText("Save as Opus").click();
     const file = await heard(other, await rendered);
     expect(file.peak).toBeGreaterThan(0.1);
     expect(problems).toEqual([]);
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("gibt am Handy einem Ring eine Stimme: das Fenster passt, die Tastatur bleibt unten", async ({ page }) => {
+  test("gives a ring a voice on a phone: the window fits, the keyboard stays below", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => window.kreisel.app.select(3));
     await page.locator("#voice-edit").tap();

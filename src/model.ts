@@ -115,9 +115,9 @@ export const ACID_SOUND = 53;
  * and how much it rings are the sound pad's two directions, as for any sound.
  */
 export interface Acid {
-  /** "Biss": how far the envelope opens the filter at a note, 0..1. */
+  /** "Bite": how far the envelope opens the filter at a note, 0..1. */
   bite: number;
-  /** "Dauer": how slowly the filter falls shut again, 0..1. */
+  /** "Duration": how slowly the filter falls shut again, 0..1. */
   decay: number;
   /** A square wave instead of a saw. */
   square: boolean;
@@ -132,7 +132,7 @@ export interface Track {
   level: number;
   hall: number;
   echo: number;
-  /** "Zerre": how hard the ring is driven into its shaper, 0..1. The sparks of the weather come on top. */
+  /** "Drive": how hard the ring is driven into its shaper, 0..1. The sparks of the weather come on top. */
   drive: number;
   mute: boolean;
   /** The ring's own sound, once one was painted. */
@@ -198,7 +198,7 @@ export interface Piece {
    */
   noKick?: boolean[];
   /**
-   * The roster ("Einsätze"): who plays where, whatever the tension. A list a ring (the kick first), one entry a bar:
+   * The roster ("Roster"): who plays where, whatever the tension. A list a ring (the kick first), one entry a bar:
    * 1 the ring plays there, 2 it rests there, 0 the tension decides. A ring with nothing laid has an empty list, and
    * a piece with nothing laid does not have the field at all. The kick's rests are not here: they are the bars
    * "ohne Kick" above, which came first and mean a break (see piece.ts).
@@ -238,12 +238,12 @@ export interface Ends {
  * The live effects that can be laid on a bar of the piece, in the order of their bits, as the page names them. Each
  * has its own stretch of the bar: Dumpf and Dünn the whole of it, Stotter its second half, Echo and Pause its last beat.
  */
-export const MARK_NAMES = ["Dumpf", "Dünn", "Stotter", "Echo", "Pause"] as const;
+export const MARK_NAMES = ["Dull", "Thin", "Stutter", "Echo", "Pause"] as const;
 export const MARK = { dumpf: 1, duenn: 2, stotter: 4, echo: 8, pause: 16 } as const;
 export const MARK_ALL = 31;
 
 /**
- * What the tension moves beyond who plays and how open the sum is ("Was die Spannung bewegt"). Each is 0 for off,
+ * What the tension moves beyond who plays and how open the sum is ("What the tension moves"). Each is 0 for off,
  * 1 for gently ("sanft") or 2 for clearly ("deutlich"). With all of it off the line does what it always did.
  */
 export interface Sway {
@@ -325,7 +325,7 @@ export interface Turn {
  * turn stays in the link to be listened to again.
  */
 export interface Relay {
-  /** 0 anything goes, 1 one ring a turn, 2 "Stille Post": one ring a turn, hearing only the ring before. */
+  /** 0 anything goes, 1 one ring a turn, 2 "Telephone": one ring a turn, hearing only the ring before. */
   rule: number;
   /** Stille Post has been revealed: everyone sees and hears everything. */
   open: boolean;
@@ -353,7 +353,7 @@ export interface Project {
   scale: ScaleId;
   /** How much the kick pushes bass, chords and melody down, 0..1. */
   pump: number;
-  /** "Druck": how hard the sum of everything is pressed against the ceiling before the master, 0..1. */
+  /** "Pressure": how hard the sum of everything is pressed against the ceiling before the master, 0..1. */
   pressure: number;
   /** How hard the kick is driven before anything else hears it, 0..1: from clean to clipped flat. */
   hard: number;
@@ -372,7 +372,7 @@ export interface Project {
    * another within a phrase and are resolved where the next begins. Absent while they run free.
    */
   align?: boolean;
-  /** The row ("Folge"): scenes in the order they play, one entry a round (a scene once through its chords). See order.ts. */
+  /** The row ("Row"): scenes in the order they play, one entry a round (a scene once through its chords). See order.ts. */
   order: number[];
   piece: Piece;
   /** The turns of a Kreisel that is passed around; `null` for one that is not. */
@@ -393,13 +393,13 @@ export interface TrackInfo {
 }
 
 export const TRACK_INFO: Record<TrackKind, TrackInfo> = {
-  kick: { name: "Kick", melodic: false, xLabel: "Ton", yLabel: "Länge", pitchLabel: "Stimmung", color: "#e4572e", refHz: 0 },
-  snare: { name: "Snare", melodic: false, xLabel: "Ton", yLabel: "Länge", pitchLabel: "Stimmung", color: "#f29a2e", refHz: 0 },
-  hat: { name: "Hi-Hat", melodic: false, xLabel: "Helligkeit", yLabel: "Länge", pitchLabel: "Offenheit", color: "#e9bd24", refHz: 0 },
-  perc: { name: "Trommel", melodic: false, xLabel: "Ton", yLabel: "Länge", pitchLabel: "Tonhöhe", color: "#5fb85a", refHz: 110 },
-  bass: { name: "Bass", melodic: true, xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Tonhöhe", color: "#27a79c", refHz: 55 },
-  chord: { name: "Akkorde", melodic: true, xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Lage", color: "#3d7edb", refHz: 220 },
-  lead: { name: "Melodie", melodic: true, xLabel: "Helligkeit", yLabel: "Ausklang", pitchLabel: "Tonhöhe", color: "#a45de0", refHz: 440 },
+  kick: { name: "Kick", melodic: false, xLabel: "Tone", yLabel: "Length", pitchLabel: "Tuning", color: "#e4572e", refHz: 0 },
+  snare: { name: "Snare", melodic: false, xLabel: "Tone", yLabel: "Length", pitchLabel: "Tuning", color: "#f29a2e", refHz: 0 },
+  hat: { name: "Hi-Hat", melodic: false, xLabel: "Brightness", yLabel: "Length", pitchLabel: "Openness", color: "#e9bd24", refHz: 0 },
+  perc: { name: "Drum", melodic: false, xLabel: "Tone", yLabel: "Length", pitchLabel: "Pitch", color: "#5fb85a", refHz: 110 },
+  bass: { name: "Bass", melodic: true, xLabel: "Brightness", yLabel: "Decay", pitchLabel: "Pitch", color: "#27a79c", refHz: 55 },
+  chord: { name: "Chords", melodic: true, xLabel: "Brightness", yLabel: "Decay", pitchLabel: "Register", color: "#3d7edb", refHz: 220 },
+  lead: { name: "Melody", melodic: true, xLabel: "Brightness", yLabel: "Decay", pitchLabel: "Pitch", color: "#a45de0", refHz: 440 },
 };
 
 export const trackInfo = (index: number): TrackInfo => TRACK_INFO[TRACK_KINDS[index] ?? "kick"];
@@ -705,8 +705,8 @@ export function technoProject(): Project {
       { sound: 1, x: 0.3, y: 0.55, level: 0.9, hall: 0, echo: 0, drive: 0, mute: false, bild: null, body: null, voice: null, acid: null },
       // Clap and hi-hat come from the techno group of their palettes (src/sounds/techno.ts): claps in layers, and the
       // six square waves of a drum machine's cymbal.
-      { sound: soundCalled(1, "Menge"), x: 0.5, y: 0.35, level: 0.7, hall: 0.12, echo: 0, drive: 0.25, mute: false, bild: null, body: null, voice: null, acid: null },
-      { sound: soundCalled(2, "Maschine"), x: 0.5, y: 0.5, level: 0.62, hall: 0.03, echo: 0, drive: 0.15, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: soundCalled(1, "Crowd"), x: 0.5, y: 0.35, level: 0.7, hall: 0.12, echo: 0, drive: 0.25, mute: false, bild: null, body: null, voice: null, acid: null },
+      { sound: soundCalled(2, "Machine"), x: 0.5, y: 0.5, level: 0.62, hall: 0.03, echo: 0, drive: 0.15, mute: false, bild: null, body: null, voice: null, acid: null },
       { sound: 0, x: 0.3, y: 0.45, level: 0.55, hall: 0.1, echo: 0.15, drive: 0.3, mute: false, bild: null, body: null, voice: null, acid: null },
       // The acid machine: its filter less than half open and ringing, a saw that bites.
       { sound: ACID_SOUND, x: 0.42, y: 0.68, level: 0.72, hall: 0, echo: 0.12, drive: 0.4, mute: false, bild: null, body: null, voice: null, acid: { bite: 0.6, decay: 0.35, square: false } },

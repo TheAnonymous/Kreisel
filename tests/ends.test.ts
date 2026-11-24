@@ -68,8 +68,8 @@ describe("effect marks", () => {
     toggleMark(line, 2, MARK.dumpf);
     expect(line.marks).toEqual([{ bar: 2, fx: 1 }, { bar: 5, fx: 12 }]);
     expect([marksAt(line, 5), marksAt(line, 2), marksAt(line, 3)]).toEqual([12, 1, 0]);
-    expect(markNames(marksAt(line, 5))).toEqual(["Stotter", "Echo"]);
-    expect(markNames(31)).toEqual(["Dumpf", "Dünn", "Stotter", "Echo", "Pause"]);
+    expect(markNames(marksAt(line, 5))).toEqual(["Stutter", "Echo"]);
+    expect(markNames(31)).toEqual(["Dull", "Thin", "Stutter", "Echo", "Pause"]);
     expect([planBar(line, 5).marks, planBar(line, 6).marks]).toEqual([12, 0]);
     toggleMark(line, 5, MARK.stotter);
     expect(marksAt(line, 5)).toBe(8);

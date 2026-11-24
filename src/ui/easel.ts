@@ -278,7 +278,7 @@ export class EaselView {
       context.fill();
       context.textAlign = px > inner.x + inner.width * 0.8 ? "right" : "left";
       context.textBaseline = "middle";
-      context.fillText("Halten", px + (context.textAlign === "left" ? 11 : -11), inner.y + 8);
+      context.fillText("Hold", px + (context.textAlign === "left" ? 11 : -11), inner.y + 8);
     }
 
     const style: BildStyle = { color: info.color, ink: this.ink, scale: Math.max(0.7, Math.min(1.25, this.height / 300)) };

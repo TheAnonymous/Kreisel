@@ -5,18 +5,18 @@ import { barAt, copyLink, focusPiece, heard, onPhone, open, pieceOf, state, stat
  * The piece's ring: the tension of the whole piece, painted around the wheel.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("malt das Stück in den äußersten Ring", async ({ page }) => {
+  test("paints the piece into the outermost ring", async ({ page }) => {
     const problems = await open(page);
     expect((await pieceOf(page)).on).toBe(false);
     // A click on the resting ring picks it and paints at once.
     const first = await barAt(page, 2, 0.9);
     await page.mouse.click(first.x, first.y);
-    await expect(status(page)).toHaveText("Stück: 32 Takte, 1:09 Minuten, im Mittel 66 % Spannung (aus)");
+    await expect(status(page)).toHaveText("Piece: 32 bars, 1:09 minutes, 66 % tension on average (off)");
     await expect(page.locator(".piece-row")).toHaveClass(/selected/);
-    await expect(page.locator(".panel-piece")).toContainText("Wer zuerst einsetzt");
+    await expect(page.locator(".panel-piece")).toContainText("Who comes in first");
     expect((await pieceOf(page)).tension[2]).toBeGreaterThan(24);
     await focusPiece(page);
 
@@ -45,28 +45,28 @@ test.describe("am Laptop", () => {
     expect((await pieceOf(page)).tension[1]).toBe(Math.min(31, low + 2));
 
     // Its length stretches the line; the order of the rings is the piece's to keep.
-    await page.locator(".panel-piece").getByTitle("64 Takte").click();
+    await page.locator(".panel-piece").getByTitle("64 bars").click();
     expect((await pieceOf(page)).tension).toHaveLength(64);
-    await expect(page.locator(".piece-row .sound")).toHaveText("64 Takte");
-    await page.getByRole("button", { name: "Kick früher einsetzen lassen" }).click();
+    await expect(page.locator(".piece-row .sound")).toHaveText("64 bars");
+    await page.getByRole("button", { name: "Let Kick come in earlier" }).click();
     expect((await pieceOf(page)).order).toEqual([5, 2, 0, 4, 1, 6, 3]);
-    await page.locator(".panel-piece").getByText("Würfeln").click();
+    await page.locator(".panel-piece").getByText("Dice").click();
     expect(Math.max(...(await pieceOf(page)).tension)).toBeGreaterThan(25);
 
     // Switched on, the piece lays the scenes out itself.
     await page.locator(".piece-toggle").click();
     expect((await pieceOf(page)).on).toBe(true);
-    await expect(page.locator("#plays").getByRole("radio", { name: "Stück" })).toHaveAttribute("aria-checked", "true");
+    await expect(page.locator("#plays").getByRole("radio", { name: "Piece" })).toHaveAttribute("aria-checked", "true");
     await expect(page.locator("#piece-on")).toBeChecked();
     // Back on a ring, the ring's panel is back.
     await page.keyboard.press("ArrowDown");
-    await expect(status(page)).toContainText("Melodie:");
+    await expect(status(page)).toContainText("Melody:");
     await expect(page.locator(".panel-ring")).toBeVisible();
     await expect(page.locator(".panel-piece")).toBeHidden();
     expect(problems).toEqual([]);
   });
 
-  test("spielt nach dem Stück: Einsätze, Szenen und Sprünge", async ({ page }) => {
+  test("plays by the piece: entries, scenes and jumps", async ({ page }) => {
     const problems = await open(page);
     // Eight quick bars: four of silence in scene A, four of everything in scene B.
     await page.evaluate(() => {
@@ -94,11 +94,11 @@ test.describe("am Laptop", () => {
     await expect.poll(() => page.evaluate(() => window.kreisel.level())).toBeGreaterThan(0.05);
     await expect(page.locator(".scene.current")).toHaveText("B");
 
-    // The right button on a bar offers to play from there; "Von vorn" goes to the first.
+    // The right button on a bar offers to play from there; "From the top" goes to the first.
     await focusPiece(page);
     const quiet = await barAt(page, 1, 0.5);
     await page.mouse.click(quiet.x, quiet.y, { button: "right" });
-    await page.locator("#context").getByRole("menuitem", { name: "Ab hier spielen" }).click();
+    await page.locator("#context").getByRole("menuitem", { name: "Play from here" }).click();
     await expect.poll(() => page.evaluate(() => Math.floor(window.kreisel.app.piece.playhead() ?? 9)), { timeout: 4000 }).toBe(1);
     await expect(page.locator(".scene.current")).toHaveText("A");
     await page.locator("#piece-top").click();
@@ -112,7 +112,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("speichert das Stück als Opus und nimmt es im Link mit", async ({ page, context }) => {
+  test("saves the piece as Opus and carries it in the link", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await open(page);
     await page.evaluate(() => {
@@ -124,9 +124,9 @@ test.describe("am Laptop", () => {
     });
     await page.keyboard.press("8");
     const rendered = page.waitForEvent("download");
-    await page.locator(".panel-piece").getByText("Als Opus speichern").click();
+    await page.locator(".panel-piece").getByText("Save as Opus").click();
     const saved = await rendered;
-    await expect(page.locator("#toast")).toContainText("Das ganze Stück als Opus gespeichert");
+    await expect(page.locator("#toast")).toContainText("The whole piece saved as Opus");
     // Four bars at 200 BPM are 4.8 seconds, plus what rings out: not the eight bars of a plain scene.
     const piece = await heard(page, saved);
     expect(piece.seconds).toBeGreaterThan(4.8);
@@ -135,12 +135,12 @@ test.describe("am Laptop", () => {
 
     const shared = await state(page);
     await copyLink(page);
-    await expect(page.locator("#toast")).toContainText("Link kopiert");
+    await expect(page.locator("#toast")).toContainText("Link copied");
     const link = await page.evaluate(() => navigator.clipboard.readText());
     const other = await context.newPage();
     await open(other);
     await other.goto(link);
-    await expect(other.locator("#toast")).toContainText("Ein geteilter Kreisel");
+    await expect(other.locator("#toast")).toContainText("A shared Kreisel");
     expect(await state(other)).toBe(shared);
     expect(await pieceOf(other)).toEqual({ on: true, tension: [8, 14, 31, 31], scenes: [0, 0, 0, 0], order: [0, 1, 2, 3, 4, 5, 6] });
   });

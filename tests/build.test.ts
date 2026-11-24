@@ -35,7 +35,7 @@ describe("the drops of a piece", () => {
     expect(start.drops).toBeUndefined();
     setBuild(start, 16, { ...BUILD_MEDIUM, late: true });
     expect(start.drops).toEqual([{ bar: 16, build: { ...BUILD_MEDIUM, late: true } }]);
-    // "Für alle Drops übernehmen", and "Wieder wie alle Drops".
+    // "Use for all drops", and "Same as all drops again".
     shareBuild(start, 16);
     expect([start.build, start.drops]).toEqual([{ ...BUILD_MEDIUM, late: true }, undefined]);
     setBuild(start, 64, BUILD_BIG);
@@ -55,18 +55,18 @@ describe("the drops of a piece", () => {
     expect((Object.keys(BUILD_SIZES) as (keyof typeof BUILD_SIZES)[]).map((size) => sizeOf(BUILD_SIZES[size]))).toEqual(["keiner", "klein", "mittel", "gross"]);
     expect(sizeOf({ ...BUILD_BIG, gap: 2 })).toBeNull();
     expect(sameBuild(BUILD_BIG, { ...BUILD_BIG })).toBe(true);
-    expect(describeBuild(BUILD_NONE)).toBe("kein Build-up");
-    expect(describeBuild(BUILD_SMALL)).toBe("Build-up klein, 1 Takt: Riser");
-    expect(describeBuild(BUILD_MEDIUM)).toBe("Build-up mittel, 4 Takte: Riser, Roll, Tiefen raus");
-    expect(describeBuild(BUILD_BIG)).toBe("Build-up groß, 8 Takte: Riser mit Ton, Roll, Tiefen raus, Hall-Wolke, leiser, Lücke ein Schlag");
-    expect(describeBuild({ ...BUILD_SMALL, riser: 0, bars: 2, kick: true, hat: true, gap: 4, late: true })).toBe("Build-up eigen, 2 Takte: letzter Takt ohne Kick, letzter Takt ohne Hi-Hat, Lücke ein Takt, später Drop");
-    expect(describeBuild({ ...BUILD_SMALL, riser: 0 })).toBe("Build-up eigen, 1 Takt: nur der Crash");
+    expect(describeBuild(BUILD_NONE)).toBe("no build-up");
+    expect(describeBuild(BUILD_SMALL)).toBe("Build-up small, 1 bar: riser");
+    expect(describeBuild(BUILD_MEDIUM)).toBe("Build-up medium, 4 bars: riser, roll, lows out");
+    expect(describeBuild(BUILD_BIG)).toBe("Build-up big, 8 bars: riser with a tone, roll, lows out, cloud of reverb, quieter, gap one beat");
+    expect(describeBuild({ ...BUILD_SMALL, riser: 0, bars: 2, kick: true, hat: true, gap: 4, late: true })).toBe("Build-up own, 2 bars: last bar without kick, last bar without hi-hat, gap one bar, late drop");
+    expect(describeBuild({ ...BUILD_SMALL, riser: 0 })).toBe("Build-up own, 1 bar: only the crash");
   });
 
   it("takes a claim for a build-up only as far as it plainly is one", () => {
     expect(soundBuild(BUILD_BIG)).toEqual(BUILD_BIG);
     expect(soundBuild({ bars: 4, riser: 7, roll: 1, lows: "ja", gap: 3, late: true })).toEqual({ ...BUILD_NONE, bars: 4, late: true });
-    expect([soundBuild(null), soundBuild("groß"), soundBuild({ bars: 3 }), soundBuild({})]).toEqual([null, null, null, null]);
+    expect([soundBuild(null), soundBuild("big"), soundBuild({ bars: 3 }), soundBuild({})]).toEqual([null, null, null, null]);
     // No build-up has no parts.
     expect(soundBuild({ ...BUILD_BIG, bars: 0 })).toEqual(BUILD_NONE);
   });
@@ -295,8 +295,8 @@ describe("build-ups in a link", () => {
     expect(read([small, 64, 1 << 20]).drops).toBeUndefined();
     expect(read([small, 64, 7]).drops).toBeUndefined();
     expect(read([small, 64.5, big]).drops).toBeUndefined();
-    expect(read("groß")).toMatchObject({ noKick: start.noKick });
-    expect(read("groß").drops).toBeUndefined();
+    expect(read("big")).toMatchObject({ noKick: start.noKick });
+    expect(read("big").drops).toBeUndefined();
     expect(read(Array.from({ length: 200 }, () => big)).build).toBeUndefined();
     // The same drop twice: the first one counts.
     expect(read([small, 64, big, 64, small]).drops).toEqual([{ bar: 64, build: BUILD_BIG }]);

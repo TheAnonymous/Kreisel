@@ -33,6 +33,6 @@ export default defineConfig({
   projects: [
     { name: "laptop", use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 768 }, launchOptions: { args: microphone } } },
     { name: "phone", use: { ...devices["Pixel 7"] } },
-    { name: "firefox", use: { ...devices["Desktop Firefox"], viewport: { width: 1366, height: 768 } }, grepInvert: /teilt den Kreisel|im Link|macht einen Klang vor|ohne Netz|am Handy/ },
+    { name: "firefox", use: { ...devices["Desktop Firefox"], viewport: { width: 1366, height: 768 } }, grepInvert: /shares the Kreisel|in the link|shows a sound|without a network|on a phone/ },
   ],
 });

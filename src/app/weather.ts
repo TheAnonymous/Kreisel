@@ -3,7 +3,7 @@ import { diceWeather, hasWeather, TIDES, WEATHER_STROKE, windOffset } from "../w
 import { clamp, currentScene, WEATHER_COUNT, WEATHER_MAX, WIND_MAX, wrap } from "../model";
 import type { App } from "./app";
 
-/** Effects that leave weather behind when they are held while "Einspielen" is on: dull is fog, the echo throw is rain, the stutter is hail. */
+/** Effects that leave weather behind when they are held while "Play in" is on: dull is fog, the echo throw is rain, the stutter is hail. */
 const TRAILS: readonly (readonly [FxName, number])[] = [["dumpf", 0], ["wurf", 3], ["stotter", 5]];
 
 /*
@@ -124,6 +124,6 @@ export class WeatherDesk {
       scene.weather = sky.weather;
       scene.wind = sky.wind;
     });
-    if (!this.app.playing) this.app.say("Neues Wetter. Starte den Kreisel, dann hörst du es, und was Wind hat, zieht um das Rad.");
+    if (!this.app.playing) this.app.say("New weather. Start the Kreisel, then you hear it, and whatever has wind drifts around the wheel.");
   }
 }

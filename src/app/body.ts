@@ -5,11 +5,11 @@ import { WorkshopDesk } from "./workshop";
 
 /** What sets a Klangkörper going: the tools of the workbench. */
 export const MALLETS: readonly { name: string; hint: string }[] = [
-  { name: "Weich", hint: "Ein weicher Schlägel: rund und dunkel" },
-  { name: "Hart", hint: "Ein harter Schlägel: hell, mit einem Klick" },
-  { name: "Zupfen", hint: "Mit dem Finger anreißen" },
-  { name: "Streichen", hint: "Mit dem Bogen: klingt, solange die Note dauert" },
-  { name: "Blasen", hint: "Mit dem Atem: klingt, solange die Note dauert" },
+  { name: "Soft", hint: "A soft mallet: round and dark" },
+  { name: "Hard", hint: "A hard mallet: bright, with a click" },
+  { name: "Pluck", hint: "Plucked with a finger" },
+  { name: "Bow", hint: "With the bow: sounds for as long as the note lasts" },
+  { name: "Blow", hint: "With breath: sounds for as long as the note lasts" },
 ];
 
 /*

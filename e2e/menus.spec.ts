@@ -5,10 +5,10 @@ import { barAt, focus, focusPiece, onLaptop, onPhone, open, pieceOf, soundOf, st
  * What the right button, and a long press of a finger, offer at each place.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("zeigt mit der rechten Taste, was an der Stelle geht", async ({ page }) => {
+  test("shows with the right button what can be done at that place", async ({ page }) => {
     const problems = await open(page);
     const menu = page.locator("#context");
     const bass = (step: number) => page.evaluate((at) => window.kreisel.app.project.scenes[0]!.patterns[4]!.steps[at]!, step);
@@ -17,17 +17,17 @@ test.describe("am Laptop", () => {
     // A right click on a hit leaves it where it is and shows what can be done with it.
     let spot = await where(page, 4, 3);
     await page.mouse.click(spot.x, spot.y, { button: "right" });
-    await expect(menu.locator("header")).toHaveText("Bass · Schritt 4");
-    await expect(status(page)).toHaveText("Bass: 6 Schläge auf 1, 4, 7, 9, 12, 15 von 16");
-    await menu.getByRole("menuitemradio", { name: "laut" }).click();
-    await menu.getByRole("menuitemradio", { name: /50 % der Runden/ }).click();
-    await menu.getByRole("menuitemradio", { name: "3 schnelle Schläge" }).click();
-    await menu.getByRole("menuitem", { name: "Den Ton länger halten" }).click();
-    await menu.getByRole("menuitem", { name: "Höher" }).click();
+    await expect(menu.locator("header")).toHaveText("Bass · step 4");
+    await expect(status(page)).toHaveText("Bass: 6 hits on 1, 4, 7, 9, 12, 15 of 16");
+    await menu.getByRole("menuitemradio", { name: "loud" }).click();
+    await menu.getByRole("menuitemradio", { name: /50 % of the rounds/ }).click();
+    await menu.getByRole("menuitemradio", { name: "3 fast hits" }).click();
+    await menu.getByRole("menuitem", { name: "Hold the note longer" }).click();
+    await menu.getByRole("menuitem", { name: "Higher" }).click();
     expect(await bass(3)).toEqual({ on: true, vel: 2, chance: 2, ratchet: 3, pitch: 1, len: 2 });
     // The menu stays open and says what is there now.
-    await expect(menu.getByRole("menuitemradio", { name: "laut" })).toHaveAttribute("aria-checked", "true");
-    await expect(menu.getByText("Länge 2")).toBeVisible();
+    await expect(menu.getByRole("menuitemradio", { name: "loud" })).toHaveAttribute("aria-checked", "true");
+    await expect(menu.getByText("Length 2")).toBeVisible();
     // Used with the mouse, it leaves the keyboard with the Kreisel: the space bar starts and stops.
     await page.keyboard.press("Space");
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "true");
@@ -35,26 +35,26 @@ test.describe("am Laptop", () => {
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "false");
     await expect(menu).toBeVisible();
     expect(await bass(3)).toEqual({ on: true, vel: 2, chance: 2, ratchet: 3, pitch: 1, len: 2 });
-    await menu.getByRole("menuitem", { name: "Schlag löschen" }).click();
+    await menu.getByRole("menuitem", { name: "Remove hit" }).click();
     await expect(menu).toBeHidden();
-    await expect(status(page)).toHaveText("Bass: 5 Schläge auf 1, 7, 9, 12, 15 von 16");
+    await expect(status(page)).toHaveText("Bass: 5 hits on 1, 7, 9, 12, 15 of 16");
 
     // On an empty step it offers to set a hit, and then shows the hit's rows.
     await page.mouse.click(spot.x, spot.y, { button: "right" });
-    await expect(menu.getByText("Betonung")).toBeHidden();
-    await menu.getByRole("menuitem", { name: "Schlag setzen" }).click();
-    await expect(menu.getByText("Betonung")).toBeVisible();
-    await expect(status(page)).toHaveText("Bass: 6 Schläge auf 1, 4, 7, 9, 12, 15 von 16");
+    await expect(menu.getByText("Accent")).toBeHidden();
+    await menu.getByRole("menuitem", { name: "Place hit" }).click();
+    await expect(menu.getByText("Accent")).toBeVisible();
+    await expect(status(page)).toHaveText("Bass: 6 hits on 1, 4, 7, 9, 12, 15 of 16");
 
     // The whole ring: its length, its sound, who is heard.
-    await menu.getByRole("menuitemradio", { name: "12 Schritte" }).click();
-    await expect(status(page)).toContainText("von 12");
-    await menu.getByRole("menuitem", { name: "Nächster Klang aus der Palette" }).click();
+    await menu.getByRole("menuitemradio", { name: "12 steps" }).click();
+    await expect(status(page)).toContainText("of 12");
+    await menu.getByRole("menuitem", { name: "Next sound from the palette" }).click();
     expect(await soundOf(page, 4)).toBe(34);
-    await expect(menu.getByRole("menuitem", { name: "Alle 50 Klänge dieses Rings zeigen" })).toHaveText("Flummi");
-    await menu.getByRole("menuitemradio", { name: /stumm schalten/ }).click();
+    await expect(menu.getByRole("menuitem", { name: "Show all 50 sounds of this ring" })).toHaveText("Bounce");
+    await menu.getByRole("menuitemradio", { name: /Mute this ring/ }).click();
     expect(await page.evaluate(() => window.kreisel.app.project.tracks[4]!.mute)).toBe(true);
-    await expect(menu.getByRole("menuitemradio", { name: /stumm schalten/ })).toHaveAttribute("aria-checked", "true");
+    await expect(menu.getByRole("menuitemradio", { name: /Mute this ring/ })).toHaveAttribute("aria-checked", "true");
     // Escape puts it away, although the keyboard never went into it.
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
@@ -63,15 +63,15 @@ test.describe("am Laptop", () => {
     const before = await state(page);
     spot = await where(page, 0, 2);
     await page.mouse.click(spot.x, spot.y, { button: "right" });
-    await expect(menu.getByRole("menuitem", { name: "Noch nichts kopiert" })).toBeDisabled();
-    await menu.getByRole("menuitem", { name: "Das Muster dieses Rings merken" }).click();
+    await expect(menu.getByRole("menuitem", { name: "Nothing copied yet" })).toBeDisabled();
+    await menu.getByRole("menuitem", { name: "Remember this ring's pattern" }).click();
     await expect(menu).toBeHidden();
-    await expect(page.locator("#toast")).toContainText("Muster von Kick kopiert");
+    await expect(page.locator("#toast")).toContainText("Pattern of Kick copied");
     spot = await where(page, 1, 5);
     await page.mouse.click(spot.x, spot.y, { button: "right" });
-    await expect(menu.locator("header")).toHaveText("Snare · Schritt 6");
-    await menu.getByRole("menuitem", { name: "Das Muster von Kick hierher legen" }).click();
-    await expect(status(page)).toHaveText("Snare: 4 Schläge auf 1, 5, 9, 13 von 16 · mit der Kick");
+    await expect(menu.locator("header")).toHaveText("Snare · step 6");
+    await menu.getByRole("menuitem", { name: "Put the pattern of Kick here" }).click();
+    await expect(status(page)).toHaveText("Snare: 4 hits on 1, 5, 9, 13 of 16 · with the kick");
     // A press beside the menu puts it away, too.
     await page.mouse.click(4, 400);
     await expect(menu).toBeHidden();
@@ -81,7 +81,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("hat auch an Mitte, Akkorden, Szenen, Stück und Liste ein Menü", async ({ page }) => {
+  test("also has a menu at the middle, the chords, the scenes, the piece and the list", async ({ page }) => {
     const problems = await open(page);
     const menu = page.locator("#context");
     const chords = () => page.evaluate(() => window.kreisel.app.project.scenes[0]!.chords);
@@ -91,48 +91,48 @@ test.describe("am Laptop", () => {
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: "right" });
     await expect(menu.locator("header")).toHaveText("Kreisel");
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "false");
-    await menu.getByRole("menuitem", { name: /Hilfe und Tasten/ }).click();
+    await menu.getByRole("menuitem", { name: /Help and keys/ }).click();
     await expect(page.locator("#help")).toBeVisible();
-    await expect(page.locator("#help")).toContainText("Rechtsklick");
+    await expect(page.locator("#help")).toContainText("Right click");
     await page.keyboard.press("Escape");
     await expect(page.locator("#help")).toBeHidden();
 
     // A chord field: another chord, a bar more, a bar less.
     const field = await page.evaluate(() => window.kreisel.slot(1));
     await page.mouse.click(field.x, field.y, { button: "right" });
-    await expect(menu.locator("header")).toHaveText("Takt 2 von 4");
+    await expect(menu.locator("header")).toHaveText("Bar 2 of 4");
     await expect(page.locator("#chord-menu")).toBeHidden();
     await menu.getByRole("menuitemradio", { name: "Dm" }).click();
     expect(await chords()).toEqual([0, 3, 2, 6]);
-    await menu.getByRole("menuitem", { name: "Takt verdoppeln" }).click();
+    await menu.getByRole("menuitem", { name: "Double the bar" }).click();
     expect(await chords()).toEqual([0, 3, 3, 2, 6]);
-    await expect(menu.locator("header")).toHaveText("Takt 2 von 5");
-    await menu.getByRole("menuitem", { name: "Takt entfernen" }).click();
+    await expect(menu.locator("header")).toHaveText("Bar 2 of 5");
+    await menu.getByRole("menuitem", { name: "Remove the bar" }).click();
     expect(await chords()).toEqual([0, 3, 2, 6]);
     await expect(menu).toBeHidden();
 
     // A scene: a copy in the next free one; an empty one says so.
     await page.locator(".scene", { hasText: "A" }).click({ button: "right" });
-    await expect(menu.locator("header")).toHaveText("Szene A");
-    await menu.getByRole("menuitem", { name: "Kopie nach B legen" }).click();
+    await expect(menu.locator("header")).toHaveText("Scene A");
+    await menu.getByRole("menuitem", { name: "Put a copy on B" }).click();
     await expect(page.locator(".scene.current")).toHaveText("B");
     await page.locator(".scene", { hasText: "D" }).click({ button: "right" });
-    await expect(menu.locator("header")).toHaveText("Szene D (leer)");
+    await expect(menu.locator("header")).toHaveText("Scene D (empty)");
     await page.keyboard.press("Escape");
     await page.evaluate(() => window.kreisel.app.dismiss());
 
     // The piece: a scene on four bars, more tension, and playing from a bar.
     const bar = await barAt(page, 9, 0.5);
     await page.mouse.click(bar.x, bar.y, { button: "right" });
-    await expect(menu.locator("header")).toHaveText("Stück · Takt 10");
-    await menu.getByRole("menuitemradio", { name: "Szene A auf diese vier Takte legen" }).click();
+    await expect(menu.locator("header")).toHaveText("Piece · bar 10");
+    await menu.getByRole("menuitemradio", { name: "Put scene A on these four bars" }).click();
     expect((await pieceOf(page)).scenes.slice(7, 13)).toEqual([0, 0, 0, 0, 0, 0]);
-    await menu.getByRole("menuitemradio", { name: "Szene B auf diese vier Takte legen" }).click();
+    await menu.getByRole("menuitemradio", { name: "Put scene B on these four bars" }).click();
     expect((await pieceOf(page)).scenes.slice(7, 13)).toEqual([0, 1, 1, 1, 1, 0]);
     const tension = (await pieceOf(page)).tension[9]!;
-    await menu.getByRole("menuitem", { name: "Mehr los in diesem Takt" }).click();
+    await menu.getByRole("menuitem", { name: "More going on in this bar" }).click();
     expect((await pieceOf(page)).tension[9]).toBe(tension + 2);
-    await menu.getByRole("menuitem", { name: "Ab hier spielen" }).click();
+    await menu.getByRole("menuitem", { name: "Play from here" }).click();
     await expect(menu).toBeHidden();
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "true");
     expect(await page.evaluate(() => [window.kreisel.app.project.piece.on, window.kreisel.app.piece.start])).toEqual([true, 9]);
@@ -149,8 +149,8 @@ test.describe("am Laptop", () => {
     await page.locator("#kreisel").focus();
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ContextMenu");
-    await expect(menu.locator("header")).toHaveText("Hi-Hat · Schritt 1");
-    await expect(menu.locator("button:focus")).toHaveText("leise");
+    await expect(menu.locator("header")).toHaveText("Hi-Hat · step 1");
+    await expect(menu.locator("button:focus")).toHaveText("quiet");
     await page.keyboard.press("ArrowDown");
     await expect(menu.locator("button:focus")).toHaveText("normal");
     await page.keyboard.press("Enter");
@@ -161,12 +161,12 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("rastet Effekte mit der rechten Taste ein und setzt Regler zurück", async ({ page }) => {
+  test("latches effects with the right button and resets sliders", async ({ page }) => {
     const problems = await open(page);
     const fx = () => page.evaluate(() => ({ ...window.kreisel.app.engine.fx }));
     await page.keyboard.press("Space");
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "true");
-    const dull = page.locator(".pad-fx", { hasText: "Dumpf" });
+    const dull = page.locator(".pad-fx", { hasText: "Dull" });
     await dull.click({ button: "right" });
     await expect(dull).toHaveClass(/latched/);
     await expect(dull).toHaveAttribute("aria-pressed", "true");
@@ -176,7 +176,7 @@ test.describe("am Laptop", () => {
     await expect(dull).not.toHaveClass(/held/);
     expect((await fx()).dumpf).toBe(false);
     // With Shift the key latches, the same key lets go; stopping lets everything go.
-    const thin = page.locator(".pad-fx", { hasText: "Dünn" });
+    const thin = page.locator(".pad-fx", { hasText: "Thin" });
     await page.keyboard.press("Shift+KeyX");
     await expect(thin).toHaveClass(/latched/);
     expect((await fx()).duenn).toBe(true);
@@ -203,7 +203,7 @@ test.describe("am Laptop", () => {
       app.rings.setTrack(6, { hall: 0.9, echo: 0.9, x: 0.1, y: 0.9 });
       app.setGlobal({ swing: 0.5 });
     });
-    await page.locator(".panel-ring .line", { hasText: "Hall" }).locator("input").click({ button: "right" });
+    await page.locator(".panel-ring .line", { hasText: "Reverb" }).locator("input").click({ button: "right" });
     await page.locator(".panel-ring .pad").click({ button: "right" });
     await page.locator("#swing").click({ button: "right" });
     expect(await page.evaluate(() => {
@@ -211,16 +211,16 @@ test.describe("am Laptop", () => {
       const melody = project.tracks[6]!;
       return [melody.hall, melody.echo, melody.x, melody.y, project.swing];
     })).toEqual([0.3, 0.9, 0.55, 0.45, 0.18]);
-    await expect(page.locator(".panel-ring .line", { hasText: "Hall" }).locator("input")).toHaveValue("30");
+    await expect(page.locator(".panel-ring .line", { hasText: "Reverb" }).locator("input")).toHaveValue("30");
     expect(problems).toEqual([]);
   });
 
-  test("rastet einen Effekt auch im Stehen ein, und er wirkt vom ersten Schlag an", async ({ page }) => {
+  test("latches an effect while it stands too, and it acts from the first beat on", async ({ page }) => {
     const problems = await open(page);
     const fx = () => page.evaluate(() => ({ ...window.kreisel.app.engine.fx }));
     const struck = (track: number): Promise<boolean> => page.evaluate((ring) => (window.kreisel.app.engine.struck[ring] ?? -10) > 0, track);
     // While the Kreisel stands, Shift and the key latch, and the latch holds; the same key lets it go.
-    const thin = page.locator(".pad-fx", { hasText: "Dünn" });
+    const thin = page.locator(".pad-fx", { hasText: "Thin" });
     await page.keyboard.press("Shift+KeyX");
     await expect(thin).toHaveClass(/latched/);
     await expect(thin).toHaveAttribute("aria-pressed", "true");
@@ -253,10 +253,10 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("öffnet mit einem langen Fingerdruck dasselbe Menü wie die rechte Taste", async ({ page }) => {
+  test("opens the same menu as the right button with a long press of a finger", async ({ page }) => {
     const problems = await open(page);
     const menu = page.locator("#context");
     /** A finger that comes down, rests for `hold` ms and goes up again. */
@@ -272,13 +272,13 @@ test.describe("am Handy", () => {
     let spot = await where(page, 0, 2);
     const before = await state(page);
     await rest("#kreisel", spot.x, spot.y, 800);
-    await expect(menu.locator("header")).toHaveText("Kick · Schritt 3");
+    await expect(menu.locator("header")).toHaveText("Kick · step 3");
     expect(await state(page)).toBe(before);
     expect(await page.evaluate(() => window.kreisel.app.store.canUndo)).toBe(false);
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
-    await menu.getByRole("menuitem", { name: "Schlag setzen" }).tap();
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
-    await menu.getByRole("menuitemradio", { name: "laut" }).tap();
+    await menu.getByRole("menuitem", { name: "Place hit" }).tap();
+    await expect(status(page)).toHaveText("Kick: 5 hits on 1, 3, 5, 9, 13 of 16 · all rings meet every 3 bars");
+    await menu.getByRole("menuitemradio", { name: "loud" }).tap();
     expect(await page.evaluate(() => window.kreisel.app.project.scenes[0]!.patterns[0]!.steps[2]!.vel)).toBe(2);
     // A touch beside the menu puts it away.
     await page.locator("#status").tap();
@@ -288,16 +288,16 @@ test.describe("am Handy", () => {
     spot = await where(page, 0, 2);
     await rest("#kreisel", spot.x, spot.y, 120);
     await expect(menu).toBeHidden();
-    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 4 hits on 1, 5, 9, 13 of 16 · all rings meet every 3 bars");
 
     // Resting on the piece's ring does not paint: it asks what to do with the bar.
     await focusPiece(page);
     const rim = await barAt(page, 6, 1);
     const tension = (await pieceOf(page)).tension;
     await rest("#kreisel", rim.x, rim.y, 800);
-    await expect(menu.locator("header")).toHaveText("Stück · Takt 7");
+    await expect(menu.locator("header")).toHaveText("Piece · bar 7");
     expect((await pieceOf(page)).tension).toEqual(tension);
-    await menu.getByRole("menuitem", { name: "Ab hier spielen" }).tap();
+    await menu.getByRole("menuitem", { name: "Play from here" }).tap();
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "true");
     expect(await page.evaluate(() => window.kreisel.app.piece.start)).toBe(6);
     await page.locator("#play").tap();
@@ -309,7 +309,7 @@ test.describe("am Handy", () => {
     await page.keyboard.press("Escape");
     const scene = (await page.locator(".scene", { hasText: "C" }).boundingBox())!;
     await rest(".scene:has-text('C')", scene.x + scene.width / 2, scene.y + scene.height / 2, 800);
-    await expect(menu.locator("header")).toHaveText("Szene C (leer)");
+    await expect(menu.locator("header")).toHaveText("Scene C (empty)");
     expect(await page.evaluate(() => window.kreisel.app.project.scenes[2])).toBeNull();
     expect(problems).toEqual([]);
   });

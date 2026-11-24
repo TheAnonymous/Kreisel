@@ -13,7 +13,7 @@ const WHEEL = 23;
 const REACH = 34;
 
 /*
- * The row ("Folge") under the wheel: one tile a round, in the order they
+ * The row ("Row") under the wheel: one tile a round, in the order they
  * play. A click goes to a round, the right button has more, a tile can be
  * carried to another place, and a scene carried here from the scenes' box is
  * laid in where it is let go.
@@ -22,7 +22,7 @@ export class RowBand {
   private readonly node = byId("row");
   private readonly rounds = el("div", "rounds");
   private readonly gap = el("span", "gap");
-  private readonly add = button("round add", "+", "Die Szene auf dem Tisch ans Ende der Folge legen");
+  private readonly add = button("round add", "+", "Put the scene on the table at the end of the row");
   private readonly sum = el("span", "row-sum");
   private tiles: HTMLButtonElement[] = [];
   /** What the tiles show; they are made anew only when this changes. */
@@ -35,9 +35,9 @@ export class RowBand {
 
   build(): void {
     const app = this.app;
-    this.add.setAttribute("aria-label", "Szene vom Tisch in die Folge legen");
+    this.add.setAttribute("aria-label", "Put the scene from the table into the row");
     this.add.addEventListener("click", () => app.scenes.lay(app.project.scene));
-    this.node.append(el("span", "row-name", "Folge"), this.rounds, this.add, this.sum);
+    this.node.append(el("span", "row-name", "Row"), this.rounds, this.add, this.sum);
     // Delete takes the round the keyboard is on out of the row (and not a hit off the wheel).
     this.node.addEventListener("keydown", (event) => {
       const round = event.target instanceof HTMLElement ? event.target.dataset.round : undefined;
@@ -122,9 +122,9 @@ export class RowBand {
     }
     const count = project.order.length;
     const seconds = Math.round(orderBars(project) * BAR * stepSeconds(project));
-    this.sum.textContent = `${count} ${count === 1 ? "Runde" : "Runden"} · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    this.sum.textContent = `${count} ${count === 1 ? "round" : "rounds"} · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
     this.add.disabled = count >= MAX_ROUNDS;
-    this.add.title = count >= MAX_ROUNDS ? `Mehr als ${MAX_ROUNDS} Runden passen nicht in die Folge` : `Szene ${SCENE_NAMES[project.scene] ?? ""} ans Ende der Folge legen`;
+    this.add.title = count >= MAX_ROUNDS ? `No more than ${MAX_ROUNDS} rounds fit into the row` : `Put scene ${SCENE_NAMES[project.scene] ?? ""} at the end of the row`;
     if (app.playing && this.frame === 0) this.frame = requestAnimationFrame(() => this.progress());
     if (!app.playing && now !== null) this.tiles[now]?.style.removeProperty("--done");
   }
@@ -142,9 +142,9 @@ export class RowBand {
   private tile(scene: number, round: number): HTMLButtonElement {
     const app = this.app;
     const name = SCENE_NAMES[scene] ?? "";
-    const tile = button("round", "", `${round + 1}. Runde: Szene ${name} · Klick springt hierher · ziehen ordnet um · Rechtsklick für mehr`);
+    const tile = button("round", "", `Round ${round + 1}: scene ${name} · click jumps here · dragging reorders · right click for more`);
     tile.dataset.round = String(round);
-    tile.setAttribute("aria-label", `${round + 1}. Runde: Szene ${name}`);
+    tile.setAttribute("aria-label", `Round ${round + 1}: scene ${name}`);
     const wheel = el("canvas");
     const filled = app.project.scenes[scene];
     if (filled) drawScene(wheel, filled, WHEEL);

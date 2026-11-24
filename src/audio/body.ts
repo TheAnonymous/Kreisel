@@ -66,8 +66,8 @@ export function playBody(kit: Kit, out: AudioNode, trackIndex: number, track: Tr
   const info = trackInfo(trackIndex);
   const context = kit.context;
   const tuned = info.refHz > 0;
-  // Rings whose pad says "Ton" tune the body with it; the others shade its brightness.
-  const tunes = info.xLabel === "Ton";
+  // Rings whose pad says "Tone" tune the body with it; the others shade its brightness.
+  const tunes = info.xLabel === "Tone";
   const tune = tunes ? semitones(lerp(-7, 7, track.x)) : 1;
   // An open hi-hat rings longer on the same body.
   const open = trackIndex === 2 ? (hit.pitch > 0 ? 1 + hit.pitch * 0.5 : 1 / (1 - hit.pitch * 0.25)) : 1;

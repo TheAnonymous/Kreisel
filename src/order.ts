@@ -1,7 +1,7 @@
 import type { Project, Scene } from "./model";
 
 /*
- * The row ("Folge"): the scenes in the order they play, one entry a round.
+ * The row ("Row"): the scenes in the order they play, one entry a round.
  * A round is a scene once through its chords, so A A B A is four rounds and
  * the first scene plays twice before the second comes. The row is laid by
  * hand; nothing in it is implied.

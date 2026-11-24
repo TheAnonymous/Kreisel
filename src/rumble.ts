@@ -12,7 +12,7 @@ import type { Random } from "./patterns";
 /** On the kick's ring the tool that holds notes elsewhere (a drum has none to hold) paints the Nachbeben. */
 export const shakes = (track: number, tool: string): boolean => track === 0 && tool === "laenge";
 
-export const RUMBLE_SHAPES = ["Offbeat", "Rollend", "Schweif"] as const;
+export const RUMBLE_SHAPES = ["Offbeat", "Rolling", "Tail"] as const;
 /** How much each shape rolls: the swell and the tail are one breath, the roll is sixteenths. */
 export const SHAPE_ROLL = [0.1, 0.85, 0] as const;
 
@@ -94,10 +94,10 @@ export function rumbleHz(hz: number): number {
 export function describeRumble(scene: Scene, pattern: Pattern): string {
   const steps = scene.rumble.slice(0, pattern.len);
   const shaking = steps.filter((value) => value > 0).length;
-  if (shaking === 0) return "kein Nachbeben";
+  if (shaking === 0) return "no rumble";
   const shape = shapeOf(pattern, scene.rumble);
   const most = Math.round((Math.max(...steps) / RUMBLE_MAX) * 100);
-  return `Nachbeben${shape >= 0 ? ` (${RUMBLE_SHAPES[shape]})` : ""} auf ${shaking} von ${pattern.len} Schritten, bis ${most} %`;
+  return `Rumble${shape >= 0 ? ` (${RUMBLE_SHAPES[shape]})` : ""} on ${shaking} of ${pattern.len} steps, up to ${most} %`;
 }
 
 /** A line as it may be: whole numbers in range, exactly MAX_STEPS of them. */

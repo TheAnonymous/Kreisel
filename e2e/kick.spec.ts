@@ -13,10 +13,10 @@ const STANDS = 1.5;
 /** How much of the third overtone a clipped body has at least (a clean one has next to none). */
 const CLIPPED = 0.05;
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("macht die Kick hart und lässt sie in der Tonart landen", async ({ page }) => {
+  test("makes the kick hard and lets it land in the key", async ({ page }) => {
     const problems = await open(page);
     // Only the kick is heard, four on the floor at 150 BPM (a sixteenth is a tenth of a second), ringing as long as it can.
     await page.evaluate(() => {
@@ -46,7 +46,7 @@ test.describe("am Laptop", () => {
     const listen = async (): Promise<{ body: number; hz: number; third: number }> => {
       await page.locator("#record-more").click();
       const rendered = page.waitForEvent("download");
-      await page.locator("#context").getByText("Als Opus speichern").click();
+      await page.locator("#context").getByText("Save as Opus").click();
       const bytes = readFileSync(await (await rendered).path());
       await page.evaluate(() => window.kreisel.app.dismiss());
       return page.evaluate(async (data) => {
@@ -101,7 +101,7 @@ test.describe("am Laptop", () => {
       }, [...bytes]);
     };
 
-    // In A minor the kick "Hart" lands on A: 55 Hz.
+    // In A minor the kick "Hard" lands on A: 55 Hz.
     const clean = await listen();
     expect(Math.abs(clean.hz - 55)).toBeLessThan(OFF);
 
@@ -131,10 +131,10 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("hat am Handy den Regler für die Härte der Kick, und das Feld passt in die Breite", async ({ page }) => {
+  test("has the slider for the kick's hardness on a phone, and the panel fits the width", async ({ page }) => {
     const problems = await open(page);
     await focus(page, 0);
     const slider = page.locator("#kick-hard");

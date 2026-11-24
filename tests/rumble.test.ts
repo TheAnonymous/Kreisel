@@ -18,7 +18,7 @@ const state = (change: (project: Project) => void = () => undefined): unknown =>
   return JSON.parse(JSON.stringify(packState(project)));
 };
 
-describe("the shapes of the Nachbeben", () => {
+describe("the shapes of the rumble", () => {
   it("swells between the kicks, rolls through them, or trails after them; never on a kick", () => {
     expect(rumbleShape(four, 0).slice(0, 8)).toEqual([0, 12, 15, 12, 0, 12, 15, 12]);
     expect(rumbleShape(four, 1).slice(0, 8)).toEqual([0, 15, 13, 15, 0, 15, 13, 15]);
@@ -69,12 +69,12 @@ describe("the shapes of the Nachbeben", () => {
   it("says in words what is there", () => {
     const project = factoryProject();
     const scene = project.scenes[0]!;
-    expect(describeRumble(scene, scene.patterns[0]!)).toBe("kein Nachbeben");
+    expect(describeRumble(scene, scene.patterns[0]!)).toBe("no rumble");
     expect(hasRumble(scene)).toBe(false);
     scene.rumble = rumbleShape(scene.patterns[0]!, 1);
-    expect(describeRumble(scene, scene.patterns[0]!)).toBe("Nachbeben (Rollend) auf 12 von 16 Schritten, bis 100 %");
+    expect(describeRumble(scene, scene.patterns[0]!)).toBe("Rumble (Rolling) on 12 of 16 steps, up to 100 %");
     scene.rumble[1] = 4;
-    expect(describeRumble(scene, scene.patterns[0]!)).toBe("Nachbeben auf 12 von 16 Schritten, bis 100 %");
+    expect(describeRumble(scene, scene.patterns[0]!)).toBe("Rumble on 12 of 16 steps, up to 100 %");
     expect(hasRumble(scene)).toBe(true);
     // What lies beyond the ring's length does not count.
     scene.rumble = emptyRumble();
@@ -83,7 +83,7 @@ describe("the shapes of the Nachbeben", () => {
   });
 });
 
-describe("the Nachbeben's sound in numbers", () => {
+describe("the rumble's sound in numbers", () => {
   it("lets out nothing at the bottom of the line and everything at the top", () => {
     expect(rumbleShare(0)).toBe(0);
     expect(rumbleShare(RUMBLE_MAX)).toBe(1);
@@ -115,7 +115,7 @@ describe("the Nachbeben's sound in numbers", () => {
   });
 });
 
-describe("the Nachbeben in the link", () => {
+describe("the rumble in the link", () => {
   it("travels with its scene and its character, and costs nothing where nothing shakes", () => {
     const project = factoryProject();
     expect(serialize(project)).not.toContain('"q"');
@@ -146,11 +146,11 @@ describe("the Nachbeben in the link", () => {
     expect([deserialize(JSON.stringify(old)).dirt, deserialize(JSON.stringify(old)).roll]).toEqual([0.35, 0.2]);
     old.w = ["viel", 900];
     expect([deserialize(JSON.stringify(old)).dirt, deserialize(JSON.stringify(old)).roll]).toEqual([0.35, 1]);
-    old.w = "laut";
+    old.w = "loud";
     expect(deserialize(JSON.stringify(old)).roll).toBe(0.2);
   });
 
-  it("counts as the kick's ring in Reihum: its line and its character, but not a copied scene", () => {
+  it("counts as the kick's ring in Pass around: its line and its character, but not a copied scene", () => {
     expect(changedRings(state(), state((project) => { project.scenes[0]!.rumble[5] = 9; }))).toEqual([0]);
     expect(changedRings(state(), state((project) => { project.dirt = 0.8; }))).toEqual([0]);
     expect(changedRings(state(), state((project) => { project.roll = 0.6; }))).toEqual([0]);

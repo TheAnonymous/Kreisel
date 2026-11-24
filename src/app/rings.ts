@@ -197,14 +197,14 @@ export class RingDesk {
 
   diceAll(): void {
     if (Array.from({ length: TRACK_COUNT }, (_, track) => track).some((track) => this.app.relay.veiled(track))) {
-      this.app.say("Stille Post: Solange Ringe verdeckt sind, würfelt niemand alle auf einmal.");
+      this.app.say("Telephone: while rings are covered, nobody dices all of them at once.");
       return;
     }
     this.app.store.edit((project) => {
       const scene = currentScene(project);
       scene.patterns = scene.patterns.map((pattern, track) => dice(track, pattern.len, this.app.random, project.style, trackOf(project, track).sound));
     });
-    this.app.say("Alle Ringe neu gewürfelt.", this.app.takeBack);
+    this.app.say("All rings diced anew.", this.app.takeBack);
     this.app.onDeed({ what: "dice-all" });
   }
 
@@ -212,7 +212,7 @@ export class RingDesk {
   copy(track: number): void {
     if (this.app.relay.veiled(track)) return;
     this.copied = { track, pattern: clone(patternOf(this.app.project, track)) };
-    this.app.say(`Muster von ${trackInfo(track).name} kopiert. Rechtsklick auf einen Ring fügt es ein, auch in einer anderen Szene.`);
+    this.app.say(`Pattern of ${trackInfo(track).name} copied. A right click on a ring pastes it, in another scene too.`);
   }
 
   paste(track: number): void {
@@ -292,7 +292,7 @@ export class RingDesk {
 
   toggleLive(): void {
     this.live = !this.live;
-    this.app.say(this.live ? "Einspielen an: Was du auf A bis K spielst, landet im Ring, solange der Kreisel läuft." : "Einspielen aus.");
+    this.app.say(this.live ? "Play in on: what you play on A to K lands in the ring while the Kreisel runs." : "Play in off.");
   }
 
   /** A key of the home row: plays scale step `degree` on the ring in focus, and writes it down while live. */

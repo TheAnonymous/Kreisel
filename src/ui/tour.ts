@@ -122,10 +122,10 @@ export class Tour {
       const node = this.root.querySelector(selector);
       if (node) node.textContent = text;
     };
-    set("#tour-count", `${this.index + 1} von ${this.steps.length}`);
+    set("#tour-count", `${this.index + 1} of ${this.steps.length}`);
     set("#tour-title", step.title);
     set("#tour-text", step.text);
-    this.next.textContent = this.index >= this.steps.length - 1 ? "Los geht’s" : "Weiter";
+    this.next.textContent = this.index >= this.steps.length - 1 ? "Let's go" : "Next";
     // On a small screen the part may lie further down the page.
     const target = document.querySelector(step.target);
     const box = target?.getBoundingClientRect();

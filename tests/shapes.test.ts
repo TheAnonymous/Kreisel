@@ -49,7 +49,7 @@ describe("the shapes the dice can give a piece", () => {
     expect(short.tension[7]).toBe(short.tension[0]);
   });
 
-  it("Lang gezogen: one climb through the whole piece, at the top for its last bars", () => {
+  it("Long climb: one climb through the whole piece, at the top for its last bars", () => {
     for (const seed of SEEDS) {
       const piece = blank(64);
       dicePiece(piece, seeded(seed), "techno", "lang");
@@ -61,7 +61,7 @@ describe("the shapes the dice can give a piece", () => {
     }
   });
 
-  it("Wellen: lifted, lowered and lifted again, every wave a little higher, each arriving at once", () => {
+  it("Waves: lifted, lowered and lifted again, every wave a little higher, each arriving at once", () => {
     for (const seed of SEEDS) {
       const piece = blank(112);
       dicePiece(piece, seeded(seed), "techno", "wellen");
@@ -78,7 +78,7 @@ describe("the shapes the dice can give a piece", () => {
     }
   });
 
-  it("Zwei Drops: two breaks, a drop after each, the second bigger and late", () => {
+  it("Two drops: two breaks, a drop after each, the second bigger and late", () => {
     for (const seed of SEEDS) {
       for (const count of [64, 112, 200]) {
         const piece = blank(count);
@@ -151,12 +151,12 @@ describe("the piece written down", () => {
     expect(notes[8]).toMatchObject({ break: false, drops: [64] });
     expect(notes[6]!.rings[0]).toBe(0);
     const lines = protocolLines(technoPiece(), names);
-    expect(lines[0]).toBe("Takt 1–8: Kick, Snare (teils), Hi-Hat (teils)");
-    expect(lines[6]).toBe("Takt 49–56: Snare, Hi-Hat, Trommel, Bass · Break");
-    expect(lines[4]).toBe("Takt 33–40: alle");
-    expect(lines[7]).toBe("Takt 57–64: Snare, Hi-Hat, Trommel, Bass, Akkorde (teils) · Break · Build-up");
-    expect(lines[8]).toBe("Takt 65–72: alle · Drop in Takt 65");
+    expect(lines[0]).toBe("Bars 1–8: Kick, Snare (partly), Hi-Hat (partly)");
+    expect(lines[6]).toBe("Bars 49–56: Snare, Hi-Hat, Drum, Bass · Break");
+    expect(lines[4]).toBe("Bars 33–40: all");
+    expect(lines[7]).toBe("Bars 57–64: Snare, Hi-Hat, Drum, Bass, Chords (partly) · Break · Build-up");
+    expect(lines[8]).toBe("Bars 65–72: all · Drop in bar 65");
     // A piece that is no multiple of eight ends with a shorter phrase; one without tension has nobody playing.
-    expect(protocolLines(blank(12), names)).toEqual(["Takt 1–8: niemand", "Takt 9–12: niemand"]);
+    expect(protocolLines(blank(12), names)).toEqual(["Bars 1–8: nobody", "Bars 9–12: nobody"]);
   });
 });

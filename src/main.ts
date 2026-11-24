@@ -49,7 +49,7 @@ panels.onMenuUnder = (opener, target, byKeyboard) => {
   app.chords.close();
   menu.openUnder(opener, () => buildMenu(app, target, doors), byKeyboard, true);
 };
-// The same menu hangs under the bar's buttons: the Kreisel's name, the speaker, "Teilen", "Aufnehmen", the help.
+// The same menu hangs under the bar's buttons: the Kreisel's name, the speaker, "Share", "Record", the help.
 panels.onBarMenu = (opener, which, byKeyboard) => {
   app.chords.close();
   menu.openUnder(opener, () => barMenu(app, which, doors), byKeyboard);

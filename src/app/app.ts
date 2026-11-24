@@ -37,7 +37,7 @@ export type ContextTarget =
   | { kind: "ends" }
   /** The kit of a build-up: of the drop that lands in bar `drop`, or of all drops that have none of their own. */
   | { kind: "build"; drop: number | null }
-  /** The roster ("Einsätze") of the phrase around a bar of the piece: all seven rings. */
+  /** The roster ("Roster") of the phrase around a bar of the piece: all seven rings. */
   | { kind: "roster"; bar: number }
   | { kind: "chord"; slot: number }
   | { kind: "hub" }
@@ -63,20 +63,20 @@ export type Workshop = "paint" | "body" | "voice";
 export type Tool = "setzen" | "betonen" | "zufall" | "wirbel" | "laenge";
 
 export const TOOLS: readonly { id: Tool; name: string; hint: string }[] = [
-  { id: "setzen", name: "Setzen", hint: "Klick setzt oder löscht, ziehen malt, nach außen ziehen macht höher" },
-  { id: "betonen", name: "Betonen", hint: "Klick wechselt zwischen laut, leise und normal" },
-  { id: "zufall", name: "Zufall", hint: "Klick lässt den Schlag nur manchmal kommen" },
-  { id: "wirbel", name: "Wirbel", hint: "Klick teilt den Schlag in zwei, drei oder vier" },
-  { id: "laenge", name: "Länge", hint: "Am Ring entlang ziehen hält den Ton länger" },
+  { id: "setzen", name: "Place", hint: "Click places or removes a hit, dragging paints, dragging outwards makes it higher" },
+  { id: "betonen", name: "Accent", hint: "Click switches between loud, quiet and normal" },
+  { id: "zufall", name: "Chance", hint: "Click makes the hit come only sometimes" },
+  { id: "wirbel", name: "Ratchet", hint: "Click splits the hit into two, three or four" },
+  { id: "laenge", name: "Length", hint: "Dragging along the ring holds the note longer" },
 ];
 
 export const FX: readonly { id: FxName; name: string; hint: string }[] = [
-  { id: "dumpf", name: "Dumpf", hint: "Dreht die Höhen zu" },
-  { id: "duenn", name: "Dünn", hint: "Nimmt den Bass weg" },
-  { id: "stotter", name: "Stotter", hint: "Wiederholt die letzte Achtel" },
-  { id: "wurf", name: "Echo", hint: "Wirft alles ins Echo" },
-  { id: "pause", name: "Pause", hint: "Schlagzeug und Bass setzen aus, beim Loslassen kommen sie zurück" },
-  { id: "aufbau", name: "Build-up", hint: "Baut auf, solange gehalten: Riser und Snare-Roll steigen, die Tiefen gehen (bis zu acht Takte). Beim Loslassen kommt der Drop auf die nächste Eins" },
+  { id: "dumpf", name: "Dull", hint: "Turns the highs down" },
+  { id: "duenn", name: "Thin", hint: "Takes the bass away" },
+  { id: "stotter", name: "Stutter", hint: "Repeats the last eighth" },
+  { id: "wurf", name: "Echo", hint: "Throws everything into the echo" },
+  { id: "pause", name: "Pause", hint: "Drums and bass drop out, and come back when you let go" },
+  { id: "aufbau", name: "Build-up", hint: "Builds up while held: riser and snare roll rise, the lows go (up to eight bars). When you let go, the drop lands on the next one" },
 ];
 
 export class App {
@@ -105,7 +105,7 @@ export class App {
   /** The dice of this visit: everything that is thrown comes from here. */
   readonly random = seeded(Date.now() >>> 0);
   /** What a message offers after something that is easily regretted. */
-  readonly takeBack: NonNullable<Toast["action"]> = { label: "Zurück", run: () => this.undo() };
+  readonly takeBack: NonNullable<Toast["action"]> = { label: "Undo", run: () => this.undo() };
   private readonly listeners = new Set<() => void>();
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private notified = false;
@@ -154,7 +154,7 @@ export class App {
       this.engine.sync();
       this.notify();
     });
-    this.store.refused = () => this.say("Das ist ein Rückblick auf einen alten Zug: Hier lässt sich nichts ändern. Geh zurück zu jetzt oder bau von hier weiter.");
+    this.store.refused = () => this.say("This is a look back at an old turn: nothing can be changed here. Go back to now, or build on from here.");
     window.addEventListener("pagehide", () => this.store.save());
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") this.store.save();
@@ -232,7 +232,7 @@ export class App {
       if (on) project.align = true;
       else delete project.align;
     });
-    this.say(on ? "Alle acht Takte beginnen die Ringe gemeinsam neu: Ungleich lange Ringe reiben in der Phrase und lösen sich an ihrem Anfang." : "Die Ringe laufen wieder frei gegeneinander.");
+    this.say(on ? "Every eight bars the rings start together again: rings of unequal length rub within the phrase and resolve at its start." : "The rings run free against each other again.");
   }
 
   setFx(name: FxName, on: boolean): void {
@@ -363,7 +363,7 @@ export class App {
     }
     this.store.replace(project);
     if (this.playing) this.engine.queueScene(0);
-    this.say(empty ? "Ein leerer Kreisel." : style === "techno" ? "Der Techno-Kreisel ist da." : "Der Werks-Kreisel ist wieder da.", this.takeBack);
+    this.say(empty ? "An empty Kreisel." : style === "techno" ? "The techno Kreisel is here." : "The factory Kreisel is back.", this.takeBack);
   }
 
   /** Whether the dice throw techno, what the controls go back to, which sounds the palettes show first, and whether the hi-hat is one voice. */
@@ -371,8 +371,8 @@ export class App {
     const style: StyleId = this.project.style === "techno" ? "frei" : "techno";
     this.setGlobal({ style });
     this.say(style === "techno"
-      ? "Die Würfel werfen jetzt Techno: Kick auf jedem Schlag, offene Hi-Hat dazwischen, Acid-Linien. Die Paletten beginnen mit der Techno-Gruppe, und eine geschlossene Hi-Hat schneidet die offene ab."
-      : "Die Würfel werfen wieder frei. Jede Hi-Hat klingt wieder aus.");
+      ? "The dice now throw techno: kick on every beat, open hi-hat in between, acid lines. The palettes begin with the techno group, and a closed hi-hat cuts off the open one."
+      : "The dice throw freely again. Every hi-hat rings out again.");
   }
 
   // ---- how it looks ----------------------------------------------------------------
@@ -380,14 +380,14 @@ export class App {
   toggleLights(): void {
     this.lights = !this.lights;
     writeFlag("kreisel.licht", this.lights);
-    this.say(this.lights ? "Lichtspiel an: Jeder Schlag wirft Licht auf den Tisch, betonte sprühen Funken." : "Lichtspiel aus.");
+    this.say(this.lights ? "Light show on: every hit throws light on the table, accented ones spray sparks." : "Light show off.");
   }
 
   /** Onto the stage, or off it again. */
   toggleStage(on = !this.stage): void {
     if (on === this.stage) return;
     this.stage = on;
-    if (on) this.say("Bühne: nur das Rad, im Dunkeln. Der Knopf in der Ecke oder Esc bringt alles zurück.");
+    if (on) this.say("Stage: only the wheel, in the dark. The button in the corner or Esc brings everything back.");
     else this.notify();
   }
 

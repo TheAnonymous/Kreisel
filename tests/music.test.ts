@@ -10,15 +10,15 @@ describe("scales", () => {
     expect(scaleSemis("moll", -7)).toBe(-12);
   });
 
-  it("names the chords of A minor in German", () => {
+  it("names the chords of A minor", () => {
     const names = [0, 1, 2, 3, 4, 5, 6].map((degree) => chordName(9, "moll", degree));
-    expect(names).toEqual(["Am", "H°", "C", "Dm", "Em", "F", "G"]);
+    expect(names).toEqual(["Am", "B°", "C", "Dm", "Em", "F", "G"]);
     expect(chordRoman("moll", 0)).toBe("i");
     expect(chordRoman("moll", 1)).toBe("ii°");
     expect(chordRoman("moll", 5)).toBe("VI");
     expect(chordQuality("harmonisch", 2)).toBe("+");
-    expect(noteName(70)).toBe("B");
-    expect(noteName(71)).toBe("H");
+    expect(noteName(70)).toBe("Bb");
+    expect(noteName(71)).toBe("B");
   });
 });
 

@@ -64,11 +64,11 @@ describe("weather over the wheel", () => {
   });
 
   it("names its winds", () => {
-    expect(windName(0)).toBe("still");
-    expect(windName(1)).toBe("¼ Schritt je Takt ↻");
-    expect(windName(-2)).toBe("½ Schritt je Takt ↺");
-    expect(windName(4)).toBe("1 Schritt je Takt ↻");
-    expect(windName(-16)).toBe("4 Schritte je Takt ↺");
+    expect(windName(0)).toBe("calm");
+    expect(windName(1)).toBe("¼ step a bar ↻");
+    expect(windName(-2)).toBe("½ step a bar ↺");
+    expect(windName(4)).toBe("1 step a bar ↻");
+    expect(windName(-16)).toBe("4 steps a bar ↺");
     expect(WINDS[5]).toBe(0);
     // As many winds one way as the other.
     expect(WINDS.map((wind) => (wind === 0 ? 0 : -wind)).reverse()).toEqual([...WINDS]);
@@ -91,14 +91,14 @@ describe("weather over the wheel", () => {
 
   it("says in words what the sky is like", () => {
     const scene = factoryProject().scenes[0]!;
-    expect(describeWeather(scene)).toBe("klarer Himmel");
+    expect(describeWeather(scene)).toBe("clear sky");
     scene.weather[0]![4]![1] = 10;
     scene.weather[3]![1]![12] = 15;
     scene.weather[3]![2]![12] = 15;
     scene.wind[0] = 4;
-    expect(describeWeather(scene)).toBe("Nebel auf Bass, zieht 1 Schritt je Takt ↻ · Regen auf 2 Ringen");
+    expect(describeWeather(scene)).toBe("Fog on Bass, drifting 1 step a bar ↻ · Rain on 2 rings");
     for (let ring = 0; ring < TRACK_COUNT; ring += 1) scene.weather[2]![ring]![0] = 5;
-    expect(describeWeather(scene)).toContain("Wolken überall");
+    expect(describeWeather(scene)).toContain("Clouds everywhere");
   });
 
   it("dice give a sky that is in range, the same for the same throw", () => {
@@ -168,7 +168,7 @@ describe("weather in the link", () => {
     expect(deserialize(JSON.stringify(old)).scenes[0]!.wind).toEqual([0, 16, 0, 0, 0, 0]);
   });
 
-  it("counts in Reihum for the rings it lies on, and the wind for nobody", () => {
+  it("counts in Pass around for the rings it lies on, and the wind for nobody", () => {
     expect(changedRings(state(), state((project) => { project.scenes[0]!.weather[2]![4]![3] = 9; }))).toEqual([4]);
     expect(changedRings(state(), state((project) => {
       project.scenes[0]!.weather[0]![1]![3] = 9;

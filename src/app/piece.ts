@@ -2,7 +2,7 @@ import { BUILD_NONE, BUILD_SIZES, BUILD_SMALL, clamp, TENSION_MAX, TRACK_COUNT, 
 import { barCount, buildAt, buildFor, buildOfAll, clearBuild, clearRoster, describeBuild, dicePiece, fillRoster, flipped, isDrop, kickOut, moveInOrder, ownBuild, PHRASE, phraseOf, reached, resizePiece, ROSTER, rosterOf, rotatePiece, endsCount, markNames, marksAt, nextDrop, protocolLines, setBuild, setEnds, setKick, setRoster, setSway, setVary, shareBuild, smoothPiece, swayCount, toggleMark, type RosterState, type ShapeId } from "../piece";
 import type { App } from "./app";
 
-/** What the wheel shows of the piece while its ring is in focus: the tension to paint, or the roster ("Einsätze") to lay. */
+/** What the wheel shows of the piece while its ring is in focus: the tension to paint, or the roster ("Roster") to lay. */
 export type PieceTool = "spannung" | "einsaetze";
 
 /*
@@ -18,7 +18,7 @@ export class PieceDesk {
   /** The ring the keyboard points at in the roster. */
   lane = 0;
   /**
-   * "Einspielen": while the piece plays, the tension follows the hand (the mouse wheel, the arrow keys) and is written
+   * "Play in": while the piece plays, the tension follows the hand (the mouse wheel, the arrow keys) and is written
    * into the line bar by bar. `hand` is the tension the hand holds (0..TENSION_MAX).
    */
   riding = false;
@@ -48,7 +48,7 @@ export class PieceDesk {
     this.app.notify();
   }
 
-  /** Switches "Einspielen" on or off. The hand starts at the tension of the bar that plays (or of the bar the piece starts from). */
+  /** Switches "Play in" on or off. The hand starts at the tension of the bar that plays (or of the bar the piece starts from). */
   toggleRide(): void {
     this.riding = !this.riding;
     this.ridden = null;
@@ -58,7 +58,7 @@ export class PieceDesk {
       const piece = this.app.project.piece;
       const at = Math.floor(this.playhead() ?? this.start);
       this.hand = piece.tension[wrap(at, barCount(piece))] ?? 0;
-      this.app.say("Einspielen: Mausrad oder ↑ ↓ ändern die Spannung, während das Stück läuft. Sie wird Takt für Takt in die Linie geschrieben.");
+      this.app.say("Play in: the mouse wheel or ↑ ↓ change the tension while the piece runs. It is written into the line bar by bar.");
     }
     this.app.notify();
   }
@@ -72,7 +72,7 @@ export class PieceDesk {
   }
 
   /**
-   * A step is heard. While "Einspielen" is on and the piece plays, the bar after the one that has just begun gets the
+   * A step is heard. While "Play in" is on and the piece plays, the bar after the one that has just begun gets the
    * tension the hand holds: the player has read the bar that sounds already, so the hand is heard from the next one.
    */
   heard(): void {
@@ -97,7 +97,7 @@ export class PieceDesk {
   toggle(): void {
     const on = !this.app.project.piece.on;
     this.app.store.edit((project) => { project.piece.on = on; });
-    if (on) this.app.say("Der Kreisel spielt jetzt nach dem Stück-Ring: außen ist viel los, innen wenig. Mal die Spannung in den Ring.");
+    if (on) this.app.say("The Kreisel now plays by the piece's ring: a lot is going on outside, little inside. Paint the tension into the ring.");
   }
 
   paintTension(bar: number, tension: number, gesture: string): void {
@@ -136,7 +136,7 @@ export class PieceDesk {
     const { from, to } = phraseOf(piece, bar);
     const next = plays ?? kickOut(piece, bar);
     this.app.store.edit((project) => setKick(project.piece, from, to, next));
-    this.app.say(next ? `Takt ${from + 1} bis ${to} wieder mit Kick.` : `Break in Takt ${from + 1} bis ${to}: Kick und Nachbeben setzen aus, alles andere spielt nach der Spannung.`);
+    this.app.say(next ? `Bars ${from + 1} to ${to} with kick again.` : `Break in bars ${from + 1} to ${to}: kick and rumble drop out, everything else plays by the tension.`);
   }
 
   /**
@@ -167,7 +167,7 @@ export class PieceDesk {
     const piece = this.app.project.piece;
     const { from, to } = bar === null ? { from: 0, to: barCount(piece) } : phraseOf(piece, bar);
     this.app.store.edit((project) => fillRoster(project.piece, from, to));
-    if (bar === null) this.app.say("Alle Ringe spielen jetzt im ganzen Stück. Nimm weg, was nicht spielen soll.", this.app.takeBack);
+    if (bar === null) this.app.say("All rings now play through the whole piece. Take away what should not play.", this.app.takeBack);
   }
 
   /** The tension decides again who plays in the phrase around `bar`, or in the whole piece. A break there goes too. */
@@ -176,7 +176,7 @@ export class PieceDesk {
     const { from, to } = bar === null ? { from: 0, to: barCount(piece) } : phraseOf(piece, bar);
     const breaks = piece.noKick?.slice(from, to).some(Boolean) ?? false;
     this.app.store.edit((project) => clearRoster(project.piece, from, to));
-    if (bar === null) this.app.say(`Im ganzen Stück entscheidet wieder die Spannung, wer spielt.${breaks ? " Auch die Breaks sind weg." : ""}`, this.app.takeBack);
+    if (bar === null) this.app.say(`Through the whole piece the tension decides again who plays.${breaks ? " The breaks are gone too." : ""}`, this.app.takeBack);
   }
 
   /** What the roster holds for a ring in the phrase around `bar`, in words: for the status line and for whoever points there. */
@@ -185,10 +185,10 @@ export class PieceDesk {
     const { from, to } = phraseOf(piece, bar);
     const state = rosterOf(piece, ring, bar);
     const tension = reached(piece, ring, bar);
-    const does = state === ROSTER.plays ? (tension ? "spielt hier immer" : "spielt, obwohl die Spannung noch nicht reicht")
-      : state === ROSTER.rests ? (tension ? "pausiert, obwohl die Spannung reicht" : "pausiert")
-        : tension ? "spielt nach der Spannung" : "spielt nicht, die Spannung reicht noch nicht";
-    return `${trackInfo(ring).name} · Takt ${from + 1} bis ${to}: ${does}`;
+    const does = state === ROSTER.plays ? (tension ? "always plays here" : "plays although the tension is not there yet")
+      : state === ROSTER.rests ? (tension ? "rests although the tension is there" : "rests")
+        : tension ? "plays by the tension" : "does not play, the tension is not there yet";
+    return `${trackInfo(ring).name} · bars ${from + 1} to ${to}: ${does}`;
   }
 
   /** The keyboard in the roster: from phrase to phrase along the piece, and from ring to ring. */
@@ -254,14 +254,14 @@ export class PieceDesk {
     this.app.store.edit((project) => setBuild(project.piece, drop, BUILD_SIZES[size]));
   }
 
-  /** "Für alle Drops übernehmen": every drop gets the build-up of the one in bar `drop`. */
+  /** "Use for all drops": every drop gets the build-up of the one in bar `drop`. */
   shareBuild(drop: number): void {
     if (!this.dropAt(drop)) return;
     this.app.store.edit((project) => shareBuild(project.piece, drop));
-    this.app.say("Alle Drops haben jetzt diesen Build-up.", this.app.takeBack);
+    this.app.say("All drops now have this build-up.", this.app.takeBack);
   }
 
-  /** "Wieder wie alle Drops": the drop in bar `drop` gives up its own build-up; with `null` every drop does. */
+  /** "Same as all drops again": the drop in bar `drop` gives up its own build-up; with `null` every drop does. */
   clearBuild(drop: number | null): void {
     this.app.store.edit((project) => clearBuild(project.piece, drop));
   }
@@ -269,7 +269,7 @@ export class PieceDesk {
   /** A drop in words: where it lands and what leads up to it. For the status line and for whoever points there. */
   describeDrop(drop: number): string {
     const piece = this.app.project.piece;
-    return `Drop in Takt ${drop + 1} · ${describeBuild(buildFor(piece, drop))}`;
+    return `Drop in bar ${drop + 1} · ${describeBuild(buildFor(piece, drop))}`;
   }
 
   /** How far the tension moves one thing beyond who plays: 0 not at all, 1 gently, 2 clearly. */

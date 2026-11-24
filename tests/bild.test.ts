@@ -96,10 +96,10 @@ describe("pictures", () => {
           expect(Math.max(...times)).toBeLessThanOrEqual(TIME_MAX);
           expect(stroke.points.length).toBeGreaterThanOrEqual(2);
         }
-        expect(describeBild(bild)).toMatch(/Strich/);
+        expect(describeBild(bild)).toMatch(/stroke/);
       }
     }
-    expect(describeBild(null)).toBe("noch leer");
+    expect(describeBild(null)).toBe("still empty");
   });
 
   it("put the root of a ring that plays notes exactly on its line", () => {

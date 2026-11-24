@@ -43,10 +43,10 @@ const mean = (parts: { loud: number; deep: number; sharp: number }[], bar: numbe
   return what === "sharp" ? part.reduce((sum, beat) => sum + beat.sharp * beat.loud ** 2, 0) / Math.max(1e-12, part.reduce((sum, beat) => sum + beat.loud ** 2, 0)) : Math.sqrt(part.reduce((sum, beat) => sum + beat[what] ** 2, 0) / part.length);
 };
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("stellt die Phrasen-Enden im Feld des Stücks ein und legt Effekte auf einen Takt", async ({ page }) => {
+  test("sets the phrase ends in the piece's panel and lays effects on a bar", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => {
       window.plainTechno();
@@ -56,21 +56,21 @@ test.describe("am Laptop", () => {
     await focusPiece(page);
     const button = page.locator("#piece-ends");
     const menu = menuOf(page);
-    await expect(button).toHaveText("Phrasen-Enden ▾");
+    await expect(button).toHaveText("Phrase ends ▾");
     await button.click();
-    await expect(menu).toContainText("Phrasen-Enden");
+    await expect(menu).toContainText("Phrase ends");
     expect(await menu.evaluate((node) => { const box = node.getBoundingClientRect(); return node.scrollHeight <= node.clientHeight + 1 && box.top >= 0 && box.bottom <= window.innerHeight && box.right <= window.innerWidth; })).toBe(true);
-    await menu.getByRole("menuitemcheckbox", { name: /^Letzte Kick fehlt/ }).click();
-    await menu.getByRole("menuitemradio", { name: /alle 16 Takte/ }).click();
-    await menu.getByRole("menuitemcheckbox", { name: /^Rückwärts-Becken/ }).click();
-    await expect(button).toHaveText("Phrasen-Enden: 3 ▾");
+    await menu.getByRole("menuitemcheckbox", { name: /^Last kick left out/ }).click();
+    await menu.getByRole("menuitemradio", { name: /every 16 bars/ }).click();
+    await menu.getByRole("menuitemcheckbox", { name: /^Backwards cymbal/ }).click();
+    await expect(button).toHaveText("Phrase ends: 3 ▾");
     expect((await pieceOf(page)).ends).toEqual({ kick: true, crash: 16, swell: true });
     // The fills are in the same list, and the chip beside the button follows.
     await menu.getByRole("menuitemcheckbox", { name: /^Fills/ }).click();
     await expect(page.locator("#piece-vary")).toHaveAttribute("aria-pressed", "true");
-    await expect(button).toHaveText("Phrasen-Enden: 4 ▾");
-    await menu.getByRole("menuitemradio", { name: /alle 32 Takte/ }).click();
-    await menu.getByRole("menuitemcheckbox", { name: /^Letzte Kick fehlt/ }).click();
+    await expect(button).toHaveText("Phrase ends: 4 ▾");
+    await menu.getByRole("menuitemradio", { name: /every 32 bars/ }).click();
+    await menu.getByRole("menuitemcheckbox", { name: /^Last kick left out/ }).click();
     await button.click();
     await expect(menu).toBeHidden();
     expect((await pieceOf(page)).ends).toEqual({ kick: false, crash: 32, swell: true });
@@ -82,21 +82,21 @@ test.describe("am Laptop", () => {
     const before = await colour(page, spot);
     const bar = await barAt(page, 30, 0.5);
     await page.mouse.click(bar.x, bar.y, { button: "right" });
-    await expect(menu).toContainText("Stück · Takt 31");
+    await expect(menu).toContainText("Piece · bar 31");
     const effect = (name: RegExp) => menu.getByRole("menuitemradio", { name });
-    await effect(/^Stotter/).click();
+    await effect(/^Stutter/).click();
     await effect(/^Echo/).click();
-    await expect(effect(/^Stotter/)).toHaveAttribute("aria-checked", "true");
-    await expect(effect(/^Dumpf/)).toHaveAttribute("aria-checked", "false");
+    await expect(effect(/^Stutter/)).toHaveAttribute("aria-checked", "true");
+    await expect(effect(/^Dull/)).toHaveAttribute("aria-checked", "false");
     expect((await pieceOf(page)).marks).toEqual([{ bar: 30, fx: 12 }]);
     await page.keyboard.press("Escape");
     await expect.poll(async () => (await colour(page, spot)).join()).not.toBe(before.join());
     await page.mouse.move(bar.x, bar.y);
-    await expect(page.locator("#tip")).toContainText("Effekt: Stotter, Echo");
+    await expect(page.locator("#tip")).toContainText("Effect: Stutter, Echo");
     // The piece's menu leads to the phrase ends too.
     await page.mouse.click(bar.x, bar.y, { button: "right" });
-    await menu.getByRole("menuitem", { name: /^Phrasen-Enden: 3/ }).click();
-    await expect(menu.getByRole("menuitemradio", { name: /alle 32 Takte/ })).toHaveAttribute("aria-checked", "true");
+    await menu.getByRole("menuitem", { name: /^Phrase ends: 3/ }).click();
+    await expect(menu.getByRole("menuitemradio", { name: /every 32 bars/ })).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("Escape");
 
     // The link carries both in the piece's eighth part, and they are there again after a reload.
@@ -105,7 +105,7 @@ test.describe("am Laptop", () => {
     const kept = await pieceOf(page);
     await page.evaluate(() => window.kreisel.app.store.save());
     await page.reload();
-    await expect(page.locator("#status")).toContainText("Melodie");
+    await expect(page.locator("#status")).toContainText("Melody");
     expect(await pieceOf(page)).toEqual(kept);
     // Taking the effects away again takes the dot away.
     await page.evaluate(() => { window.kreisel.app.piece.toggleMark(30, 4); window.kreisel.app.piece.toggleMark(30, 8); });
@@ -114,7 +114,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("spielt die Phrasen-Enden: Die letzte Kick fehlt, ein Crash fällt auf die Eins, ein Becken schwillt rückwärts hinein", async ({ page }) => {
+  test("plays the phrase ends: the last kick is left out, a crash falls on the one, a cymbal swells in backwards", async ({ page }) => {
     // Three renders of eight bars.
     test.setTimeout(120_000);
     const problems = await open(page);
@@ -138,7 +138,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("spielt die Effekte, die auf einem Takt liegen: Dumpf, Dünn, Stotter, Echo und Pause", async ({ page }) => {
+  test("plays the effects that lie on a bar: Dull, Thin, Stutter, Echo and Pause", async ({ page }) => {
     // Four renders of eight bars.
     test.setTimeout(150_000);
     const problems = await open(page);
@@ -167,7 +167,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("lässt unter einer „Pause“ auch das Fill weg: Der letzte Schlag des Takts ist leer", async ({ page }) => {
+  test("leaves the fill out too under a “Pause”: the last beat of the bar is empty", async ({ page }) => {
     // Two renders of eight bars.
     test.setTimeout(90_000);
     const problems = await open(page);

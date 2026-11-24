@@ -2,15 +2,15 @@ import { expect, test } from "@playwright/test";
 import { focus, onLaptop, onPhone, open } from "./helpers";
 
 /*
- * Hardness: "Zerre", which drives one ring, and "Druck", which presses the
+ * Hardness: "Drive", which drives one ring, and "Pressure", which presses the
  * sum of everything. What they do is measured on the whole Kreisel, rendered
  * faster than it plays.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("treibt einen Ring in die Zerre: dichter, kaum lauter, und die Kick bleibt aus dem Spiel", async ({ page }) => {
+  test("pushes a ring into the drive: denser, hardly louder, and the kick stays out of it", async ({ page }) => {
     const problems = await open(page);
     const row = page.locator("#drive-row");
     const slider = row.locator("input");
@@ -19,7 +19,7 @@ test.describe("am Laptop", () => {
     // Every ring but the kick has the control; it is the ring's own and one step back.
     await focus(page, 4);
     await expect(row).toBeVisible();
-    await expect(row).toContainText("Zerre");
+    await expect(row).toContainText("Drive");
     await expect(slider).toHaveValue("0");
     await slider.fill("60");
     expect(await drive(4)).toBe(0.6);
@@ -31,7 +31,7 @@ test.describe("am Laptop", () => {
     await expect(slider).toHaveValue("0");
     await focus(page, 4);
     await expect(slider).toHaveValue("60");
-    // The right button puts it back where the Werks-Kreisel has it.
+    // The right button puts it back where the factory Kreisel has it.
     await slider.click({ button: "right" });
     expect(await drive(4)).toBe(0);
     await focus(page, 0);
@@ -58,7 +58,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("presst alles zusammen: lauter und dichter, die Tiefen in der Mitte, und in Ruhe wie zuvor", async ({ page }) => {
+  test("presses everything together: louder and denser, the lows in the middle, and at rest as before", async ({ page }) => {
     // Seven renders of the whole Kreisel: more than the usual half minute on a busy laptop.
     test.setTimeout(90_000);
     const problems = await open(page);
@@ -122,10 +122,10 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("hat am Handy die Zerre im Feld des Rings und den Druck im Menü, und passt in die Breite", async ({ page }) => {
+  test("has the drive in the ring's panel and the pressure in the menu on a phone, and fits the width", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => window.kreisel.app.select(4));
     const row = page.locator("#drive-row");

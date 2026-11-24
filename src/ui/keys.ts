@@ -261,7 +261,7 @@ class Keyboard {
       if (!repeat) piece.setTool(code === "KeyQ" ? "spannung" : "einsaetze");
       return true;
     }
-    // "Einspielen": the third key switches it, and while it is on the arrows up and down (and plus and minus) are the hand on the tension.
+    // "Play in": the third key switches it, and while it is on the arrows up and down (and plus and minus) are the hand on the tension.
     if (code === "KeyE") {
       if (!repeat) piece.toggleRide();
       return true;

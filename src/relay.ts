@@ -9,9 +9,9 @@ import { weatherOn } from "./weather";
  */
 
 export const RULES = [
-  { name: "Frei", hint: "Jeder Zug darf alles verändern." },
-  { name: "Ein Ring", hint: "Pro Zug wird nur ein Ring angefasst. Tempo, Tonart, Akkorde und Stück sind frei." },
-  { name: "Stille Post", hint: "Ein Ring pro Zug, und du hörst nur den Ring der Person vor dir. Erst beim Aufdecken hören alle alles. Am besten mit einem leeren Kreisel beginnen." },
+  { name: "Free", hint: "Every turn may change anything." },
+  { name: "One ring", hint: "Only one ring is touched a turn. Tempo, key, chords and piece are free." },
+  { name: "Telephone", hint: "One ring a turn, and you hear only the ring of the person before you. Only at the reveal does everyone hear everything. Best started with an empty Kreisel." },
 ] as const;
 
 /** Colours for the people of a round: apart from the rings' own, and from each other. */
@@ -109,5 +109,5 @@ export function turnColor(relay: Relay, index: number): string {
 export function cleanName(value: unknown, limit: number): string {
   const text = typeof value === "string" ? value : "";
   const clean = text.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, limit);
-  return clean || "Jemand";
+  return clean || "Someone";
 }

@@ -29,19 +29,19 @@ export class AcidPanel {
       line.append(el("span", "label", label), input);
       amounts.append(line);
     };
-    amount("Biss", "bite", "Wie weit jeder Ton den Filter aufreißt");
-    amount("Dauer", "decay", "Wie langsam der Filter wieder zufällt; ein betonter Ton fällt immer schnell");
+    amount("Bite", "bite", "How far each note tears the filter open");
+    amount("Duration", "decay", "How slowly the filter falls shut again; an accented note always falls fast");
     const more = el("div", "line");
     more.setAttribute("role", "group");
-    more.setAttribute("aria-label", "Welle und Filterfahrt");
-    more.append(el("span", "label", "Welle"));
-    for (const [index, name, hint] of [[0, "Säge", "Sägezahn: hell und schnarrend"], [1, "Rechteck", "Rechteck: hohl und hölzern"]] as const) {
+    more.setAttribute("aria-label", "Wave and filter ride");
+    more.append(el("span", "label", "Wave"));
+    for (const [index, name, hint] of [[0, "Saw", "Sawtooth: bright and buzzing"], [1, "Square", "Square: hollow and woody"]] as const) {
       const chip = button("chip tiny", name, hint);
       chip.addEventListener("click", () => app.acid.shape({ square: index === 1 }));
       this.waves.push(chip);
       more.append(chip);
     }
-    const ride = button("button small", "Filterfahrt", "Legt Sonne über den Ring, die mit dem Wind wandert: Der Filter öffnet und schließt sich von selbst");
+    const ride = button("button small", "Filter ride", "Lays sun over the ring that travels with the wind: the filter opens and closes by itself");
     ride.id = "acid-ride";
     ride.addEventListener("click", () => app.acid.ride());
     more.append(ride);

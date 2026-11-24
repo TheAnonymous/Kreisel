@@ -6,10 +6,10 @@ import { bodyOf, copyLink, heard, knockAt, onLaptop, onPhone, open, pickSound, s
  * workbench.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("baut einem Ring einen Klangkörper", async ({ page }) => {
+  test("builds a body for a ring", async ({ page }) => {
     const problems = await open(page);
     const bench = page.locator("#bench");
     await page.keyboard.press("7");
@@ -17,15 +17,15 @@ test.describe("am Laptop", () => {
     await expect(bench).toBeVisible();
     await expect(page.locator("#mallets")).toBeVisible();
     await expect(page.locator("#tools")).toBeHidden();
-    await expect(status(page)).toContainText("Klangkörper Melodie:");
+    await expect(status(page)).toContainText("Body Melody:");
     // A ring without a body gets a first one that suits it, and plays it from then on.
     expect(await bodyOf(page, 6)).not.toBeNull();
     expect(await soundOf(page, 6)).toBe(5);
 
     // Another kind of body; knocking on it is heard, and where it was last knocked is where the ring strikes it.
-    await bench.getByRole("button", { name: "Schale", exact: true }).click();
+    await bench.getByRole("button", { name: "Bowl", exact: true }).click();
     expect((await bodyOf(page, 6))!.kind).toBe(4);
-    await expect(page.locator(".track.selected .sound")).toHaveText("Schale");
+    await expect(page.locator(".track.selected .sound")).toHaveText("Bowl");
     let spot = await knockAt(page, 0.2);
     await page.mouse.click(spot.x, spot.y);
     expect((await bodyOf(page, 6))!.where).toBeCloseTo(0.2, 1);
@@ -33,18 +33,18 @@ test.describe("am Laptop", () => {
     spot = await knockAt(page, 0.9);
     await page.mouse.click(spot.x, spot.y);
     expect((await bodyOf(page, 6))!.where).toBeCloseTo(0.9, 1);
-    await expect(status(page)).toContainText("Rand");
+    await expect(status(page)).toContainText("Edge");
 
     // What sets it going is on the top row of keys; a bowed body sounds on.
     await page.keyboard.press("e");
     expect((await bodyOf(page, 6))!.exciter).toBe(2);
     await expect(page.locator("#mallets .tool").nth(2)).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("r");
-    await expect(status(page)).toContainText("gestrichen");
+    await expect(status(page)).toContainText("bowed");
     await expect.poll(() => page.evaluate(() => window.kreisel.level())).toBeGreaterThan(0.02);
 
     // The right grip pulls it bigger, the left one tightens it; the wheel changes its size, too.
-    await bench.getByRole("button", { name: "Stab", exact: true }).click();
+    await bench.getByRole("button", { name: "Rod", exact: true }).click();
     const before = (await bodyOf(page, 6))!;
     const size = await page.evaluate(() => window.kreisel.grip("size"));
     await page.mouse.move(size.x, size.y);
@@ -68,9 +68,9 @@ test.describe("am Laptop", () => {
     const material = page.locator("#bench-shape input").nth(2);
     await material.fill("100");
     expect((await bodyOf(page, 6))!.material).toBe(1);
-    await expect(page.locator("#bench-shape .label").nth(2)).toHaveText("Material: Glas");
+    await expect(page.locator("#bench-shape .label").nth(2)).toHaveText("Material: Glass");
     await material.fill("0");
-    await expect(page.locator("#bench-shape .label").nth(2)).toHaveText("Material: Holz");
+    await expect(page.locator("#bench-shape .label").nth(2)).toHaveText("Material: Wood");
     await material.click({ button: "right" });
     expect((await bodyOf(page, 6))!.material).toBe(0.5);
 
@@ -87,8 +87,8 @@ test.describe("am Laptop", () => {
     // In the ring's field the body is one of its sounds: picked with a click, built further with the next.
     const pick = page.locator("#built-pick");
     await expect(pick).toHaveAttribute("aria-pressed", "true");
-    await expect(pick).toContainText("Klangkörper: Stab");
-    await pickSound(page, "Glocke");
+    await expect(pick).toContainText("Body: Rod");
+    await pickSound(page, "Bell");
     expect(await soundOf(page, 6)).toBe(1);
     await pick.click();
     expect(await soundOf(page, 6)).toBe(5);
@@ -107,10 +107,10 @@ test.describe("am Laptop", () => {
     const kick = await where(page, 0, 2);
     await page.mouse.click(kick.x, kick.y, { button: "right" });
     const menu = page.locator("#context");
-    await expect(menu.getByRole("menuitemradio", { name: "Noch nicht gebaut" })).toBeDisabled();
-    await menu.getByRole("menuitem", { name: "Den Klangkörper dieses Rings bauen" }).click();
+    await expect(menu.getByRole("menuitemradio", { name: "Not built yet" })).toBeDisabled();
+    await menu.getByRole("menuitem", { name: "Build this ring's body" }).click();
     await expect(bench).toBeVisible();
-    await expect(page.locator("#bench-title")).toHaveText("Klangkörper: Kick");
+    await expect(page.locator("#bench-title")).toHaveText("Body: Kick");
     expect(await soundOf(page, 0)).toBe(5);
     // A ring without a body has no bench: picking one puts it away.
     await page.keyboard.press("2");
@@ -119,7 +119,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("nimmt Klangkörper im Link und in der Datei mit", async ({ page, context }) => {
+  test("carries bodies in the link and in the file", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     const problems = await open(page);
     // Only the kick is heard, and it plays a body.
@@ -135,12 +135,12 @@ test.describe("am Laptop", () => {
     });
     const shared = await state(page);
     await copyLink(page);
-    await expect(page.locator("#toast")).toContainText("Link kopiert");
+    await expect(page.locator("#toast")).toContainText("Link copied");
     const link = await page.evaluate(() => navigator.clipboard.readText());
     const other = await context.newPage();
     await open(other);
     await other.goto(link);
-    await expect(other.locator("#toast")).toContainText("Ein geteilter Kreisel");
+    await expect(other.locator("#toast")).toContainText("A shared Kreisel");
     expect(await state(other)).toBe(shared);
     expect(await bodyOf(other, 0)).toEqual({ kind: 0, size: 0.9, tight: 0.2, material: 0.1, exciter: 0, where: 0.1 });
     expect(await soundOf(other, 0)).toBe(5);
@@ -148,23 +148,23 @@ test.describe("am Laptop", () => {
     // The saved file holds the body's sound.
     await other.locator("#record-more").click();
     const rendered = other.waitForEvent("download");
-    await other.locator("#context").getByText("Als Opus speichern").click();
+    await other.locator("#context").getByText("Save as Opus").click();
     const file = await heard(other, await rendered);
     expect(file.peak).toBeGreaterThan(0.15);
     expect(problems).toEqual([]);
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("baut einen Klangkörper: die Werkbank passt aufs Handy, ein Finger klopft", async ({ page }) => {
+  test("builds a body: the workbench fits on a phone, a finger knocks", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => window.kreisel.app.select(3));
     await page.locator("#build").tap();
     await expect(page.locator("#bench")).toBeVisible();
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
-    await page.locator("#bench").getByRole("button", { name: "Fell", exact: true }).tap();
+    await page.locator("#bench").getByRole("button", { name: "Skin", exact: true }).tap();
     await page.locator("#koerper").scrollIntoViewIfNeeded();
     expect((await page.locator("#koerper").boundingBox())!.height).toBeGreaterThan(110);
     const spot = await knockAt(page, 0.6);

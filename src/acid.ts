@@ -105,8 +105,8 @@ export interface Bite {
 
 /**
  * What the envelope does at a note. A plain note opens the filter by as much
- * as "Biss" says and lets it fall as slowly as "Dauer" says. An accented note
- * is louder, falls back at the shortest time whatever "Dauer" says, and is
+ * as "Bite" says and lets it fall as slowly as "Duration" says. An accented note
+ * is louder, falls back at the shortest time whatever "Duration" says, and is
  * opened further: the more the filter rings (the pad's height), and the more
  * charge earlier accents have left, the further.
  */

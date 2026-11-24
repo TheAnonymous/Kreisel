@@ -7,10 +7,10 @@ import { focus, onLaptop, onPhone, open, where } from "./helpers";
  * filter ride.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("stellt die Acid-Maschine auf den Bass: Filter auf dem Klangfeld, Biss, Dauer, Welle", async ({ page }) => {
+  test("puts the acid machine on the bass: filter on the sound pad, bite, duration, wave", async ({ page }) => {
     const problems = await open(page);
     const track = (ring: number) => page.evaluate((index) => window.kreisel.app.project.tracks[index]!, ring);
     const group = page.locator("#acid");
@@ -35,10 +35,10 @@ test.describe("am Laptop", () => {
 
     // The ring's panel says what it plays; the pad is the filter, and under it is the machine's own group.
     await expect(page.locator("#sound-pick")).toContainText("Acid 303");
-    await expect(page.locator("#sound-pick")).toContainText("Maschine");
+    await expect(page.locator("#sound-pick")).toContainText("Machine");
     await expect(group).toBeVisible();
     await expect(page.locator(".pad .axis.x")).toHaveText("Filter →");
-    await expect(page.locator(".pad .axis.y")).toHaveText("Resonanz ↑");
+    await expect(page.locator(".pad .axis.y")).toHaveText("Resonance ↑");
     // Everything is still in view on this screen, and the group's rows do not lie over each other.
     expect(await page.evaluate(() => {
       const panel = document.getElementById("panel")!;
@@ -52,17 +52,17 @@ test.describe("am Laptop", () => {
     expect((await track(4)).acid).toEqual({ bite: 0.9, decay: 0.1, square: false });
     await page.locator("#acid-bite").click({ button: "right" });
     expect((await track(4)).acid?.bite).toBe(0.6);
-    await group.getByRole("button", { name: "Rechteck" }).click();
+    await group.getByRole("button", { name: "Square" }).click();
     expect((await track(4)).acid?.square).toBe(true);
-    await expect(group.getByRole("button", { name: "Rechteck" })).toHaveAttribute("aria-pressed", "true");
-    await expect(group.getByRole("button", { name: "Säge" })).toHaveAttribute("aria-pressed", "false");
+    await expect(group.getByRole("button", { name: "Square" })).toHaveAttribute("aria-pressed", "true");
+    await expect(group.getByRole("button", { name: "Saw" })).toHaveAttribute("aria-pressed", "false");
     await page.keyboard.press("Control+z");
     expect((await track(4)).acid?.square).toBe(false);
 
     // Another sound: the group goes, the pad is the sound's again, and the machine keeps its settings for when it comes back.
     await page.evaluate(() => window.kreisel.app.rings.setSound(4, 2));
     await expect(group).toBeHidden();
-    await expect(page.locator(".pad .axis.x")).toHaveText("Helligkeit →");
+    await expect(page.locator(".pad .axis.x")).toHaveText("Brightness →");
     expect((await track(4)).acid).toEqual({ bite: 0.6, decay: 0.1, square: false });
     await page.evaluate(() => window.kreisel.app.acid.use());
     await expect(group).toBeVisible();
@@ -71,7 +71,7 @@ test.describe("am Laptop", () => {
     // The techno Kreisel's bass has so many hits that the line telling of them takes two rows: the panel still holds everything.
     await page.evaluate(() => { window.plainTechno(); window.kreisel.app.select(4); });
     await expect(group).toBeVisible();
-    await expect(page.locator(".panel-ring .info")).toContainText("11 Schläge");
+    await expect(page.locator(".panel-ring .info")).toContainText("11 hits");
     expect(await page.evaluate(() => {
       const panel = document.getElementById("panel")!;
       return panel.scrollHeight <= panel.clientHeight && document.getElementById("drive-row")!.getBoundingClientRect().bottom <= panel.getBoundingClientRect().bottom;
@@ -80,7 +80,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("zieht einen Ton in den nächsten und legt die Filterfahrt", async ({ page }) => {
+  test("slides a note into the next and lays the filter ride", async ({ page }) => {
     const problems = await open(page);
     const steps = () => page.evaluate(() => window.kreisel.app.project.scenes[0]!.patterns[4]!.steps.slice(0, 16).map((step) => (step.on ? [step.pitch, step.len] : null)));
     await page.evaluate(() => {
@@ -100,8 +100,8 @@ test.describe("am Laptop", () => {
     const hit = await where(page, 4, 2);
     await page.mouse.click(hit.x, hit.y, { button: "right" });
     const menu = page.locator("#context");
-    await expect(menu).toContainText("In den nächsten");
-    const pull = menu.getByRole("menuitemradio", { name: /in den nächsten hineinhalten/ });
+    await expect(menu).toContainText("Into the next");
+    const pull = menu.getByRole("menuitemradio", { name: /Hold the note into the next one/ });
     await expect(pull).toHaveAttribute("aria-checked", "false");
     await pull.click();
     expect((await steps())[2]).toEqual([0, 4]);
@@ -118,7 +118,7 @@ test.describe("am Laptop", () => {
 
     // The filter ride: a hill of sun over the ring, and a wind that carries it round once in sixteen bars.
     await page.locator("#acid-ride").click();
-    await expect(page.locator("#toast")).toContainText("Filterfahrt");
+    await expect(page.locator("#toast")).toContainText("Filter ride");
     const sky = await page.evaluate(() => {
       const scene = window.kreisel.app.project.scenes[0]!;
       return { sun: scene.weather[1]![4]!.slice(0, 16), wind: scene.wind[1], others: scene.weather[1]!.filter((_, ring) => ring !== 4).every((line) => line.every((value) => value === 0)) };
@@ -127,13 +127,13 @@ test.describe("am Laptop", () => {
     expect(sky.sun[8]).toBeGreaterThanOrEqual(12);
     expect(Math.max(...sky.sun)).toBe(sky.sun[8]);
     expect([sky.wind, sky.others]).toEqual([4, true]);
-    await page.locator("#toast").getByRole("button", { name: "Zurück" }).click();
+    await page.locator("#toast").getByRole("button", { name: "Undo" }).click();
     expect(await page.evaluate(() => window.kreisel.app.project.scenes[0]!.weather[1]![4]!.every((value) => value === 0))).toBe(true);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });
 
-  test("lässt die Maschine hören: Filter, Betonung, Gleiten, und Platz für das Nachbeben", async ({ page }) => {
+  test("lets the machine be heard: filter, accent, glide, and room for the rumble", async ({ page }) => {
     test.setTimeout(90_000);
     const problems = await open(page);
     /** The machine alone on the bass ring of the techno Kreisel, not driven and not pressed, with `setup` applied; rendered and measured. */
@@ -179,17 +179,17 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("stellt am Handy die Acid-Maschine auf die Melodie, und alles passt in die Breite", async ({ page }) => {
+  test("puts the acid machine on the melody on a phone, and everything fits the width", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => { window.kreisel.app.select(6); window.kreisel.app.acid.use(); });
     const group = page.locator("#acid");
     await group.scrollIntoViewIfNeeded();
     await expect(group).toBeVisible();
     await page.locator("#acid-bite").fill("80");
-    await group.getByRole("button", { name: "Rechteck" }).tap();
+    await group.getByRole("button", { name: "Square" }).tap();
     expect(await page.evaluate(() => window.kreisel.app.project.tracks[6]!)).toMatchObject({ sound: 53, acid: { bite: 0.8, square: true } });
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);

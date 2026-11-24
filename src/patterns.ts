@@ -454,8 +454,8 @@ export function vary(track: number, pattern: Pattern, random: Random): void {
 /** The ring in words, for screen readers and tests: "4 Schläge auf 1, 5, 9, 13". */
 export function describe(pattern: Pattern): string {
   const hits = activeSteps(pattern);
-  if (hits.length === 0) return `leer, ${pattern.len} Schritte`;
-  return `${hits.length} ${hits.length === 1 ? "Schlag" : "Schläge"} auf ${hits.map((index) => index + 1).join(", ")} von ${pattern.len}`;
+  if (hits.length === 0) return `empty, ${pattern.len} steps`;
+  return `${hits.length} ${hits.length === 1 ? "hit" : "hits"} on ${hits.map((index) => index + 1).join(", ")} of ${pattern.len}`;
 }
 
 const gcd = (one: number, other: number): number => (other === 0 ? one : gcd(other, one % other));

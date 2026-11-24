@@ -78,10 +78,10 @@ describe("what a voice may be", () => {
   });
 
   it("says in a few words what it sings", () => {
-    expect(describeVoice(null)).toBe("noch keine Stimme");
-    expect(describeVoice(plain)).toBe("singt nur den Vokal vom Klangfeld");
-    expect(describeVoice({ ...plain, text: "Oh" })).toBe("„Oh“, 1 Silbe");
-    expect(describeVoice({ ...plain, text: "Kaffeepause jetzt" })).toBe("„Kaf·fee·pau·se jetzt“, 5 Silben");
+    expect(describeVoice(null)).toBe("no voice yet");
+    expect(describeVoice(plain)).toBe("sings only the vowel from the sound pad");
+    expect(describeVoice({ ...plain, text: "Oh" })).toBe("“Oh”, 1 syllable");
+    expect(describeVoice({ ...plain, text: "Kaffeepause jetzt" })).toBe("“Kaf·fee·pau·se jetzt”, 5 syllables");
   });
 
   it("dices a line other than the one it has", () => {

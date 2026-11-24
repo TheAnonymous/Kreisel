@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { onLaptop, onPhone, open } from "./helpers";
 
 /*
- * Scenes and the row ("Folge"): every scene is a small wheel, a switch says
+ * Scenes and the row ("Row"): every scene is a small wheel, a switch says
  * what plays (the scene, the row or the piece), and the row lies under the
  * wheel, one tile a round: laid with "+" or by carrying a scene there.
  */
@@ -36,10 +36,10 @@ const hurry = (page: Page, bpm: number): Promise<void> =>
     });
   }, bpm);
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("zeigt Szenen als kleine Räder und schaltet um, was spielt", async ({ page }) => {
+  test("shows scenes as little wheels and switches what plays", async ({ page }) => {
     const problems = await open(page);
 
     // A filled scene shows its hits, an empty one a plus.
@@ -58,22 +58,22 @@ test.describe("am Laptop", () => {
 
     // One switch for what plays; the old tick and its "je 2×" are gone.
     await expect(page.locator("#chain, #repeats")).toHaveCount(0);
-    await expect(plays(page, "Szene")).toHaveAttribute("aria-checked", "true");
+    await expect(plays(page, "Scene")).toHaveAttribute("aria-checked", "true");
     await expect(page.locator("#row")).toBeHidden();
     const wheel = await page.locator("#kreisel").boundingBox();
 
     // A new scene is a new part: it joins the row at its end.
     await scene(page, "B").click();
-    await expect(page.locator("#toast")).toContainText("Kopie von A");
+    await expect(page.locator("#toast")).toContainText("copy of A");
     expect(await order(page)).toEqual([0, 1]);
     await page.evaluate(() => window.kreisel.app.dismiss());
 
     // The row lies under the wheel, and the wheel stays where it was.
-    await plays(page, "Folge").click();
-    await expect(plays(page, "Folge")).toHaveAttribute("aria-checked", "true");
+    await plays(page, "Row").click();
+    await expect(plays(page, "Row")).toHaveAttribute("aria-checked", "true");
     await expect(page.locator("#row")).toBeVisible();
     await expect(rounds(page)).toHaveText(["A", "B"]);
-    await expect(page.locator("#row .row-sum")).toHaveText(/^2 Runden · \d:\d\d$/);
+    await expect(page.locator("#row .row-sum")).toHaveText(/^2 rounds · \d:\d\d$/);
     expect(await page.locator("#kreisel").boundingBox()).toEqual(wheel);
     const band = (await page.locator("#row").boundingBox())!;
     expect(band.y).toBeGreaterThanOrEqual(wheel!.y + wheel!.height);
@@ -82,44 +82,44 @@ test.describe("am Laptop", () => {
     expect(await page.evaluate(() => window.kreisel.app.project.chain)).toBe(true);
 
     // The piece is the third way; its own switches go along, and the row is kept as it was laid.
-    await plays(page, "Stück").click();
+    await plays(page, "Piece").click();
     expect(await page.evaluate(() => window.kreisel.app.project.piece.on)).toBe(true);
     await expect(page.locator(".piece-toggle")).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#row")).toBeHidden();
     await page.locator(".piece-toggle").click();
-    await expect(plays(page, "Folge")).toHaveAttribute("aria-checked", "true");
+    await expect(plays(page, "Row")).toHaveAttribute("aria-checked", "true");
     await expect(rounds(page)).toHaveText(["A", "B"]);
-    await plays(page, "Szene").click();
+    await plays(page, "Scene").click();
     expect(await page.evaluate(() => [window.kreisel.app.project.chain, window.kreisel.app.project.piece.on])).toEqual([false, false]);
 
     // Laid from a scene's menu while the row is not to be seen, the Kreisel says where it went.
     await scene(page, "A").click({ button: "right" });
-    await page.locator("#context").getByRole("menuitem", { name: "In die Folge legen" }).click();
+    await page.locator("#context").getByRole("menuitem", { name: "Put into the row" }).click();
     expect(await order(page)).toEqual([0, 1, 0]);
-    await expect(page.locator("#toast")).toContainText("als 3. Runde in der Folge");
+    await expect(page.locator("#toast")).toContainText("round 3 of the row");
 
     // It is kept with the Kreisel.
-    await plays(page, "Folge").click();
+    await plays(page, "Row").click();
     await page.evaluate(() => window.kreisel.app.store.save());
     await page.reload();
     await expect(rounds(page)).toHaveText(["A", "B", "A"]);
-    await expect(plays(page, "Folge")).toHaveAttribute("aria-checked", "true");
+    await expect(plays(page, "Row")).toHaveAttribute("aria-checked", "true");
     expect(problems).toEqual([]);
   });
 
-  test("legt die Folge: mit Plus, durch Ziehen, per Rechtsklick und mit Entf", async ({ page }) => {
+  test("lays the row: with plus, by dragging, by right click and with Del", async ({ page }) => {
     const problems = await open(page);
     const menu = page.locator("#context");
     await scene(page, "B").click();
     await scene(page, "C").click();
     await page.evaluate(() => window.kreisel.app.dismiss());
-    await plays(page, "Folge").click();
+    await plays(page, "Row").click();
     expect(await order(page)).toEqual([0, 1, 2]);
 
     // Plus: the scene on the table once more, at the end.
     await page.locator("#row .round.add").click();
     expect(await order(page)).toEqual([0, 1, 2, 2]);
-    await expect(page.locator("#row .row-sum")).toContainText("4 Runden");
+    await expect(page.locator("#row .row-sum")).toContainText("4 rounds");
 
     // A scene carried into the row lands where it is let go: here between the second and the third round.
     const second = await middle(rounds(page).nth(1));
@@ -153,16 +153,16 @@ test.describe("am Laptop", () => {
 
     // The right button on a round: once more, another scene, out.
     await rounds(page).nth(1).click({ button: "right" });
-    await expect(menu.locator("header")).toHaveText("Folge: 2. Runde, Szene B");
-    await menu.getByRole("menuitem", { name: "Noch einmal" }).click();
+    await expect(menu.locator("header")).toHaveText("Row: round 2, scene B");
+    await menu.getByRole("menuitem", { name: "Once more" }).click();
     expect(await order(page)).toEqual([0, 1, 1, 0, 2, 2]);
     await expect(menu).toBeVisible();
-    await menu.getByRole("menuitemradio", { name: "C" }).click();
+    await menu.getByRole("menuitemradio", { name: /scene C$/ }).click();
     expect(await order(page)).toEqual([0, 2, 1, 0, 2, 2]);
     await page.keyboard.press("Escape");
     await rounds(page).nth(1).click({ button: "right" });
-    await expect(menu.locator("header")).toHaveText("Folge: 2. Runde, Szene C");
-    await menu.getByRole("menuitem", { name: "Herausnehmen" }).click();
+    await expect(menu.locator("header")).toHaveText("Row: round 2, scene C");
+    await menu.getByRole("menuitem", { name: "Take out" }).click();
     expect(await order(page)).toEqual([0, 1, 0, 2, 2]);
     await expect(menu).toBeHidden();
 
@@ -180,7 +180,7 @@ test.describe("am Laptop", () => {
 
     // A scene carried onto an empty one is copied there: a new part, at the end of the row.
     await carry(page, scene(page, "A"), await middle(scene(page, "F")));
-    await expect(page.locator("#toast")).toContainText("Szene F ist eine Kopie von A");
+    await expect(page.locator("#toast")).toContainText("Scene F is a copy of A");
     await expect(page.locator(".scene.current")).toHaveText("F");
     expect(await order(page)).toEqual([0, 1, 0, 2, 2, 5]);
     expect(await page.evaluate(() => JSON.stringify(window.kreisel.app.project.scenes[5]) === JSON.stringify(window.kreisel.app.project.scenes[0]))).toBe(true);
@@ -198,7 +198,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("spielt die Folge Runde für Runde und springt, wohin man klickt", async ({ page }) => {
+  test("plays the row round by round and jumps where one clicks", async ({ page }) => {
     const problems = await open(page);
     await scene(page, "B").click();
     await page.evaluate(() => {
@@ -208,7 +208,7 @@ test.describe("am Laptop", () => {
       app.scenes.lay(0, 1);
     });
     await hurry(page, 200);
-    await plays(page, "Folge").click();
+    await plays(page, "Row").click();
     expect(await order(page)).toEqual([0, 0, 1]);
     const now = page.locator("#row .round.now");
 
@@ -260,9 +260,9 @@ test.describe("am Laptop", () => {
     await expect.poll(() => page.evaluate(() => window.kreisel.app.engine.heard?.round ?? null)).toBe(1);
     await page.keyboard.press("Space");
 
-    // "Von hier spielen" starts it at that round.
+    // "Play from here" starts it at that round.
     await rounds(page).nth(1).click({ button: "right" });
-    await page.locator("#context").getByRole("menuitem", { name: "Von hier spielen" }).click();
+    await page.locator("#context").getByRole("menuitem", { name: "Play from here" }).click();
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "true");
     await expect.poll(() => page.evaluate(() => window.kreisel.app.engine.heard?.round ?? null)).toBe(1);
     await page.keyboard.press("Space");
@@ -270,15 +270,15 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("legt die Folge mit dem Finger", async ({ page }) => {
+  test("lays the row with a finger", async ({ page }) => {
     const problems = await open(page);
     const menu = page.locator("#context");
     await scene(page, "B").tap();
     await page.evaluate(() => window.kreisel.app.dismiss());
-    await plays(page, "Folge").tap();
+    await plays(page, "Row").tap();
     await expect(page.locator("#row")).toBeVisible();
     await expect(rounds(page)).toHaveText(["A", "B"]);
 
@@ -302,16 +302,16 @@ test.describe("am Handy", () => {
     await rounds(page).nth(0).dispatchEvent("pointerdown", finger);
     await page.waitForTimeout(800);
     await rounds(page).nth(0).dispatchEvent("pointerup", finger);
-    await expect(menu.locator("header")).toHaveText("Folge: 1. Runde, Szene A");
+    await expect(menu.locator("header")).toHaveText("Row: round 1, scene A");
     // A finger does not carry: the menu moves the round instead.
-    await expect(menu.getByRole("menuitem", { name: "Eine Runde früher" })).toBeDisabled();
-    await menu.getByRole("menuitem", { name: "Eine Runde später" }).tap();
+    await expect(menu.getByRole("menuitem", { name: "One round earlier" })).toBeDisabled();
+    await menu.getByRole("menuitem", { name: "One round later" }).tap();
     expect(await order(page)).toEqual([1, 0, 1]);
     await rounds(page).nth(1).dispatchEvent("pointerdown", finger);
     await page.waitForTimeout(800);
     await rounds(page).nth(1).dispatchEvent("pointerup", finger);
-    await expect(menu.locator("header")).toHaveText("Folge: 2. Runde, Szene A");
-    await menu.getByRole("menuitem", { name: "Herausnehmen" }).tap();
+    await expect(menu.locator("header")).toHaveText("Row: round 2, scene A");
+    await menu.getByRole("menuitem", { name: "Take out" }).tap();
     expect(await order(page)).toEqual([1, 1]);
 
     // A long row is pushed along sideways; the page does not grow wider with it.

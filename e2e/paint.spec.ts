@@ -6,10 +6,10 @@ import { bildOf, copyLink, onPhone, open, paint, pickSound, sheet, soundOf, stat
  * microphone.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("malt einem Ring einen eigenen Klang", async ({ page }) => {
+  test("paints a sound of its own for a ring", async ({ page }) => {
     const problems = await open(page);
     await page.keyboard.press("1");
     await page.locator("#paint").click();
@@ -17,14 +17,14 @@ test.describe("am Laptop", () => {
     await expect(page.locator("#brushes")).toBeVisible();
     await expect(page.locator("#tools")).toBeHidden();
     // A ring without a picture gets a first one to start from, and plays it at once.
-    await expect(status(page)).toContainText(/Klangmalerei Kick: \d Strich/);
+    await expect(status(page)).toContainText(/Painted sound Kick: \d stroke/);
     await expect(page.locator("#own-pick")).toHaveAttribute("aria-pressed", "true");
     expect(await soundOf(page, 0)).toBe(4);
 
     await page.locator("#bild-clear").click();
-    await expect(status(page)).toHaveText("Klangmalerei Kick: noch leer");
+    await expect(status(page)).toHaveText("Painted sound Kick: still empty");
     await paint(page, [[0.05, 0.4], [0.15, 0.12], [0.5, 0.1]]);
-    await expect(status(page)).toHaveText("Klangmalerei Kick: 1 Strich (1× Summen)");
+    await expect(status(page)).toHaveText("Painted sound Kick: 1 stroke (1× Hum)");
     await expect.poll(() => page.evaluate(() => window.kreisel.level()), { intervals: [30, 30, 50, 50, 100, 100] }).toBeGreaterThan(0.02);
 
     // The third brush, thick, from right to left: a hiss that swells.
@@ -36,9 +36,9 @@ test.describe("am Laptop", () => {
     // The right button erases, and undo paints it back.
     const hiss = await sheet(page, 0.45, 0.8);
     await page.mouse.click(hiss.x, hiss.y, { button: "right" });
-    await expect(status(page)).toHaveText("Klangmalerei Kick: 1 Strich (1× Summen)");
+    await expect(status(page)).toHaveText("Painted sound Kick: 1 stroke (1× Hum)");
     await page.keyboard.press("Control+z");
-    await expect(status(page)).toHaveText("Klangmalerei Kick: 2 Striche (1× Summen, 1× Zischen)");
+    await expect(status(page)).toHaveText("Painted sound Kick: 2 strokes (1× Hum, 1× Hiss)");
 
     // Back at the wheel, the Kreisel plays the picture.
     await page.keyboard.press("Escape");
@@ -50,7 +50,7 @@ test.describe("am Laptop", () => {
     await page.keyboard.press("Space");
 
     // A built-in sound again; the picture waits, one click brings it back, another opens the paint box.
-    await pickSound(page, "Hart");
+    await pickSound(page, "Hard");
     expect(await soundOf(page, 0)).toBe(1);
     await expect(page.locator("#own-pick")).toHaveAttribute("aria-pressed", "false");
     await page.locator("#own-pick").click();
@@ -64,7 +64,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("hält gemalte Töne in der Stimmung und lange Noten an der Linie", async ({ page }) => {
+  test("keeps painted tones in tune and long notes at the line", async ({ page }) => {
     await open(page);
     await page.keyboard.press("5");
     await page.locator("#paint").click();
@@ -104,19 +104,19 @@ test.describe("am Laptop", () => {
     await expect(page.locator("#hold-box")).toBeHidden();
   });
 
-  test("merkt sich Klangbilder und nimmt sie im Link mit", async ({ page, context }) => {
+  test("remembers sound pictures and carries them in the link", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await open(page);
     await page.keyboard.press("5");
     await page.locator("#paint").click();
     await page.locator("#bild-keep").click();
-    await expect(page.locator("#toast")).toContainText("Gemerkt");
+    await expect(page.locator("#toast")).toContainText("Kept");
     await expect(page.locator(".kept")).toHaveCount(1);
     const bass = await bildOf(page, 4);
 
     // From the shelf into another ring.
     await page.keyboard.press("7");
-    await expect(status(page)).toHaveText("Klangmalerei Melodie: noch leer");
+    await expect(status(page)).toHaveText("Painted sound Melody: still empty");
     await page.locator(".kept-pick").click();
     expect((await bildOf(page, 6))!.strokes).toEqual(bass!.strokes);
     expect(await soundOf(page, 6)).toBe(4);
@@ -124,13 +124,13 @@ test.describe("am Laptop", () => {
     await page.keyboard.press("Escape");
     const shared = await state(page);
     await copyLink(page);
-    await expect(page.locator("#toast")).toContainText("Link kopiert");
+    await expect(page.locator("#toast")).toContainText("Link copied");
     const link = await page.evaluate(() => navigator.clipboard.readText());
     expect(link.length).toBeLessThan(1600);
     const other = await context.newPage();
     await open(other);
     await other.goto(link);
-    await expect(other.locator("#toast")).toContainText("Ein geteilter Kreisel");
+    await expect(other.locator("#toast")).toContainText("A shared Kreisel");
     expect(await state(other)).toBe(shared);
     expect((await bildOf(other, 4))!.strokes).toEqual(bass!.strokes);
 
@@ -145,14 +145,14 @@ test.describe("am Laptop", () => {
     await expect(page.locator(".kept")).toHaveCount(0);
   });
 
-  test("macht einen Klang vor", async ({ page }) => {
+  test("shows a sound", async ({ page }) => {
     const problems = await open(page);
     await page.keyboard.press("1");
     await page.locator("#paint").click();
     await page.locator("#bild-clear").click();
     await page.locator("#bild-listen").click();
     await expect(page.locator("#listening")).toBeVisible();
-    await expect(page.locator("#toast")).toContainText("So habe ich dich verstanden", { timeout: 15_000 });
+    await expect(page.locator("#toast")).toContainText("This is how I understood you", { timeout: 15_000 });
     await expect(page.locator("#listening")).toBeHidden();
     // The stand-in microphone plays a falling tone: a humming stroke that ends lower than it began, moved down to where a kick lives.
     const strokes = (await bildOf(page, 0))!.strokes;

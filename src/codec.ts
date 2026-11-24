@@ -491,11 +491,11 @@ function unpackTrack(value: unknown, index: number): Track {
  * `inTurn` unpacks the state of a turn: that never has turns of its own, whatever it claims.
  */
 export function unpack(value: unknown, inTurn = false): Project {
-  if (typeof value !== "object" || value === null) throw new Error("kein Kreisel");
+  if (typeof value !== "object" || value === null) throw new Error("not a Kreisel");
   const data = value as Partial<Record<keyof Packed, unknown>>;
-  if (data.v !== 1) throw new Error("unbekannte Version");
+  if (data.v !== 1) throw new Error("unknown version");
   const scenes = Array.from({ length: SCENE_COUNT }, (_, index) => unpackScene(Array.isArray(data.c) ? data.c[index] : null));
-  if (scenes.every((scene) => scene === null)) throw new Error("keine Szene");
+  if (scenes.every((scene) => scene === null)) throw new Error("no scene");
   const wanted = integer(data.i, 0, SCENE_COUNT - 1, 0);
   const tracks = Array.isArray(data.t) ? data.t : [];
   const first = scenes.findIndex((scene) => scene !== null);
@@ -547,12 +547,12 @@ export async function encodeLink(project: Project): Promise<string> {
 }
 
 export async function decodeLink(text: string): Promise<Project> {
-  if (text.length > MAX_LINK_LENGTH) throw new Error("Link zu lang");
+  if (text.length > MAX_LINK_LENGTH) throw new Error("link too long");
   const [kind, body = ""] = text.split(".", 2);
   const bytes = fromBase64Url(body);
   const json = kind === "1" ? await pipe(bytes, new DecompressionStream("deflate-raw")) : bytes;
-  if (kind !== "0" && kind !== "1") throw new Error("unbekanntes Format");
-  if (json.length > 400_000) throw new Error("Link zu groß");
+  if (kind !== "0" && kind !== "1") throw new Error("unknown format");
+  if (json.length > 400_000) throw new Error("link too large");
   return unpack(JSON.parse(new TextDecoder().decode(json)));
 }
 

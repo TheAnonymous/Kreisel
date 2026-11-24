@@ -12,24 +12,24 @@ const family = (page: Page) => page.locator("#sound-pick .sound-family");
 const palette = (page: Page) => page.locator("#palette");
 const pressed = (page: Page) => page.locator("#palette .chip[aria-pressed=true]");
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("blättert durch fünfzig Klänge und zeigt sie in der Palette", async ({ page }) => {
+  test("leafs through fifty sounds and shows them in the palette", async ({ page }) => {
     const problems = await open(page);
     await focus(page, 0);
-    await expect(picked(page)).toHaveText("Rund");
-    await expect(family(page)).toHaveText("Rund");
+    await expect(picked(page)).toHaveText("Round");
+    await expect(family(page)).toHaveText("Round");
 
     // The arrows leaf through the palette, round and round.
-    await page.getByRole("button", { name: "Nächster Klang" }).click();
-    await expect(picked(page)).toHaveText("Samt");
+    await page.getByRole("button", { name: "Next sound" }).click();
+    await expect(picked(page)).toHaveText("Velvet");
     expect(await soundOf(page, 0)).toBe(7);
-    await expect(page.locator(".track.selected .sound")).toHaveText("Samt");
-    await page.getByRole("button", { name: "Voriger Klang" }).click();
-    await page.getByRole("button", { name: "Voriger Klang" }).click();
-    await expect(picked(page)).toHaveText("Kessel");
-    await expect(family(page)).toHaveText("Schräg");
+    await expect(page.locator(".track.selected .sound")).toHaveText("Velvet");
+    await page.getByRole("button", { name: "Previous sound" }).click();
+    await page.getByRole("button", { name: "Previous sound" }).click();
+    await expect(picked(page)).toHaveText("Kettle");
+    await expect(family(page)).toHaveText("Skewed");
     expect(await soundOf(page, 0)).toBe(52);
     // Trying one sound after another is one step back.
     await page.locator("#undo").click();
@@ -39,10 +39,10 @@ test.describe("am Laptop", () => {
     await page.locator("#sound-pick").click();
     await expect(palette(page)).toBeVisible();
     await expect(page.locator("#sound-pick")).toHaveAttribute("aria-expanded", "true");
-    await expect(palette(page).locator("header")).toContainText("Kick: 50 Klänge");
-    await expect(palette(page).locator(".palette-name")).toHaveText(["Rund", "Hart", "Tief", "Staub", "Schräg"]);
+    await expect(palette(page).locator("header")).toContainText("Kick: 50 sounds");
+    await expect(palette(page).locator(".palette-name")).toHaveText(["Round", "Hard", "Deep", "Dust", "Skewed"]);
     await expect(palette(page).locator(".chip")).toHaveCount(50);
-    await expect(pressed(page)).toHaveText(["Rund"]);
+    await expect(pressed(page)).toHaveText(["Round"]);
     const names = await palette(page).locator(".chip").allTextContents();
     expect(new Set(names).size).toBe(50);
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth && document.scrollingElement!.scrollHeight <= window.innerHeight)).toBe(true);
@@ -53,18 +53,18 @@ test.describe("am Laptop", () => {
     expect(card.x + card.width).toBeLessThanOrEqual(panel.x);
     expect(card.y + card.height).toBeLessThanOrEqual(768);
 
-    await palette(page).getByRole("button", { name: "Donner", exact: true }).click();
+    await palette(page).getByRole("button", { name: "Thunder", exact: true }).click();
     expect(await soundOf(page, 0)).toBe(32);
-    await expect(pressed(page)).toHaveText(["Donner"]);
-    await expect(picked(page)).toHaveText("Donner");
-    await expect(family(page)).toHaveText("Tief");
+    await expect(pressed(page)).toHaveText(["Thunder"]);
+    await expect(picked(page)).toHaveText("Thunder");
+    await expect(family(page)).toHaveText("Deep");
     // It stays open while sounds are tried, also when another ring is picked.
     await page.locator(".track", { hasText: "Bass" }).locator(".pick").click();
-    await expect(palette(page).locator("header")).toContainText("Bass: 50 Klänge");
-    await expect(palette(page).locator(".palette-name")).toHaveText(["Sub", "Säge", "Acid", "Gummi", "Saite"]);
-    await expect(pressed(page)).toHaveText(["Gummi"]);
+    await expect(palette(page).locator("header")).toContainText("Bass: 50 sounds");
+    await expect(palette(page).locator(".palette-name")).toHaveText(["Sub", "Saw", "Acid", "Rubber", "String"]);
+    await expect(pressed(page)).toHaveText(["Rubber"]);
     await page.locator("#palette-dice").click();
-    await expect(pressed(page)).not.toHaveText(["Gummi"]);
+    await expect(pressed(page)).not.toHaveText(["Rubber"]);
     const diced = await soundOf(page, 4);
     expect(await page.evaluate((sound) => window.kreisel.palette.includes(sound), diced)).toBe(true);
 
@@ -78,19 +78,19 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("blättert auch mit den Tasten, würfelt mit der rechten Taste und hat die Klänge im Menü des Rings", async ({ page }) => {
+  test("also leafs with the keys, dices with the right button and has the sounds in the ring's menu", async ({ page }) => {
     const problems = await open(page);
     await focus(page, 6);
     await page.locator("#kreisel").focus();
     await page.keyboard.press("i");
-    await expect(picked(page)).toHaveText("Harfe");
+    await expect(picked(page)).toHaveText("Harp");
     await page.keyboard.press("i");
     await expect(picked(page)).toHaveText("Koto");
     await page.keyboard.press("u");
-    await expect(picked(page)).toHaveText("Harfe");
+    await expect(picked(page)).toHaveText("Harp");
     await page.keyboard.press("p");
     await expect(palette(page)).toBeVisible();
-    await expect(pressed(page)).toHaveText(["Harfe"]);
+    await expect(pressed(page)).toHaveText(["Harp"]);
     await page.keyboard.press("p");
     await expect(palette(page)).toBeHidden();
 
@@ -106,23 +106,23 @@ test.describe("am Laptop", () => {
     await focus(page, 5);
     await page.mouse.click(spot.x, spot.y, { button: "right" });
     await expect(menu).toBeVisible();
-    await menu.getByRole("menuitem", { name: "Nächster Klang aus der Palette" }).click();
+    await menu.getByRole("menuitem", { name: "Next sound from the palette" }).click();
     expect(await soundOf(page, 5)).toBe(25);
     // The menu stays open and says what is there now.
-    await expect(menu.getByRole("menuitem", { name: "Alle 50 Klänge dieses Rings zeigen" })).toHaveText("Samtpiano");
-    await menu.getByRole("menuitem", { name: "Voriger Klang aus der Palette" }).click();
+    await expect(menu.getByRole("menuitem", { name: "Show all 50 sounds of this ring" })).toHaveText("Velvet piano");
+    await menu.getByRole("menuitem", { name: "Previous sound from the palette" }).click();
     expect(await soundOf(page, 5)).toBe(2);
-    await expect(menu.getByRole("menuitem", { name: "Alle 50 Klänge dieses Rings zeigen" })).toHaveText("E-Piano");
-    await menu.getByRole("menuitem", { name: "Alle 50 Klänge dieses Rings zeigen" }).click();
+    await expect(menu.getByRole("menuitem", { name: "Show all 50 sounds of this ring" })).toHaveText("E-piano");
+    await menu.getByRole("menuitem", { name: "Show all 50 sounds of this ring" }).click();
     await expect(menu).toBeHidden();
     await expect(palette(page)).toBeVisible();
-    await expect(palette(page).locator("header")).toContainText("Akkorde: 50 Klänge");
+    await expect(palette(page).locator("header")).toContainText("Chords: 50 sounds");
     await page.locator("#palette-done").click();
     await expect(palette(page)).toBeHidden();
     expect(problems).toEqual([]);
   });
 
-  test("lässt jeden der 350 Klänge hören, alle ähnlich laut", async ({ page }) => {
+  test("lets each of the 350 sounds be heard, all about as loud", async ({ page }) => {
     test.setTimeout(120_000);
     const problems = await open(page);
     const heard = await page.evaluate(async () => {
@@ -159,7 +159,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("lässt das Klangfeld auch die neuen Klänge formen und merkt sie sich über einen Neustart", async ({ page }) => {
+  test("lets the sound pad shape the new sounds too and remembers them over a restart", async ({ page }) => {
     const problems = await open(page);
     // Brightness: a bell has more overtones with the point on the right. Length: a kick and a bell ring longer with the point at the top.
     const bright = await page.evaluate(async () => [await window.kreisel.hear(6, 21, 0.1, 0.5), await window.kreisel.hear(6, 21, 0.9, 0.5)]);
@@ -179,17 +179,17 @@ test.describe("am Laptop", () => {
     await page.keyboard.press("Space");
     await page.waitForTimeout(700);
     await page.reload();
-    await expect(page.locator("#status")).toContainText("Schläge");
+    await expect(page.locator("#status")).toContainText("hits");
     expect(await soundOf(page, 3)).toBe(41);
-    await expect(page.locator(".track", { hasText: "Trommel" }).locator(".sound")).toHaveText("Kalimba");
+    await expect(page.locator(".track", { hasText: "Drum" }).locator(".sound")).toHaveText("Kalimba");
     expect(problems).toEqual([]);
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("legt am Handy die Palette an den unteren Rand, und ein Finger wählt", async ({ page }) => {
+  test("puts the palette at the bottom edge on a phone, and a finger picks", async ({ page }) => {
     const problems = await open(page);
     await focus(page, 2);
     await page.locator("#sound-pick").scrollIntoViewIfNeeded();
@@ -202,13 +202,13 @@ test.describe("am Handy", () => {
       return Math.abs(card.y + card.height - view.height) + Math.abs(card.x) + Math.abs(card.width - view.width);
     }).toBeLessThan(2);
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
-    await palette(page).getByRole("button", { name: "Tamburin", exact: true }).scrollIntoViewIfNeeded();
-    await palette(page).getByRole("button", { name: "Tamburin", exact: true }).tap();
+    await palette(page).getByRole("button", { name: "Tambourine", exact: true }).scrollIntoViewIfNeeded();
+    await palette(page).getByRole("button", { name: "Tambourine", exact: true }).tap();
     expect(await soundOf(page, 2)).toBe(48);
-    await expect(pressed(page)).toHaveText(["Tamburin"]);
+    await expect(pressed(page)).toHaveText(["Tambourine"]);
     await page.locator("#palette-done").tap();
     await expect(palette(page)).toBeHidden();
-    await expect(picked(page)).toHaveText("Tamburin");
+    await expect(picked(page)).toHaveText("Tambourine");
     expect(problems).toEqual([]);
   });
 });

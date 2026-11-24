@@ -6,10 +6,10 @@ import { fromBar, onLaptop, onPhone, open, status, where } from "./helpers";
  * visit, the light show and the stage.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("bewegt sich, wo sich etwas ändert, und hält still, wenn weniger Bewegung gewünscht ist", async ({ page }) => {
+  test("moves where something changes, and keeps still when less motion is wanted", async ({ page }) => {
     const problems = await open(page);
     /** What is in motion on the wheel two frames from now (a change is looked at in the next frame). */
     const moving = (): Promise<{ popping: number; shrinking: number; sliding: number }> =>
@@ -40,7 +40,7 @@ test.describe("am Laptop", () => {
     await expect.poll(moving).toEqual(still);
 
     // A diced ring deals its new pattern, the dice in its row tumble and the button answers; so does a key.
-    await page.locator(".panel-ring .doing .button", { hasText: "Würfeln" }).click();
+    await page.locator(".panel-ring .doing .button", { hasText: "Dice" }).click();
     expect(await playing(".track.selected .roll")).toContain("tumble");
     expect(await playing(".panel-ring .doing")).toContain("flash");
     await expect.poll(moving).toEqual(still);
@@ -70,12 +70,12 @@ test.describe("am Laptop", () => {
     // Whoever asked the system for less motion gets none: nothing hops on the wheel, and nothing plays on the page.
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.reload();
-    await expect(status(page)).toContainText("Schläge");
+    await expect(status(page)).toContainText("hits");
     expect(await moving()).toEqual(still);
     const again = await where(page, 6, 1);
     await page.mouse.click(again.x, again.y);
     expect(await moving()).toEqual(still);
-    await page.locator(".panel-ring .doing .button", { hasText: "Würfeln" }).click();
+    await page.locator(".panel-ring .doing .button", { hasText: "Dice" }).click();
     expect(await moving()).toEqual(still);
     await page.locator("#help-open").click();
     expect(await page.evaluate(() => document.getAnimations().filter((motion) => Number(motion.effect?.getComputedTiming().activeDuration ?? 0) > 1).length)).toBe(0);
@@ -83,13 +83,13 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("zeigt beim ersten Besuch die ersten Schritte, wo sie passieren", async ({ page }) => {
+  test("shows the first steps on a first visit, where they happen", async ({ page }) => {
     const problems = await open(page, "./", true);
     const tour = page.locator("#tour");
     const count = page.locator("#tour-count");
     await expect(tour).toBeVisible();
-    await expect(count).toHaveText("1 von 7");
-    await expect(page.locator("#tour-title")).toHaveText("Das ist dein Kreisel");
+    await expect(count).toHaveText("1 of 7");
+    await expect(page.locator("#tour-title")).toHaveText("This is your Kreisel");
     /** The light lies around a part of the page, and the card is wholly in the window and not over that part's middle. */
     const lit = (selector: string): Promise<boolean> =>
       page.evaluate((query) => {
@@ -106,36 +106,36 @@ test.describe("am Laptop", () => {
 
     // Nothing is locked while it runs. What a step asks for can be tried at once, and then it goes on by itself.
     await page.keyboard.press("Space");
-    await expect(count).toHaveText("2 von 7");
+    await expect(count).toHaveText("2 of 7");
     const free = await where(page, 6, 1);
     await page.mouse.click(free.x, free.y);
-    await expect(count).toHaveText("3 von 7");
+    await expect(count).toHaveText("3 of 7");
     await expect.poll(() => lit("#tracks")).toBe(true);
     await page.keyboard.press("5");
-    await expect(count).toHaveText("4 von 7");
+    await expect(count).toHaveText("4 of 7");
     await expect.poll(() => lit("#panel")).toBe(true);
-    // The other steps wait for "Weiter".
+    // The other steps wait for "Next".
     const next = page.locator("#tour-next");
     await next.click();
-    await expect(count).toHaveText("5 von 7");
+    await expect(count).toHaveText("5 of 7");
     await expect.poll(() => lit("#fx")).toBe(true);
     await next.click();
     await expect.poll(() => lit("#scenes")).toBe(true);
     await next.click();
-    await expect(count).toHaveText("7 von 7");
-    await expect(next).toHaveText("Los geht’s");
+    await expect(count).toHaveText("7 of 7");
+    await expect(next).toHaveText("Let's go");
     await next.click();
     await expect(tour).toBeHidden();
     await page.keyboard.press("Space");
 
     // It comes once. From the question mark in the bar it comes again, and Escape puts it away.
     await page.reload();
-    await expect(status(page)).toContainText("Schläge");
+    await expect(status(page)).toContainText("hits");
     await page.waitForTimeout(1200);
     await expect(tour).toBeHidden();
     await fromBar(page, "help-open", /Tour/);
     await expect(tour).toBeVisible();
-    await expect(count).toHaveText("1 von 7");
+    await expect(count).toHaveText("1 of 7");
     await page.keyboard.press("Escape");
     await expect(tour).toBeHidden();
     await fromBar(page, "help-open", /Tour/);
@@ -145,7 +145,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("wirft Licht, solange er spielt, und geht auf die Bühne", async ({ page }) => {
+  test("throws light while it plays, and goes onto the stage", async ({ page }) => {
     const problems = await open(page);
     const light = (): Promise<{ sparks: number; waves: number; glowing: boolean }> => page.evaluate(() => window.kreisel.light());
     const dark = { sparks: 0, waves: 0, glowing: false };
@@ -174,7 +174,7 @@ test.describe("am Laptop", () => {
     const lights = page.locator("#lights-toggle");
     await expect(lights).toHaveAttribute("aria-pressed", "true");
     await lights.click();
-    await expect(page.locator("#toast")).toContainText("Lichtspiel aus");
+    await expect(page.locator("#toast")).toContainText("Light show off");
     await expect.poll(light).toEqual(dark);
     await page.waitForTimeout(700);
     expect(await light()).toEqual(dark);
@@ -238,10 +238,10 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("zeigt am Handy die ersten Schritte im Fenster und geht auf die Bühne", async ({ page }) => {
+  test("shows the first steps in the window on a phone and goes onto the stage", async ({ page }) => {
     const problems = await open(page, "./", true);
     const tour = page.locator("#tour");
     const count = page.locator("#tour-count");
@@ -254,7 +254,7 @@ test.describe("am Handy", () => {
         return card.left >= 0 && card.top >= 0 && card.right <= innerWidth && card.bottom <= innerHeight && hole.bottom > 0 && hole.top < innerHeight;
       });
     for (let step = 1; step <= 7; step += 1) {
-      await expect(count).toHaveText(`${step} von 7`);
+      await expect(count).toHaveText(`${step} of 7`);
       await expect.poll(inView).toBe(true);
       await page.locator("#tour-next").tap();
     }

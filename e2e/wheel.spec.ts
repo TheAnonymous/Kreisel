@@ -6,21 +6,21 @@ import { barAt, focus, focusPiece, onLaptop, onPhone, open, paint, pickSound, pi
  * scenes, and that it sounds.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("zeigt den Werks-Kreisel, malt, radiert und nimmt zurück", async ({ page }) => {
+  test("shows the factory Kreisel, paints, erases and takes back", async ({ page }) => {
     const problems = await open(page);
-    await expect(status(page)).toHaveText("Melodie: 7 Schläge auf 1, 4, 7, 9, 11, 13, 15 von 16");
+    await expect(status(page)).toHaveText("Melody: 7 hits on 1, 4, 7, 9, 11, 13, 15 of 16");
 
     // A click on another ring picks it and paints at once.
     let spot = await where(page, 0, 2);
     await page.mouse.click(spot.x, spot.y);
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 5 hits on 1, 3, 5, 9, 13 of 16 · all rings meet every 3 bars");
     await focus(page, 0);
     spot = await where(page, 0, 2);
     await page.mouse.click(spot.x, spot.y);
-    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 4 hits on 1, 5, 9, 13 of 16 · all rings meet every 3 bars");
 
     // A stroke along the ring paints every step it crosses, as one step back.
     const from = await where(page, 0, 5);
@@ -31,11 +31,11 @@ test.describe("am Laptop", () => {
     await page.mouse.move(over.x, over.y, { steps: 5 });
     await page.mouse.move(to.x, to.y, { steps: 5 });
     await page.mouse.up();
-    await expect(status(page)).toHaveText("Kick: 7 Schläge auf 1, 5, 6, 7, 8, 9, 13 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 7 hits on 1, 5, 6, 7, 8, 9, 13 of 16 · all rings meet every 3 bars");
     await page.keyboard.press("Control+z");
-    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 4 hits on 1, 5, 9, 13 of 16 · all rings meet every 3 bars");
     await page.keyboard.press("Control+Shift+z");
-    await expect(status(page)).toContainText("7 Schläge");
+    await expect(status(page)).toContainText("7 hits");
 
     // Pulled along the ring, the right button erases, whatever the tool, and opens no menu.
     await page.keyboard.press("w");
@@ -43,20 +43,20 @@ test.describe("am Laptop", () => {
     await page.mouse.down({ button: "right" });
     await page.mouse.move(over.x, over.y, { steps: 5 });
     await page.mouse.up({ button: "right" });
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 5, 6, 9, 13 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 5 hits on 1, 5, 6, 9, 13 of 16 · all rings meet every 3 bars");
     await expect(page.locator("#context")).toBeHidden();
     await page.keyboard.press("Control+z");
-    await expect(status(page)).toContainText("7 Schläge");
+    await expect(status(page)).toContainText("7 hits");
     await page.keyboard.press("Control+Shift+z");
 
     // The wheel turns the ring.
     await page.mouse.move(to.x, to.y);
     await page.mouse.wheel(0, 50);
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 2, 6, 7, 10, 14 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 5 hits on 2, 6, 7, 10, 14 of 16 · all rings meet every 3 bars");
     expect(problems).toEqual([]);
   });
 
-  test("zieht Töne nach außen höher und hält sie länger", async ({ page }) => {
+  test("drags notes outwards higher and holds them longer", async ({ page }) => {
     await open(page);
     await focus(page, 6);
     const pitchOf = (step: number): Promise<number> => page.evaluate((at) => window.kreisel.app.project.scenes[0]!.patterns[6]!.steps[at]!.pitch, step);
@@ -70,7 +70,7 @@ test.describe("am Laptop", () => {
     await page.mouse.down();
     await page.mouse.move(out.x, out.y, { steps: 6 });
     await page.mouse.up();
-    await expect(status(page)).toContainText("8 Schläge");
+    await expect(status(page)).toContainText("8 hits");
     expect(await pitchOf(5)).toBe(7);
 
     await page.keyboard.press("t");
@@ -85,7 +85,7 @@ test.describe("am Laptop", () => {
     expect(await lengthOf(5)).toBe(3);
   });
 
-  test("spielt unter der Produktions-CSP, auch am Lautlos-Schalter vorbei", async ({ page }) => {
+  test("plays under the production CSP, past the silent switch too", async ({ page }) => {
     await page.addInitScript(() => {
       Object.defineProperty(navigator, "audioSession", { value: { type: "auto" }, configurable: true });
     });
@@ -118,19 +118,19 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("spielt mit der Tastatur: Zeiger, Eingabe, Werkzeuge, Einspielen", async ({ page }) => {
+  test("plays with the keyboard: pointer, Enter, tools, play in", async ({ page }) => {
     await open(page);
     await page.keyboard.press("1");
-    await expect(status(page)).toContainText("Kick: 4 Schläge");
+    await expect(status(page)).toContainText("Kick: 4 hits");
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("Enter");
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 5 hits on 1, 3, 5, 9, 13 of 16 · all rings meet every 3 bars");
     await page.keyboard.press("Shift+ArrowRight");
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 2, 4, 6, 10, 14 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 5 hits on 2, 4, 6, 10, 14 of 16 · all rings meet every 3 bars");
     await page.keyboard.press("Shift+Delete");
-    await expect(status(page)).toHaveText("Kick: leer, 16 Schritte · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: empty, 16 steps · all rings meet every 3 bars");
 
     // Live: what is played on the home row lands in the turning ring.
     await page.keyboard.press("l");
@@ -140,7 +140,7 @@ test.describe("am Laptop", () => {
     await page.keyboard.press("a");
     await page.waitForTimeout(300);
     await page.keyboard.press("d");
-    await expect(status(page)).toContainText("Kick: 2 Schläge");
+    await expect(status(page)).toContainText("Kick: 2 hits");
     await page.keyboard.press("Space");
 
     await page.keyboard.press("7");
@@ -152,16 +152,16 @@ test.describe("am Laptop", () => {
     await expect(page.locator("#help")).toBeVisible();
   });
 
-  test("wählt Akkorde, Klänge und Tonart", async ({ page }) => {
+  test("picks chords, sounds and key", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => window.kreisel.app.chords.open(1));
     const menu = page.locator("#chord-menu");
-    await expect(menu).toContainText("Takt 2 von 4");
+    await expect(menu).toContainText("Bar 2 of 4");
     await expect(menu.locator(".chord[aria-pressed=true]")).toContainText("F");
     await menu.locator(".chord", { hasText: "Dm" }).click();
     expect(await page.evaluate(() => window.kreisel.app.project.scenes[0]!.chords)).toEqual([0, 3, 2, 6]);
-    await menu.getByTitle("Einen Takt mehr").click();
-    await expect(menu).toContainText("Takt 2 von 5");
+    await menu.getByTitle("One bar more").click();
+    await expect(menu).toContainText("Bar 2 of 5");
     await page.mouse.click(5, 300);
     await expect(menu).toBeHidden();
 
@@ -175,10 +175,10 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("baut aus Szenen eine Folge", async ({ page }) => {
+  test("builds a row out of scenes", async ({ page }) => {
     await open(page);
     await page.locator(".scene", { hasText: "B" }).click();
-    await expect(page.locator("#toast")).toContainText("Kopie von A");
+    await expect(page.locator("#toast")).toContainText("copy of A");
     await expect(page.locator(".scene.current")).toHaveText("B");
     await page.keyboard.press("1");
     await page.keyboard.press("Shift+Delete");
@@ -198,35 +198,35 @@ test.describe("am Laptop", () => {
         for (const scene of project.scenes) if (scene) scene.chords = [0];
       });
     });
-    await page.locator("#plays").getByRole("radio", { name: "Folge" }).click();
+    await page.locator("#plays").getByRole("radio", { name: "Row" }).click();
     await expect(page.locator(".scene.current")).toHaveText("B", { timeout: 6000 });
     await expect(page.locator(".scene.current")).toHaveText("A", { timeout: 6000 });
     await page.keyboard.press("Space");
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("passt in die Breite; der Finger wählt erst den Ring und malt dann", async ({ page }) => {
+  test("fits the width; the finger first picks the ring and then paints", async ({ page }) => {
     const problems = await open(page);
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
     let spot = await where(page, 0, 2);
     await page.touchscreen.tap(spot.x, spot.y);
-    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 4 hits on 1, 5, 9, 13 of 16 · all rings meet every 3 bars");
     await focus(page, 0);
     spot = await where(page, 0, 2);
     await page.touchscreen.tap(spot.x, spot.y);
-    await expect(status(page)).toHaveText("Kick: 5 Schläge auf 1, 3, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 5 hits on 1, 3, 5, 9, 13 of 16 · all rings meet every 3 bars");
 
     const box = (await page.locator("#kreisel").boundingBox())!;
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "true");
     await expect.poll(() => page.evaluate(() => window.kreisel.level()), { timeout: 8000 }).toBeGreaterThan(0.05);
-    await page.locator(".pad-fx", { hasText: "Dumpf" }).dispatchEvent("pointerdown", { pointerId: 7, pointerType: "touch", isPrimary: true });
-    await expect(page.locator(".pad-fx", { hasText: "Dumpf" })).toHaveClass(/held/);
-    await page.locator(".pad-fx", { hasText: "Dumpf" }).dispatchEvent("pointerup", { pointerId: 7, pointerType: "touch", isPrimary: true });
-    await expect(page.locator(".pad-fx", { hasText: "Dumpf" })).not.toHaveClass(/held/);
+    await page.locator(".pad-fx", { hasText: "Dull" }).dispatchEvent("pointerdown", { pointerId: 7, pointerType: "touch", isPrimary: true });
+    await expect(page.locator(".pad-fx", { hasText: "Dull" })).toHaveClass(/held/);
+    await page.locator(".pad-fx", { hasText: "Dull" }).dispatchEvent("pointerup", { pointerId: 7, pointerType: "touch", isPrimary: true });
+    await expect(page.locator(".pad-fx", { hasText: "Dull" })).not.toHaveClass(/held/);
     await page.locator("#play").tap();
     await expect(page.locator("#play")).toHaveAttribute("aria-pressed", "false");
 
@@ -234,16 +234,16 @@ test.describe("am Handy", () => {
     await expect(page.locator("#sound")).toBeHidden();
     await expect(page.locator("#help-open")).toBeHidden();
     await page.locator("#more").tap();
-    await page.locator("#context").getByText("Reihum").tap();
+    await page.locator("#context").getByText("Pass around").tap();
     await expect(page.locator("#reihum")).toBeVisible();
-    await page.locator("#reihum").getByRole("button", { name: "Schließen", exact: true }).tap();
+    await page.locator("#reihum").getByRole("button", { name: "Close", exact: true }).tap();
     await expect(page.locator("#reihum")).toBeHidden();
 
     // A finger first picks the piece's ring and paints with the next touch.
     const rim = await barAt(page, 6, 0.5);
     const untouched = (await pieceOf(page)).tension;
     await page.touchscreen.tap(rim.x, rim.y);
-    await expect(status(page)).toContainText("Stück: 32 Takte");
+    await expect(status(page)).toContainText("Piece: 32 bars");
     expect((await pieceOf(page)).tension).toEqual(untouched);
     await focusPiece(page);
     const wide = await barAt(page, 6, 1);
@@ -260,7 +260,7 @@ test.describe("am Handy", () => {
     await page.locator("#bild-clear").tap();
     await page.locator("#bild").scrollIntoViewIfNeeded();
     await paint(page, [[0.1, 0.5], [0.6, 0.3]]);
-    await expect(status(page)).toHaveText("Klangmalerei Kick: 1 Strich (1× Summen)");
+    await expect(status(page)).toHaveText("Painted sound Kick: 1 stroke (1× Hum)");
     await page.locator("#easel-done").tap();
     await expect(page.locator("#easel")).toBeHidden();
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);

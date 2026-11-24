@@ -48,8 +48,8 @@ export class BoothWindow {
       line.append(el("span", "label", label), input);
       holder.append(line);
     };
-    shaper("Mundraum", "mouth", "Der Raum im Mund: klein und hell bis groß und dunkel", "voice-mouth");
-    shaper("Hauch", "breath", "Wie viel Atem in der Stimme liegt: klar bis geflüstert", "voice-breath");
+    shaper("Mouth", "mouth", "The space in the mouth: small and bright to big and dark", "voice-mouth");
+    shaper("Breath", "breath", "How much breath is in the voice: clear to whispered", "voice-breath");
     // A click beside the window puts it away, like a click beside any open box.
     byId("booth").addEventListener("pointerdown", (event) => {
       if (event.target === event.currentTarget) app.voice.close();
@@ -67,8 +67,8 @@ export class BoothWindow {
     if (app.voice.isOpen && !voice) app.voice.close();
 
     this.panels.sung.pick.setAttribute("aria-pressed", String(settings.sound === VOICE_SOUND));
-    this.panels.sung.pick.title = voice ? "Die Stimme dieses Rings spielen (noch ein Klick öffnet ihr Fenster)" : "Diesem Ring eine Stimme geben: Er singt eine Zeile Text";
-    this.panels.sung.label.textContent = voice ? (voice.text.trim() ? `Stimme: ${voice.text.trim()}` : "Stimme: nur Vokal") : "Stimme geben";
+    this.panels.sung.pick.title = voice ? "Play this ring's voice (one more click opens its window)" : "Give this ring a voice: it sings a line of text";
+    this.panels.sung.label.textContent = voice ? (voice.text.trim() ? `Voice: ${voice.text.trim()}` : "Voice: vowel only") : "Give a voice";
 
     const open = app.voice.isOpen && voice !== null;
     byId("booth").hidden = !open;
@@ -86,7 +86,7 @@ export class BoothWindow {
     this.boothOpen = open;
     if (!open || !voice) return;
     byId("booth").style.setProperty("--c", info.color);
-    byId("booth-title").textContent = `Stimme: ${info.name}`;
+    byId("booth-title").textContent = `Voice: ${info.name}`;
     const text = byId<HTMLInputElement>("voice-text");
     // What is being typed is left alone (the line is kept as typed, a trailing space included).
     if (document.activeElement !== text || text.value.trimStart() !== voice.text) text.value = voice.text;
@@ -98,11 +98,11 @@ export class BoothWindow {
       this.litSyllable = -1;
       holder.replaceChildren(...(cut.length > 0
         ? cut.map((syllable, index) => {
-            const chip = button(`syllable${syllable.first && index > 0 ? " word" : ""}`, syllable.text, "Diese Silbe singen");
+            const chip = button(`syllable${syllable.first && index > 0 ? " word" : ""}`, syllable.text, "Sing this syllable");
             chip.addEventListener("click", () => void app.engine.audition(app.selected, { on: true, vel: 1, chance: 0, ratchet: 1, pitch: 0, len: 2 }, app.chordNow(), index));
             return chip;
           })
-        : [el("span", "shelf-label empty", "Ohne Text singt der Ring den Vokal, auf dem der Punkt im Klangfeld steht.")]));
+        : [el("span", "shelf-label empty", "Without text the ring sings the vowel the point in the sound pad stands on.")]));
     }
     this.lightSyllable();
   }

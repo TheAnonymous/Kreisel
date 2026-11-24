@@ -3,7 +3,7 @@ import { decodeLink, encodeLink, pack, unpack } from "../src/codec";
 import { factoryProject, technoProject, TRACK_COUNT } from "../src/model";
 import { clip, clipCurve, driveGains, driven, driveTrim, FIRST, pressGains, ringGains, SECOND } from "../src/press";
 
-describe("Zerre", () => {
+describe("Drive", () => {
   it("adds a ring's own drive and the sparks over it, up to all there is", () => {
     expect(driven(0, 0)).toBe(0);
     expect(driven(0.3, 0.5)).toBeCloseTo(0.8);
@@ -53,7 +53,7 @@ describe("Zerre", () => {
   });
 });
 
-describe("Druck", () => {
+describe("Pressure", () => {
   it("lets everything pass untouched at rest", () => {
     expect(pressGains(0)).toEqual({ clean: 1, pressed: 0, first: 1, second: 1, mono: false });
   });
@@ -110,7 +110,7 @@ describe("Druck", () => {
 });
 
 describe("where a Kreisel starts", () => {
-  it("is neither driven nor pressed as the Werks-Kreisel", () => {
+  it("is neither driven nor pressed as the factory Kreisel", () => {
     const werk = factoryProject();
     expect(werk.pressure).toBe(0);
     expect(werk.tracks.map((track) => track.drive)).toEqual(Array.from({ length: TRACK_COUNT }, () => 0));

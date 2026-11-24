@@ -1,8 +1,8 @@
 {
   "name": "Kreisel",
   "short_name": "Kreisel",
-  "description": "Eine Groovebox im Kreis: Schläge und Töne in sieben Ringe malen, drehen, würfeln und teilen.",
-  "lang": "de",
+  "description": "A groovebox in a circle: paint hits and notes into seven rings, rotate, dice and share them.",
+  "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

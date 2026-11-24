@@ -1,6 +1,6 @@
 /*
- * Hardness, as plain arithmetic. "Zerre" drives one ring into a shaper, the
- * same one the sparks of the weather use. "Druck" presses the sum of
+ * Hardness, as plain arithmetic. "Drive" drives one ring into a shaper, the
+ * same one the sparks of the weather use. "Pressure" presses the sum of
  * everything against a ceiling in two stages before the master hears it, the
  * way a loud techno master is made: by clipping softly, twice, not by turning
  * it up. Both are nothing at zero: a Kreisel without them sounds as it always

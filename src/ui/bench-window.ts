@@ -67,9 +67,9 @@ export class BenchWindow {
       line.append(label, input);
       holder.append(line);
     };
-    shaper(this.shape.size, el("span", "label", "Größe"), "size", "Groß klingt tief und lang, klein hoch und kurz (auch mit dem Mausrad über dem Körper)");
-    shaper(this.shape.tight, this.shape.tightName, "tight", "Straffer, dicker, enger: heller und kürzer (auch mit Umschalt und Mausrad)");
-    shaper(this.shape.material, this.shape.materialName, "material", "Material, von Holz über Metall zu Glas: wie lange es nachklingt");
+    shaper(this.shape.size, el("span", "label", "Size"), "size", "Big sounds deep and long, small high and short (also with the mouse wheel over the body)");
+    shaper(this.shape.tight, this.shape.tightName, "tight", "Tighter, thicker, narrower: brighter and shorter (also with Shift and the mouse wheel)");
+    shaper(this.shape.material, this.shape.materialName, "material", "Material, from wood through metal to glass: how long it rings on");
 
     byId("bench-done").addEventListener("click", () => app.body.close());
     byId("bench-dice").addEventListener("click", () => app.body.dice());
@@ -90,8 +90,8 @@ export class BenchWindow {
     if (app.body.isOpen && !body) app.body.close();
 
     this.panels.built.pick.setAttribute("aria-pressed", String(settings.sound === BODY_SOUND));
-    this.panels.built.pick.title = body ? "Den Klangkörper dieses Rings spielen (noch ein Klick öffnet die Werkbank)" : "Einen Klangkörper für diesen Ring bauen";
-    this.panels.built.label.textContent = body ? `Klangkörper: ${BODY_NAMES[body.kind]}` : "Klangkörper bauen";
+    this.panels.built.pick.title = body ? "Play this ring's body (one more click opens the workbench)" : "Build a body for this ring";
+    this.panels.built.label.textContent = body ? `Body: ${BODY_NAMES[body.kind]}` : "Build a body";
     const signature = `${track}|${body ? `${body.kind}.${body.material}.${body.tight}.${body.exciter}.${body.where}` : ""}`;
     if (signature !== this.builtSignature) {
       this.builtSignature = signature;
@@ -108,10 +108,10 @@ export class BenchWindow {
     this.benchOpen = open;
     if (!open || !body) return;
     byId("bench").style.setProperty("--c", info.color);
-    byId("bench-title").textContent = `Klangkörper: ${info.name}`;
+    byId("bench-title").textContent = `Body: ${info.name}`;
     this.malletButtons.forEach((node, index) => node.setAttribute("aria-checked", String(index === body.exciter)));
     this.kindButtons.forEach((node, kind) => node.setAttribute("aria-pressed", String(kind === body.kind)));
-    this.shape.tightName.textContent = TIGHT_NAMES[body.kind] ?? "Spannung";
+    this.shape.tightName.textContent = TIGHT_NAMES[body.kind] ?? "Tension";
     this.shape.materialName.textContent = `Material: ${materialName(body.material)}`;
   }
 }

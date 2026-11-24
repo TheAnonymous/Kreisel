@@ -10,6 +10,17 @@ rings, turn a ring with the mouse wheel, and pull a step outwards to make it
 sound higher. Rings may have different lengths (2 to 32 steps), so they drift
 against each other and the groove keeps moving.
 
+The page speaks English. It used to be German, and the parts of this document
+still carry the names they were built under; on the page they read: Klangmalerei
+"Sound painting", Reihum "Pass around" (with Stille Post as "Telephone"),
+Klangkörper "Body", Nachbeben "Rumble", Wetter "Weather", Stimme "Voice",
+Einsätze "Roster", Bewegt "Moves", Protokoll "Outline", Werks-Kreisel "Factory
+Kreisel". Names that a browser keeps or a link carries were left as they were
+(the scales `moll` and `dur`, the styles `frei` and `techno`, the keys of the
+browser's storage), so every Kreisel and every link from before still opens.
+The voice still reads a line the German way, letter by letter: it is a robot
+choir, and English words with silent letters get a syllable too many.
+
 ## The idea
 
 A groovebox on a web page has a mouse, a wheel, a keyboard and a big canvas,
@@ -37,8 +48,8 @@ and no knobs. So Kreisel has no knobs either:
   left over. The Kreisel's name opens what concerns the Kreisel as a whole
   (start anew: empty, techno, the Werks-Kreisel; the style of the dice; back
   to the workshop). The speaker holds the two controls for everything
-  together, volume and Druck. "Teilen" gives the Kreisel away, as a link or
-  Reihum, and says so while a round is going. The arrow at "Aufnehmen" saves
+  together, volume and Druck. "Share" gives the Kreisel away, as a link or
+  Reihum, and says so while a round is going. The arrow at "Record" saves
   a file. The question mark is the help and the tour. Stage and light show
   are two buttons at the wheel. All of them are the menu of the right button
   hung under a button (`src/ui/bar-menus.ts`). A phone's bar has no room for
@@ -48,15 +59,15 @@ and no knobs. So Kreisel has no knobs either:
   the bar (the fields around the hub), the chords are voiced close together,
   and changing key or scale re-tunes everything.
 - **Happy accidents.** Dice give a ring a new idea in the manner of its
-  instrument, "Variieren" changes it only a little, "Verteilen" spreads hits
+  instrument, "Vary" changes it only a little, "Spread" spreads hits
   evenly (Euclidean rhythms), and undo takes any of it back.
 - **From loop to piece.** Eight scenes, each shown as a small wheel; an empty
   one becomes a copy of the current one when clicked. Scenes change on the
-  bar line, and the row ("Folge") under the wheel plays them in the order
+  bar line, and the row ("Row") under the wheel plays them in the order
   they were laid (see "Scenes and the row").
 - **Play it.** The bottom row of the keyboard holds five effects (lowpass,
   highpass, stutter, echo throw, pause with a crash on release), the home row
-  plays the ring in focus, and "Einspielen" writes what is played into the
+  plays the ring in focus, and "Play in" writes what is played into the
   turning ring.
 - **The web's own tricks.** The whole Kreisel fits in a link (no upload: the
   link *is* the project), it starts offline, records what is heard and
@@ -68,7 +79,7 @@ and no knobs. So Kreisel has no knobs either:
 ## Part two: Klangmalerei
 
 Every ring has its ready-made sounds (fifty of them by now, see "Fifty
-sounds a ring") and one of its own, and that one is painted. "Malen" opens
+sounds a ring") and one of its own, and that one is painted. "Paint" opens
 the paint box on top of the turning wheel:
 
 - **The picture is the sound.** Time runs from left to right, pitch from
@@ -104,7 +115,7 @@ far out means a lot is going on, far in means little. The Kreisel arranges by
 that line, bar by bar:
 
 - **Who plays.** The rings come in one after another as the tension rises,
-  in an order the piece keeps ("Wer zuerst einsetzt"). Each bar is drawn as
+  in an order the piece keeps ("Who comes in first"). Each bar is drawn as
   the stack of the rings that play in it, so the ring shows who plays when.
 - **How firmly.** A ring that has only just come in plays a little quieter
   and leaves its quiet steps out.
@@ -119,7 +130,7 @@ that line, bar by bar:
 
 The right button sends a playing piece to a bar, the wheel turns it, dice
 give it the form of a track (climb, perhaps a break, a peak, a fade), and
-"Glätten" rounds the line off. The rules are plain arithmetic on the line
+"Smooth" rounds the line off. The rules are plain arithmetic on the line
 (`src/piece.ts`), the same live and in the saved file, which holds the piece once
 round. A piece is one byte a bar in the link. What makes a piece a techno track
 (breaks without the kick, a build-up to choose from, fills every eight bars) is
@@ -156,7 +167,7 @@ that is no Kreisel is left out, and a turn never has turns of its own.
 
 The built-in sounds and the painted ones are synthesizer sounds. A
 Klangkörper is a *thing* that rings: a skin, a string, a bar, a tube or a
-bowl, built on a workbench ("Bauen" in the ring's panel).
+bowl, built on a workbench ("Build" in the ring's panel).
 
 - **Knock on it.** The body is drawn as what it is. A click strikes it where
   the pointer is, and that place is where the ring strikes it from then on:
@@ -189,7 +200,7 @@ delay and a reverb, that is driven again and then low-passed, ducked under
 the kick, and both leave through one group. Here the chain is wired that way
 inside, and what you do is paint one line into the kick's ring.
 
-- **The kick can be hard.** "Härte" drives the kick itself into a clipper
+- **The kick can be hard.** "Hardness" drives the kick itself into a clipper
   before anything else hears it: its tail is pressed up into a body that
   stands, and what the drive adds up high is taken off again after it. At
   nothing the kick passes untouched; at full it is some 5 dB louder on
@@ -202,7 +213,7 @@ inside, and what you do is paint one line into the kick's ring.
   it has been driven, also goes down into a cellar: a long dark room and a
   row of echoes a sixteenth apart. What comes back is driven until it growls
   and only then darkened (24 dB an octave, from 90 Hz to 700 Hz with
-  "Dreck"), so it always suits the kick it came from.
+  "Dirt"), so it always suits the kick it came from.
 - **You paint where the ground shakes.** On the kick's ring the tool that
   holds notes elsewhere (a drum has none to hold) paints the Nachbeben: one
   stroke around the ring, far out is a lot, the inner edge is nothing; the
@@ -220,8 +231,8 @@ inside, and what you do is paint one line into the kick's ring.
   leave for the mix through one soft clipper, the more the dirtier: the kick
   pushes the rumble down for the moment it is there. A kick without a
   Nachbeben does not pass through it.
-- **Character.** "Dreck" drives it from deep and clean into a growl,
-  "Rollen" breaks the swell into sixteenths. Dice lay the usual shapes
+- **Character.** "Dirt" drives it from deep and clean into a growl,
+  "roll" breaks the swell into sixteenths. Dice lay the usual shapes
   around the kicks that are there: off-beat swell, rolling, tail.
 
 The line is a number from 0 to 15 for each step of the kick's ring, kept
@@ -247,7 +258,7 @@ rings says "these instruments, in this part of their round".
 
 - **Six kinds.** Fog makes what lies under it duller, sun brighter, clouds
   send it into the hall, rain into the echo, sparks drive it, hail chops it.
-  "Wetter" is chosen like a ring (it heads the list); then the tools are the
+  "Weather" is chosen like a ring (it heads the list); then the tools are the
   six kinds, a stroke on the wheel paints, going over it again makes it
   stronger, the right button takes it away, the mouse wheel makes the brush
   wider.
@@ -259,7 +270,7 @@ rings says "these instruments, in this part of their round".
 - **Into the sound.** On the rings whose sound has a brightness of its own
   (hi-hat, bass, chords, melody), sun and fog also move that, note by note:
   the filter ride of an acid line, painted.
-- **Effects leave weather.** With "Einspielen" on, holding the dull, echo or
+- **Effects leave weather.** With "Play in" on, holding the dull, echo or
   stutter key leaves fog, rain or hail where the Kreisel is, over every ring.
 
 Weather is a number from 0 to 15 for each kind, ring and step, kept with
@@ -276,7 +287,7 @@ the ring's own pitch: the bass sings low, the melody its melody, the chord
 ring is a small choir, a drum speaks. Nothing is recorded and nothing is
 looked up: the voice is made on the spot from the letters.
 
-- **A line, cut into syllables.** "Stimme geben" (or "Text", or the right
+- **A line, cut into syllables.** "Give a voice" (or "Text", or the right
   button on a ring) opens a small window with one field. What is typed is cut
   as German is written ("Kaf·fee·pau·se jetzt"); a hyphen cuts where the
   rules get it wrong. Every hit of the ring sings the next syllable, so a
@@ -285,8 +296,8 @@ looked up: the voice is made on the spot from the letters.
 - **The sound pad is the mouth.** For a voice the pad shows i, e, a, o and u
   where a vowel chart has them. In the middle every vowel is itself; the
   further out the point, the more all of them are pulled to that place, and
-  at the edge the ring sings one vowel only. "Mundraum" makes the mouth small
-  and bright or big and dark, "Hauch" gives the voice breath.
+  at the edge the ring sings one vowel only. "Mouth" makes the mouth small
+  and bright or big and dark, "Breath" gives the voice breath.
 - **A mouth in the hub.** While a voice sounds, the hub of the wheel is a
   mouth that forms what is sung: wide open for an a, a smile for an i, a
   small round hole for an u.
@@ -354,14 +365,14 @@ Easier to get into, and more to look at.
 
 ## Fifty sounds a ring
 
-Each ring has a palette of fifty ready-made sounds, in five families of ten: for the kick "Rund", "Hart",
-"Tief", "Staub" and "Schräg", for the melody plucked strings, bells, pipes, saws and the square waves of
+Each ring has a palette of fifty ready-made sounds, in five families of ten: for the kick "Round", "Hard",
+"Deep", "Dust" and "Skewed", for the melody plucked strings, bells, pipes, saws and the square waves of
 old game consoles. That makes 350.
 
 - **Where they are**: in the ring's panel the sound's name stands between two arrows that leaf through
   the palette (keys U and I). A click on the name (key P) opens the palette beside the panel: every sound
   is one click away and is heard at once, and the palette stays open while sounds are tried, also when
-  another ring is picked. "Würfeln", or the right button on the name, takes any of the fifty (in a techno
+  another ring is picked. "Dice", or the right button on the name, takes any of the fifty (in a techno
   Kreisel one of the ring's techno group, see "Techno"). The ring's
   right-click menu leafs as well.
 - **The four each ring always had** lead the first four families and keep their numbers, so a Kreisel
@@ -391,7 +402,7 @@ first step is where a Kreisel begins.
   times. The Werks-Kreisel of before is still there, beside it in the menu
   under the Kreisel's name.
 - **A Kreisel has a style**, free or techno, which it takes from its start
-  and which the menu under the Kreisel's name can switch ("Stil"). The style decides what the
+  and which the menu under the Kreisel's name can switch ("Style"). The style decides what the
   dice throw, what a control goes back to on a right click, and what an empty
   Kreisel is like (and, since the fourth step, which sounds a palette shows
   first and whether the hi-hat is one voice). It travels in the link; a link
@@ -422,7 +433,7 @@ and so is the sum.
   `src/press.ts`), so turning it changes how the ring sounds more than how
   loud it is (within about 3 dB, a little differently in each browser): its
   peaks come down to its body. The kick's ring has no Zerre: what makes a
-  kick hard is its own control, "Härte" (see the Nachbeben).
+  kick hard is its own control, "Hardness" (see the Nachbeben).
 - **Druck** presses the sum of everything, behind the speaker in the bar,
   under the volume. Mix, hall and echo meet in a press on their way to the master
   (`src/audio/press.ts`): two soft clippers in a row, pushed harder the
@@ -451,9 +462,9 @@ of the little silver bass machine the music is named after.
   as they were. The techno Kreisel plays its line on it.
 - **The pad is its filter**: how far open from left to right, how much it
   rings from bottom to top. Under the pad the machine has a group of its own:
-  "Biss" (how far a note opens the filter), "Dauer" (how slowly it falls shut),
+  "Bite" (how far a note opens the filter), "Duration" (how slowly it falls shut),
   saw or square, and the filter ride. The ring's Zerre is its distortion.
-- **Accents** are louder, fall shut at the shortest time whatever "Dauer"
+- **Accents** are louder, fall shut at the shortest time whatever "Duration"
   says, and open the filter further; accents that follow closely leave a
   charge that pushes the next one higher still, the more the filter rings.
 - **Slides.** The machine has one voice and plays a plain note for a little
@@ -462,11 +473,11 @@ of the little silver bass machine the music is named after.
   filter goes on from where the first one's was, and if it is another note it
   glides there in a sixteenth of a second. On the wheel a stroke leads from
   the one to the other. The length tool makes a tie by pulling a note into the
-  next, and so does "In den nächsten ziehen" in the hit's menu. Nothing new is
+  next, and so does "Into the next: slide" in the hit's menu. Nothing new is
   stored: a tie is a note's length.
 - **Room for the Nachbeben.** While the ground shakes, the machine is thinned
   out below 150 Hz, so that the Nachbeben has the lows to itself.
-- **The filter ride** ("Filterfahrt") lays a hill of sun over the ring and
+- **The filter ride** ("Filter ride") lays a hill of sun over the ring and
   sets the sun's wind to one step a bar: the filter opens and closes by
   itself, once in as many bars as the ring has steps. It is ordinary weather
   and can be repainted as such.
@@ -484,7 +495,7 @@ ring, and a hi-hat that behaves as a drum machine's does.
   sound it points at, so the palette still has fifty sounds, nothing new
   travels in a link, and the list can change without any Kreisel sounding
   different. A Kreisel that is not techno shows the palette as before.
-- **The sound dice** of a techno Kreisel ("Würfeln" in the palette, the right
+- **The sound dice** of a techno Kreisel ("Dice" in the palette, the right
   button on the sound's name, the ring's menu) take one of the ring's ten.
   The arrows still leaf through all fifty.
 - **The hi-hat is one voice** in a techno Kreisel (`src/hat.ts`): a closed
@@ -494,14 +505,14 @@ ring, and a hi-hat that behaves as a drum machine's does.
   did, so no older Kreisel sounds different. Open hits do not cut each other.
   What the cut takes away is the open hit's ringing after the closed one, so
   it is heard on hits that ring long: on an opened crash with a quiet closed
-  hit a step later it measures about 3 dB, on the open hat "Offen" about 1 dB,
+  hit a step later it measures about 3 dB, on the open hat "Open" about 1 dB,
   on a short hat that is only a little open nothing.
 - **A cymbal keeps time.** When the hi-hat's ring plays one of its cymbals
   (the palette's fifth family: ride, crash and their kin), the techno dice
   give it hits between the kicks, on every eighth, or on the beats, and none
   of them open: a cymbal rings by itself.
-- **The techno Kreisel** claps with many hands now ("Menge") and has the
-  drum machine's hi-hat ("Maschine"), both from their rings' groups. Its
+- **The techno Kreisel** claps with many hands now ("Crowd") and has the
+  drum machine's hi-hat ("Machine"), both from their rings' groups. Its
   hi-hats between the kicks stand six steps out instead of three (`OPEN_HAT`,
   also what the techno dice throw): at three they were 20 dB down after a
   fifteenth of a second, which is a closed hat; now they ring through the
@@ -516,7 +527,7 @@ techno track.
   kick and its Nachbeben stay out there, and everything else plays by the
   tension. The tension alone cannot give that, because in techno the kick is
   the first ring to come in. The right button on a bar does it for the eight
-  bars around it ("mit Kick | Break"), key K does it at the keyboard's
+  bars around it ("with kick | Break"), key K does it at the keyboard's
   pointer. On the ring the kick's share of such a bar stays pale. The bar in
   which the kick comes back is a landing like a steep rise (run-up of noise,
   crash), and the bar in which it leaves is a fall (the last beat goes into
@@ -533,8 +544,8 @@ techno track.
   more, every sixteenth with two strokes of the tuned drum as well, on rings
   that play in that bar and never on top of a hit of their own. A bar that
   runs up to a landing is left alone.
-- **The words** on the page are the ones producers use, in German too: Break,
-  Build-up, Drop, Snare-Roll, Fills.
+- **The words** on the page are the ones producers use: Break, Build-up, Drop,
+  snare roll, fills.
 - **The grid of phrases.** The piece's ring is ticked in eights: a line every
   eight bars, a stronger one every sixteen, a faint one every four (not in a
   piece of more than 128 bars).
@@ -590,7 +601,7 @@ a thing across the page with the mouse.
 
 ## The roster
 
-Who plays where in the piece can be seen, and laid by hand ("Einsätze").
+Who plays where in the piece can be seen, and laid by hand ("Roster").
 
 Until now the piece's tension decided who plays, through one order of coming
 in: the first ring plays from a tension of 4 percent, each further one 13
@@ -599,7 +610,7 @@ not leave while the acid line came, and a drop could not begin with kick and
 bass alone.
 
 - **Two tools for the piece** stand beside the wheel while its ring is in
-  focus: "Spannung" paints the line as before, "Einsätze" shows the roster
+  focus: "Tension" paints the line as before, "Roster" shows the roster
   (keys Q and W).
 - **The seven rings show the whole piece** in that view: one turn is the piece,
   from bar 1 at twelve o'clock, and a ring is filled where it plays. The
@@ -653,23 +664,23 @@ before it, or the bar in which the kick comes back from a break.
   build-up, or on the bar of the drop, has a row that leads to the kit.
 - **The size sets everything at once:** "keiner" (the drop just comes,
   without a crash), "klein" (a bar of riser and the crash: what every drop
-  had), "mittel" (four bars: riser, snare roll, the lows go), "groß" (eight
+  had), "mittel" (four bars: riser, snare roll, the lows go), "big" (eight
   bars: riser with a tone, snare roll, the lows go, a cloud of hall, getting
   quieter, a beat of nothing before the drop). Below it every part can be had
   by itself; a build-up put together by hand is "eigen".
-- **The parts.** "Länge": 1, 2, 4 or 8 bars. "Riser": off, noise, or noise
+- **The parts.** "Length": 1, 2, 4 or 8 bars. "Riser": off, noise, or noise
   with a tone that climbs two octaves and arrives in key. "Snare-Roll": in a
   short build-up as before (quarters, eighths, sixteenths through two bars; a
   single bar plays the second half of that), in a long one quarters through
   its first half, eighths through the next quarter, then sixteenths, and
-  thirty-seconds at the very end. "Tiefen raus": a low cut on the sum climbs
-  to 320 Hz, so the bass thins out and the kick gets weaker. "Hall-Wolke":
+  thirty-seconds at the very end. "lows out": a low cut on the sum climbs
+  to 320 Hz, so the bass thins out and the kick gets weaker. "cloud of reverb":
   more and more of the sum goes into a hall of its own, which is cut with the
-  drop while the Kreisel's hall rings on. "Leiser werden": close to 3 dB by
-  the end. "Letzter Takt ohne Kick", "ohne Hi-Hat": as before.
-- **The moment.** "Lücke": the last beat, half bar or bar before the drop is
+  drop while the Kreisel's hall rings on. "Getting quieter": close to 3 dB by
+  the end. "Last bar without kick", "Last bar without hi-hat": as before.
+- **The moment.** "Gap": the last beat, half bar or bar before the drop is
   silent; nothing is struck and the dry sum is closed, so only hall and echo
-  ring out. The riser and the roll end where the gap begins. "Drop spät": on
+  ring out. The riser and the roll end where the gap begins. "Drop: late": on
   the one only kick and bass come, everything else a beat later.
 - **With the drop everything is back at once:** the lows, the level, the dry
   hall, and a crash (not after "keiner").
@@ -678,8 +689,8 @@ before it, or the bar in which the kick comes back from a break.
   its own; it takes the place of the three switches. A drop's own build-up
   hangs on the bar it lands in: where the line is painted over or the break
   taken away so that no drop lands there, the build-up of all drops applies
-  again. "Für alle Drops übernehmen" makes one drop's build-up that of the
-  piece, "Wieder wie alle Drops" gives a drop's own up. "Anhören" plays from
+  again. "Use for all drops" makes one drop's build-up that of the
+  piece, "Same as all drops again" gives a drop's own up. "Listen" plays from
   two bars before the build-up and leaves the kit open.
 - **Only the next drop counts.** A build-up does not reach back over a drop
   before its own: right after that drop a long one begins in its middle.
@@ -694,14 +705,14 @@ before it, or the bar in which the kick comes back from a break.
   1 dB. So there is one gain after the master, at rest at 1, which the level
   meter and the recorder hear too. The gap closes the dry sum before the
   press instead, so that hall and echo get through.
-- **The key "Dünn"** uses the same low cut: while it is held the build-up
+- **The key "Thin"** uses the same low cut: while it is held the build-up
   leaves the cut alone, and gets it back where it would be by then.
 - **Measured, not listened to.** A techno Kreisel of sixteen bars whose drop
   lands in bar 9, beat by beat against the same without a build-up: with
   "mittel" the deep lows are 26 dB down by the last beat and the sum 5 dB,
   and a beat after the drop both are where they are after any drop; with
-  "groß" the sum is 8 dB down before the gap, the gap rings 19 dB down with
-  the cloud in it, and the drop stands 18 dB above the gap. "Leiser werden"
+  "big" the sum is 8 dB down before the gap, the gap rings 19 dB down with
+  the cloud in it, and the drop stands 18 dB above the gap. "Getting quieter"
   alone is 2.9 dB by the end. In a gap a ring by itself is silent after
   about 15 ms (the master's own delay). "klein" measures as the build-up
   always did. `window.kreisel.beats()` renders the Kreisel on the table and measures
@@ -725,7 +736,7 @@ wheel draws the drops in `src/ui/ring.ts` (`drawPieceDrops`), the kit is
 
 ## What the tension moves
 
-The line can do more than count rings ("Bewegt" in the piece's panel).
+The line can do more than count rings ("Moves" in the piece's panel).
 
 Until now the tension decided who plays and how open the sum is, and above
 the last ring's entry (82 percent) it moved almost nothing: just where the
@@ -771,7 +782,7 @@ browser tests are `e2e/sway.spec.ts`.
 
 Small tension every eight bars, and the live effects as events of the piece.
 
-- **Phrase ends** ("Phrasen-Enden" beside the fills in the piece's panel, and
+- **Phrase ends** ("Phrase ends" beside the fills in the piece's panel, and
   in the piece's menu), each to choose and all off to begin with: the last
   kick of every phrase is left out, so that the one after it hits harder; a
   crash falls on the one every 16 or 32 bars (not where a drop lands with a
@@ -779,7 +790,7 @@ Small tension every eight bars, and the live effects as events of the piece.
   bar into the next phrase (not where a build-up's riser already does). The
   fills are in the same list.
 - **Effect marks.** The right button on a bar of the piece has a row
-  "Effekt": Dumpf, Dünn, Stotter, Echo, Pause. Each can be laid on that one
+  "Effect": Dumpf, Dünn, Stotter, Echo, Pause. Each can be laid on that one
   bar and then plays there by itself, once: Dumpf and Dünn for the whole bar,
   Stotter through its second half, Echo on its last beat (thrown into the
   echo), Pause on its last beat (drums and bass drop out). A dot outside the
@@ -793,15 +804,15 @@ Small tension every eight bars, and the live effects as events of the piece.
 - **Measured** on eight bars at the top with one ring by itself: without its
   last kick the last beat of the phrase is empty; with no ring at all a
   crash is heard on the first beat and a swell through the last half bar,
-  loudest right before the next phrase; "Dumpf" takes a third or more of the
-  bass's sharpness for its bar, "Dünn" 10 dB or more of the kick's deep lows,
-  "Stotter" and "Pause" empty the kick's second half and last beat, and
+  loudest right before the next phrase; "Dull" takes a third or more of the
+  bass's sharpness for its bar, "Thin" 10 dB or more of the kick's deep lows,
+  "Stutter" and "Pause" empty the kick's second half and last beat, and
   "Echo" rings on into the next bar where the dry snare is silent.
 
 The rules are in `src/piece.ts` (`setEnds`, `toggleMark`; `planBar` gives
 each bar `lastKick`, `crash`, `swell` and `marks`), with
 `tests/ends.test.ts`; the player plays them in `src/audio/engine.ts`; the
-menus are `endsMenu` and the row "Effekt" in `src/ui/menus.ts`; the browser
+menus are `endsMenu` and the row "Effect" in `src/ui/menus.ts`; the browser
 tests are `e2e/ends.spec.ts`.
 
 ## Playing the tension
@@ -817,7 +828,7 @@ The Kreisel is an instrument, and a DJ makes tension by hand.
   "Pause". It works round a scene and by a piece; the piece's own build-ups
   wait while it is held. It counts from the bar line before the key came
   down, so that its roll falls on the beats.
-- **"Einspielen" for the piece** (a third button beside the wheel while the
+- **"Play in" for the piece** (a third button beside the wheel while the
   piece's ring is in focus, key E): while the piece plays, the mouse wheel
   over its ring or the arrows up and down are a hand on the tension, and
   every bar that begins hands that tension to the bar after it. One plays the
@@ -834,7 +845,7 @@ low cut rise and fall back, and they ride a line in.
 ## The pull of a loop
 
 What keeps a loop interesting without a break: slow drift, and rings that
-rub against one another ("Sog").
+rub against one another ("Pull").
 
 - **Tides for the weather.** In the weather's panel every kind of weather has,
   beside its wind, a tide: the number of bars over which it swells from
@@ -868,8 +879,8 @@ when it runs free and on its one when aligned.
 
 ## Seeing the arc and dicing it
 
-- **Shapes for the dice.** The right button on "Würfeln" in the piece's
-  panel (or the piece's menu) has "Form würfeln": Plateau (a long level that
+- **Shapes for the dice.** The right button on "Dice" in the piece's
+  panel (or the piece's menu) has "Dice a shape": Plateau (a long level that
   takes a small step up every sixteen bars, no break, no drop), Zwei Drops
   (two breaks, a drop after each, the second with the big build-up and
   late), Wellen (lifted, lowered and lifted again, every wave arriving at
@@ -899,8 +910,8 @@ reason, and none of them everywhere. It is `masterPiece` in `src/model.ts`.
 | 1–32 | kick; + hi-hat; + tuned drum; + acid line | A ring a phrase. The line climbs slowly, so the sum opens, the hi-hat is only its open hits and the kick is small. The acid line is quiet and without its quiet notes at first (a ring that has only just come in). A beat of nothing before the tuned drum comes ("Pause"). |
 | 33–64 | + clap; then the stab for the tuned drum; then without the hi-hat | The first drop brings something new, the clap, after two bars of riser and roll. Sixteen bars in which nothing changes. At the half one ring hands over to another (with a stutter into it); eight bars before the break the hi-hat is taken away (its last beat into the echo). |
 | 65–72 | clap, hi-hat, acid line | The short break: the kick goes and the hi-hat is back, so something rhythmic stays. Four bars of build-up while the lows go, the last bar without the hi-hat, and the drop comes late: kick and acid line on the one, the rest a beat later. |
-| 73–104 | kick, hi-hat, clap, acid line, stab (melody); then without the stab; then without the clap | The second full section stands higher than the first and takes a small step up at its half. Then it is stripped, after a bar without lows ("Dünn"), and cools down while the line sinks. |
-| 105–120 | stab and open hi-hat; then + acid line | The long break is the lowest point of the piece: kick and bass go first. Its first half ends muffled ("Dumpf"). Then the acid line fades in under the big build-up: eight bars of riser with a tone, roll, the lows going, a cloud of hall, the level sinking, and half a bar of nothing. |
+| 73–104 | kick, hi-hat, clap, acid line, stab (melody); then without the stab; then without the clap | The second full section stands higher than the first and takes a small step up at its half. Then it is stripped, after a bar without lows ("Thin"), and cools down while the line sinks. |
+| 105–120 | stab and open hi-hat; then + acid line | The long break is the lowest point of the piece: kick and bass go first. Its first half ends muffled ("Dull"). Then the acid line fades in under the big build-up: eight bars of riser with a tone, roll, the lows going, a cloud of hall, the level sinking, and half a bar of nothing. |
 | 121–128 | kick and acid line | The anti-drop: the big build-up lands on the least it could, dry. Two bars of roll, the last without the kick. |
 | 129–144 | everything | The top: the only sixteen bars at the highest tension, and the only place where all rings play together. The tuned drum is back after eighty bars. |
 | 145–160 | less and less | The outro is the line's alone: it sinks, and the rings go in the order they came, down to the kick. The last bar leads into the first. |
@@ -934,12 +945,12 @@ reason, and none of them everywhere. It is `masterPiece` in `src/model.ts`.
   roll stay out with the drums, as they do under the key.
 - **Measured, not listened to.** The whole piece was rendered and measured
   bar by bar. Wherever the kick plays, a phrase is as loud as any other to
-  within a dB, the kick alone as much as the top: "Druck" holds the sum at
+  within a dB, the kick alone as much as the top: "Pressure" holds the sum at
   one level. So the arc is not in the level. It is in who plays, in the
   spectrum and in the breaks: through the intro the highs rise by nearly
   6 dB; the short break is 8 dB quieter than the full sections and the first
   half of the long one 13 dB, both with 20 dB less deep down; the bar under
-  "Dünn" is 10 dB quieter than its neighbours and the bar without the kick
+  "Thin" is 10 dB quieter than its neighbours and the bar without the kick
   before the top 8 dB; the top is 2.6 times as sharp as the anti-drop. By
   themselves the rain lifts the stab by up to 1.4 dB at the top of its tide
   and the sun the hi-hat by up to 2 dB. Whether the full sections can be told

@@ -20,7 +20,7 @@ export class EaselWindow {
   readonly brushButtons: HTMLButtonElement[] = [];
   private readonly sizeDots = el("span", "dots");
   private thumbSignature = "";
-  private shelfSignature = "noch nicht gebaut";
+  private shelfSignature = "not built yet";
   private easelOpen = false;
 
   constructor(private readonly panels: Panels, private readonly app: App, private readonly easel: EaselView) {}
@@ -38,9 +38,9 @@ export class EaselWindow {
       brushes.append(node);
       this.brushButtons.push(node);
     });
-    const size = button("tool size", "", "Wie viel Farbe der Pinsel hält: dünn und leise bis dick und laut (auch mit dem Mausrad)");
+    const size = button("tool size", "", "How much paint the brush holds: thin and quiet to thick and loud (also with the mouse wheel)");
     size.id = "brush-size";
-    size.append(this.sizeDots, el("span", "name", "Dicke"), el("kbd", "key", "T"));
+    size.append(this.sizeDots, el("span", "name", "Thickness"), el("kbd", "key", "T"));
     for (let dot = 0; dot < 3; dot += 1) this.sizeDots.append(el("i"));
     size.addEventListener("click", () => app.paint.setBrushSize((app.paint.brushSize + 1) % 3));
     brushes.append(size);
@@ -69,8 +69,8 @@ export class EaselWindow {
     const bild = settings.bild;
 
     this.panels.own.pick.setAttribute("aria-pressed", String(settings.sound === OWN_SOUND));
-    this.panels.own.pick.title = bild ? "Den eigenen Klang dieses Rings spielen (noch ein Klick öffnet den Malkasten)" : "Einen eigenen Klang für diesen Ring malen";
-    this.panels.own.label.textContent = bild ? "Eigener Klang" : "Eigenen Klang malen";
+    this.panels.own.pick.title = bild ? "Play this ring's own sound (one more click opens the paint box)" : "Paint a sound of its own for this ring";
+    this.panels.own.label.textContent = bild ? "Own sound" : "Paint own sound";
     const signature = `${track}|${bild ? packBild(bild) : ""}`;
     if (signature !== this.thumbSignature) {
       this.thumbSignature = signature;
@@ -90,7 +90,7 @@ export class EaselWindow {
     this.easelOpen = open;
     if (!open) return;
     byId("easel").style.setProperty("--c", info.color);
-    byId("easel-title").textContent = `Klangmalerei: ${info.name}`;
+    byId("easel-title").textContent = `Painted sound: ${info.name}`;
     byId("hold-box").hidden = !info.melodic;
     byId<HTMLInputElement>("hold").checked = bild?.hold !== null && bild?.hold !== undefined;
     byId("bild-empty").hidden = (bild?.strokes.length ?? 0) > 0 || app.paint.listening !== null;
@@ -104,16 +104,16 @@ export class EaselWindow {
     if (shelfSignature !== this.shelfSignature) {
       this.shelfSignature = shelfSignature;
       const shelf = byId("shelf");
-      const items: HTMLElement[] = [app.paint.kept.length > 0 ? el("span", "shelf-label", "Regal") : el("span", "shelf-label empty", "Das Regal ist leer. „Merken“ hebt ein Bild auf: für andere Ringe und für den nächsten Kreisel.")];
+      const items: HTMLElement[] = [app.paint.kept.length > 0 ? el("span", "shelf-label", "Shelf") : el("span", "shelf-label empty", "The shelf is empty. “Keep” puts a picture away: for other rings and for the next Kreisel.")];
       app.paint.kept.forEach((item, index) => {
         const holder = el("span", "kept");
-        const pick = button("kept-pick", "", `Aus dem Regal in diesen Ring holen (gemalt für ${trackInfo(item.ring).name})`);
-        pick.setAttribute("aria-label", `Gemerkter Klang ${index + 1}, gemalt für ${trackInfo(item.ring).name}`);
+        const pick = button("kept-pick", "", `Take from the shelf into this ring (painted for ${trackInfo(item.ring).name})`);
+        pick.setAttribute("aria-label", `Kept sound ${index + 1}, painted for ${trackInfo(item.ring).name}`);
         const thumb = el("canvas", "thumb");
         pick.append(thumb);
         pick.addEventListener("click", () => app.paint.useKept(index));
-        const drop = button("kept-drop", "×", "Aus dem Regal nehmen");
-        drop.setAttribute("aria-label", `Gemerkten Klang ${index + 1} aus dem Regal nehmen`);
+        const drop = button("kept-drop", "×", "Take off the shelf");
+        drop.setAttribute("aria-label", `Take kept sound ${index + 1} off the shelf`);
         drop.addEventListener("click", () => app.paint.dropKept(index));
         holder.append(pick, drop);
         items.push(holder);

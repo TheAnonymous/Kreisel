@@ -13,7 +13,7 @@ export class ToastView {
     const node = byId("toast");
     if (app.files.exporting !== null) {
       node.hidden = false;
-      node.replaceChildren(el("span", "", `Opus wird gerechnet … ${Math.round(app.files.exporting * 100)} %`));
+      node.replaceChildren(el("span", "", `Calculating Opus … ${Math.round(app.files.exporting * 100)} %`));
       node.dataset.text = "export";
       return;
     }
@@ -26,7 +26,7 @@ export class ToastView {
     if (node.dataset.text === toast.text && !node.hidden) return;
     node.dataset.text = toast.text;
     const close = button("button icon small", "×");
-    close.setAttribute("aria-label", "Meldung schließen");
+    close.setAttribute("aria-label", "Close message");
     close.addEventListener("click", () => app.dismiss());
     const children: Node[] = [el("span", "", toast.text)];
     if (toast.action) {

@@ -11,8 +11,8 @@ export function soundLabel(track: number, settings: Track): string {
   const name = soundName(track, settings.sound);
   if (name !== null) return name;
   if (settings.sound === ACID_SOUND) return "Acid 303";
-  if (settings.sound === VOICE_SOUND) return "Stimme";
-  return settings.sound === BODY_SOUND && settings.body ? (BODY_NAMES[settings.body.kind] ?? "Klangkörper") : "Gemalt";
+  if (settings.sound === VOICE_SOUND) return "Voice";
+  return settings.sound === BODY_SOUND && settings.body ? (BODY_NAMES[settings.body.kind] ?? "Body") : "Painted";
 }
 
 /*
@@ -30,20 +30,20 @@ export class SoundPalette {
   private readonly card = byId("palette");
   private readonly title = el("strong");
   private readonly head = el("header", "palette-head");
-  private readonly dice = button("button small", "Würfeln", "");
+  private readonly dice = button("button small", "Dice", "");
   private readonly headings: HTMLElement[] = [];
   private readonly chips: HTMLButtonElement[] = [];
   /** The techno group: in the palette only while the Kreisel's style is techno. */
   private readonly techno = el("div", "palette-techno");
   private readonly technoChips: HTMLButtonElement[] = [];
-  private readonly before = button("button icon small", "‹", "Voriger Klang (U)");
-  private readonly after = button("button icon small", "›", "Nächster Klang (I)");
-  private readonly pick = button("sound-pick", "", `Alle ${SOUND_COUNT} Klänge dieses Rings zeigen (P) · Rechtsklick würfelt einen`);
+  private readonly before = button("button icon small", "‹", "Previous sound (U)");
+  private readonly after = button("button icon small", "›", "Next sound (I)");
+  private readonly pick = button("sound-pick", "", `Show all ${SOUND_COUNT} sounds of this ring (P) · right click dices one`);
   private readonly name = el("span", "sound-name");
   private readonly family = el("span", "sound-family");
   /** The acid machine: one more sound, for the two rings that can have it. */
   private readonly machineRow = el("div", "palette-machine");
-  private readonly machine = button("machine", "Acid 303", "Die Acid-Maschine: ein Filter, der schmatzt, Betonungen, die sich hochschaukeln, und Töne, die ineinander gleiten");
+  private readonly machine = button("machine", "Acid 303", "The acid machine: a filter that squelches, accents that build on each other, and notes that glide into one another");
   /** The ring whose names the palette shows. */
   private shown = -1;
 
@@ -54,9 +54,9 @@ export class SoundPalette {
     const { app, before, after, pick } = this;
     const row = el("div", "sound-row");
     row.setAttribute("role", "group");
-    row.setAttribute("aria-label", "Klang");
-    before.setAttribute("aria-label", "Voriger Klang");
-    after.setAttribute("aria-label", "Nächster Klang");
+    row.setAttribute("aria-label", "Sound");
+    before.setAttribute("aria-label", "Previous sound");
+    after.setAttribute("aria-label", "Next sound");
     before.addEventListener("click", () => app.rings.stepSound(app.selected, -1));
     after.addEventListener("click", () => app.rings.stepSound(app.selected, 1));
     pick.id = "sound-pick";
@@ -74,12 +74,12 @@ export class SoundPalette {
     const { app, head, dice } = this;
     dice.id = "palette-dice";
     dice.addEventListener("click", () => app.rings.diceSound(app.selected));
-    const done = button("button small done", "Fertig", "Die Palette schließen (Esc)");
+    const done = button("button small done", "Done", "Close the palette (Esc)");
     done.id = "palette-done";
     done.addEventListener("click", () => app.rings.closePalette());
     head.append(this.title, dice, done);
     this.card.append(head);
-    const group = el("h3", "palette-name", "Techno · zehn von den fünfzig");
+    const group = el("h3", "palette-name", "Techno · ten of the fifty");
     group.id = "palette-family-techno";
     const picks = el("div", "palette-row");
     picks.setAttribute("role", "group");
@@ -111,7 +111,7 @@ export class SoundPalette {
     }
     this.machine.id = "palette-machine";
     this.machine.addEventListener("click", () => app.acid.use());
-    this.machineRow.append(el("strong", "", "Maschine"), this.machine, el("span", "hint", "mit eigenem Filter, Biss und Gleiten"));
+    this.machineRow.append(el("strong", "", "Machine"), this.machine, el("span", "hint", "with its own filter, bite and glide"));
     this.card.append(this.machineRow);
   }
 
@@ -126,7 +126,7 @@ export class SoundPalette {
     const settings = trackOf(app.project, track);
     const where = placeOf(settings.sound);
     this.name.textContent = soundLabel(track, settings);
-    this.family.textContent = where ? (familyNames(track)[where.family] ?? "") : settings.sound === ACID_SOUND ? "Maschine" : "eigener Klang";
+    this.family.textContent = where ? (familyNames(track)[where.family] ?? "") : settings.sound === ACID_SOUND ? "Machine" : "own sound";
     const open = app.rings.paletteOpen && app.focus === "ring" && !app.relay.veiled(track);
     this.pick.setAttribute("aria-expanded", String(open));
     this.card.hidden = !open;
@@ -135,7 +135,7 @@ export class SoundPalette {
     const group = technoSounds(track);
     if (techno && !this.techno.isConnected) this.head.after(this.techno);
     else if (!techno) this.techno.remove();
-    this.dice.title = techno ? "Einen der zehn Techno-Klänge dieses Rings nehmen" : "Irgendeinen Klang aus der Palette nehmen";
+    this.dice.title = techno ? "Take one of this ring's ten techno sounds" : "Take any sound from the palette";
     if (this.shown !== track) {
       this.shown = track;
       const names = familyNames(track);
@@ -144,7 +144,7 @@ export class SoundPalette {
       this.technoChips.forEach((chip, place) => { chip.textContent = group[place]?.name ?? ""; });
     }
     const info = trackInfo(track);
-    this.title.textContent = `${info.name}: ${SOUND_COUNT} Klänge`;
+    this.title.textContent = `${info.name}: ${SOUND_COUNT} sounds`;
     this.card.style.setProperty("--c", info.color);
     this.chips.forEach((chip, index) => chip.setAttribute("aria-pressed", String(soundAt(Math.floor(index / FAMILY_SIZE), index % FAMILY_SIZE) === settings.sound)));
     this.technoChips.forEach((chip, place) => chip.setAttribute("aria-pressed", String(group[place]?.sound === settings.sound)));

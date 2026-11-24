@@ -28,9 +28,9 @@ export class ChordMenu {
       this.chordSignature = signature;
       const head = el("header");
       const close = button("button icon small", "×");
-      close.setAttribute("aria-label", "Schließen");
+      close.setAttribute("aria-label", "Close");
       close.addEventListener("click", () => app.chords.close());
-      head.append(el("strong", "", `Takt ${slot + 1} von ${chords.length}`), close);
+      head.append(el("strong", "", `Bar ${slot + 1} of ${chords.length}`), close);
       const grid = el("div", "chord-grid");
       for (let degree = 0; degree < 7; degree += 1) {
         const choice = button("chord", "");
@@ -40,13 +40,13 @@ export class ChordMenu {
         grid.append(choice);
       }
       const bars = el("div", "line");
-      const less = button("button icon small", "−", "Einen Takt weniger");
+      const less = button("button icon small", "−", "One bar fewer");
       less.disabled = chords.length <= 1;
       less.addEventListener("click", () => app.chords.setBars(chords.length - 1));
-      const more = button("button icon small", "+", "Einen Takt mehr");
+      const more = button("button icon small", "+", "One bar more");
       more.disabled = chords.length >= MAX_CHORDS;
       more.addEventListener("click", () => app.chords.setBars(chords.length + 1));
-      bars.append(el("span", "label", "Takte"), less, el("output", "", String(chords.length)), more);
+      bars.append(el("span", "label", "Bars"), less, el("output", "", String(chords.length)), more);
       menu.replaceChildren(head, grid, bars);
     }
     menu.hidden = false;

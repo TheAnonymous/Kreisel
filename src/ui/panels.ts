@@ -91,7 +91,7 @@ export class Panels {
   private readonly lamps: boolean[] = [];
   /** The row of the ring's Zerre. The kick's ring has none: what makes a kick hard is its own. */
   private driveRow: HTMLElement | null = null;
-  private readonly doing = { roll: button("button small", "Würfeln", "Eine neue Idee für diesen Ring (N)"), vary: button("button small", "Variieren", "Nur ein wenig verändern (Umschalt+N)"), wipe: button("button small", "Leeren", "Alle Schläge dieses Rings entfernen (Umschalt+Entf)") };
+  private readonly doing = { roll: button("button small", "Dice", "A new idea for this ring (N)"), vary: button("button small", "Vary", "Change it only a little (Shift+N)"), wipe: button("button small", "Clear", "Remove all hits of this ring (Shift+Del)") };
   private readonly head = el("header", "panel-head");
 
   // ---- the parts of the page that have a file of their own ----
@@ -228,7 +228,7 @@ export class Panels {
   /** While the piece plays, the status line counts the bars to its next drop. */
   private ahead(): string {
     const bars = this.app.piece.dropAhead();
-    return bars === null ? "" : ` · Drop in ${bars === 1 ? "1 Takt" : `${bars} Takten`}`;
+    return bars === null ? "" : ` · Drop in ${bars === 1 ? "1 bar" : `${bars} bars`}`;
   }
 
   /**
@@ -244,16 +244,16 @@ export class Panels {
     const count = (steps: number | null): string | null => {
       if (steps === null) return null;
       const bars = steps / BAR;
-      return `${Number.isInteger(bars) ? bars : bars.toFixed(1).replace(".", ",")} Takte`;
+      return `${Number.isInteger(bars) ? bars : bars.toFixed(1).replace(".", ",")} bars`;
     };
-    const lined = project.align ? ", alle 8 neu ausgerichtet" : "";
+    const lined = project.align ? ", realigned every 8" : "";
     if (selected === 0 || !kick || !own) {
       const all = count(meeting(patterns));
-      return all === null ? "" : ` · Gleichstand alle ${all}${lined}`;
+      return all === null ? "" : ` · all rings meet every ${all}${lined}`;
     }
     const behind = behindKick(kick, own);
     const meets = count(meeting([kick, own]));
-    return `${behind === null ? "" : behind === 0 ? " · mit der Kick" : ` · ${behind} ${behind === 1 ? "Schritt" : "Schritte"} hinter der Kick`}${meets === null ? "" : ` · trifft die Kick alle ${meets} wieder${lined}`}`;
+    return `${behind === null ? "" : behind === 0 ? " · with the kick" : ` · ${behind} ${behind === 1 ? "step" : "steps"} behind the kick`}${meets === null ? "" : ` · meets the kick again every ${meets}${lined}`}`;
   }
 
   keyLabel(code: string): string {
@@ -310,7 +310,7 @@ export class Panels {
         this.app.store.settle();
       });
       input.addEventListener("contextmenu", (event) => event.preventDefault());
-      input.title = input.title ? `${input.title} · Rechtsklick setzt zurück` : "Rechtsklick setzt zurück";
+      input.title = input.title ? `${input.title} · right click resets` : "Right click resets";
     }
     this.sliders.push({ input, read });
   }
@@ -367,8 +367,8 @@ export class Panels {
     byId("protokoll-lines").replaceChildren(...this.app.piece.protocol().map((line) => el("li", "", line)));
     // The window lies over the page's messages: the button itself says how copying went.
     const copy = byId<HTMLButtonElement>("protokoll-copy");
-    copy.textContent = "Als Text kopieren";
-    copy.onclick = () => void this.app.piece.copyProtocol().then((copied) => { copy.textContent = copied ? "Kopiert" : "Der Browser gibt die Zwischenablage nicht frei"; });
+    copy.textContent = "Copy as text";
+    copy.onclick = () => void this.app.piece.copyProtocol().then((copied) => { copy.textContent = copied ? "Copied" : "The browser does not release the clipboard"; });
     if (!dialog.open) dialog.showModal();
   }
 
@@ -385,22 +385,22 @@ export class Panels {
     const list = byId("tracks");
     // The weather lies over all the rings: it comes before them.
     const sky = this.weatherRow;
-    const choose = button("pick", "", "Das Wetter wählen: Effekte auf das Rad malen (Taste 9)");
-    choose.append(el("span", "dot"), el("span", "name", "Wetter"), el("span", "sound"));
+    const choose = button("pick", "", "Pick the weather: paint effects onto the wheel (key 9)");
+    choose.append(el("span", "dot"), el("span", "name", "Weather"), el("span", "sound"));
     choose.addEventListener("click", () => this.app.weather.focus());
-    const throwIt = iconButton("roll", ICONS.dice, "Wetter würfeln", "Ein neues Wetter würfeln");
+    const throwIt = iconButton("roll", ICONS.dice, "Dice the weather", "Dice a new weather");
     throwIt.addEventListener("click", () => this.app.weather.dice());
     sky.append(choose, throwIt);
     onContext(sky, (x, y, byKeyboard) => this.app.openContext({ kind: "weather" }, x, y, byKeyboard));
     list.append(sky);
     // The piece is the outermost ring: it comes first.
     const row = this.pieceRow;
-    const pick = button("pick", "", "Den Stück-Ring wählen (Taste 8)");
-    pick.append(el("span", "dot"), el("span", "name", "Stück"), el("span", "sound"));
+    const pick = button("pick", "", "Pick the piece's ring (key 8)");
+    pick.append(el("span", "dot"), el("span", "name", "Piece"), el("span", "sound"));
     pick.addEventListener("click", () => this.app.piece.focus());
-    const toggle = button("piece-toggle", "", "Nach dem Stück spielen oder nur die Szene im Kreis");
+    const toggle = button("piece-toggle", "", "Play by the piece, or only the scene in a circle");
     toggle.addEventListener("click", () => this.app.piece.toggle());
-    const roll = iconButton("roll", ICONS.dice, "Stück würfeln", "Einen neuen Verlauf würfeln");
+    const roll = iconButton("roll", ICONS.dice, "Dice the piece", "Dice a new course");
     roll.addEventListener("click", () => this.app.piece.dice());
     row.append(pick, toggle, roll);
     onContext(row, (x, y, byKeyboard) => this.app.openContext({ kind: "piece", bar: null }, x, y, byKeyboard));
@@ -410,15 +410,15 @@ export class Panels {
       const info = trackInfo(track);
       const row = el("li", "track");
       row.style.setProperty("--c", info.color);
-      const pick = button("pick", "", `${info.name} wählen (Taste ${track + 1})`);
+      const pick = button("pick", "", `Pick ${info.name} (key ${track + 1})`);
       pick.append(el("span", "dot"), el("span", "name", info.name), el("span", "sound"));
       pick.addEventListener("click", () => this.app.select(track));
-      const mute = iconButton("mute", ICONS.mute, `${info.name} stumm`, "Stumm schalten (M) · mit Umschalt: nur diesen Ring hören");
+      const mute = iconButton("mute", ICONS.mute, `Mute ${info.name}`, "Mute (M) · with Shift: hear only this ring");
       mute.addEventListener("click", (event) => {
         if (event.shiftKey) this.app.rings.toggleSolo(track);
         else this.app.rings.toggleMute(track);
       });
-      const roll = iconButton("roll", ICONS.dice, `${info.name} würfeln`, "Neu würfeln (N)");
+      const roll = iconButton("roll", ICONS.dice, `Dice ${info.name}`, "Dice anew (N)");
       roll.addEventListener("click", () => this.app.rings.dice(track));
       row.append(pick, mute, roll);
       onContext(row, (x, y, byKeyboard) => {
@@ -441,10 +441,10 @@ export class Panels {
       holder.append(node);
       this.toolButtons.set(tool.id, node);
     }
-    const live = button("tool live", "", "Was du auf A bis K spielst, in den Ring schreiben, solange der Kreisel läuft");
+    const live = button("tool live", "", "Write what you play on A to K into the ring while the Kreisel runs");
     live.id = "live";
     live.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.5" class="fill"/></svg>';
-    live.append(el("span", "name", "Einspielen"), el("kbd", "key", "L"));
+    live.append(el("span", "name", "Play in"), el("kbd", "key", "L"));
     live.addEventListener("click", () => this.app.rings.toggleLive());
     holder.append(live);
   }
@@ -452,7 +452,7 @@ export class Panels {
   private buildFx(): void {
     const holder = byId("fx");
     for (const fx of FX) {
-      const pad = button("pad-fx", "", `${fx.hint} (halten · Rechtsklick rastet ein)`);
+      const pad = button("pad-fx", "", `${fx.hint} (hold · right click latches)`);
       // Each effect's name shows what it does while it is held (see "motion" in the style sheet).
       pad.dataset.fx = fx.id;
       pad.append(el("span", "name", fx.name), el("kbd", "key"));
@@ -489,7 +489,7 @@ export class Panels {
     this.ringBox.append(this.head, this.panel.info, this.buildDoing(), this.palette.buildRow(), ...this.buildOwnSounds(), this.buildPad(), this.acidPanel.build(), this.buildSteps(), this.buildQuake(), this.buildMix());
     this.veilBox.append(
       el("header", "panel-head"),
-      el("p", "veil-text", "Stille Post: Dieser Ring ist verdeckt. Jemand hat hier schon gebaut, aber du hörst und siehst nur den Ring der Person vor dir. Bau deinen eigenen dazu: Nimm einen Ring, der noch leer ist. Wenn alle fertig sind, deckt ihr im Reihum-Fenster auf."),
+      el("p", "veil-text", "Telephone: this ring is covered. Someone has already built here, but you hear and see only the ring of the person before you. Add your own: take a ring that is still empty. When everyone is done, you reveal it in the pass-around window."),
     );
     this.veilBox.querySelector("header")!.append(el("span", "dot"), el("h2"));
     byId("panel").append(this.ringBox, this.pieceBox, this.veilBox);
@@ -514,7 +514,7 @@ export class Panels {
     this.own.pick.id = "own-pick";
     this.own.pick.append(this.own.thumb, this.own.label);
     this.own.pick.addEventListener("click", () => app.paint.use());
-    const paint = button("button small", "Malen", "Den eigenen Klang dieses Rings malen");
+    const paint = button("button small", "Paint", "Paint this ring's own sound");
     paint.id = "paint";
     paint.addEventListener("click", () => app.paint.open());
     own.append(this.own.pick, paint);
@@ -524,7 +524,7 @@ export class Panels {
     this.built.pick.id = "built-pick";
     this.built.pick.append(this.built.thumb, this.built.label);
     this.built.pick.addEventListener("click", () => app.body.use());
-    const build = button("button small", "Bauen", "Den Klangkörper dieses Rings bauen");
+    const build = button("button small", "Build", "Build this ring's body");
     build.id = "build";
     build.addEventListener("click", () => app.body.open());
     built.append(this.built.pick, build);
@@ -535,7 +535,7 @@ export class Panels {
     this.sung.pick.id = "voice-pick";
     this.sung.pick.append(lips, this.sung.label);
     this.sung.pick.addEventListener("click", () => app.voice.use());
-    const write = button("button small", "Text", "Die Zeile schreiben, die dieser Ring singt");
+    const write = button("button small", "Text", "Write the line this ring sings");
     write.id = "voice-edit";
     write.addEventListener("click", () => app.voice.open());
     sung.append(this.sung.pick, write);
@@ -605,35 +605,35 @@ export class Panels {
     const parts = this.panel;
     const ringGroup = el("div", "group");
     const steps = el("div", "line");
-    const less = button("button icon small", "−", "Einen Schritt kürzer");
-    less.setAttribute("aria-label", "Einen Schritt kürzer");
+    const less = button("button icon small", "−", "One step shorter");
+    less.setAttribute("aria-label", "One step shorter");
     less.addEventListener("click", () => app.rings.resize(app.selected, patternOf(app.project, app.selected).len - 1));
-    const more = button("button icon small", "+", "Einen Schritt länger");
-    more.setAttribute("aria-label", "Einen Schritt länger");
+    const more = button("button icon small", "+", "One step longer");
+    more.setAttribute("aria-label", "One step longer");
     more.addEventListener("click", () => app.rings.resize(app.selected, patternOf(app.project, app.selected).len + 1));
     const quick = el("span", "quick");
     for (const length of [8, 12, 16, 32]) {
-      const chip = button("chip tiny", String(length), `${length} Schritte`);
+      const chip = button("chip tiny", String(length), `${length} steps`);
       chip.addEventListener("click", () => app.rings.resize(app.selected, length));
       quick.append(chip);
     }
-    steps.append(el("span", "label", "Schritte"), less, parts.steps, more, quick);
+    steps.append(el("span", "label", "steps"), less, parts.steps, more, quick);
 
     const turn = el("div", "line");
-    const turnLeft = iconButton("button icon small", ICONS.left, "Einen Schritt zurückdrehen", "Zurückdrehen (Umschalt+←)");
+    const turnLeft = iconButton("button icon small", ICONS.left, "Rotate one step back", "Rotate back (Shift+←)");
     turnLeft.addEventListener("click", () => app.rings.rotate(app.selected, -1));
-    const turnRight = iconButton("button icon small", ICONS.right, "Einen Schritt weiterdrehen", "Weiterdrehen (Umschalt+→ oder Mausrad über dem Ring)");
+    const turnRight = iconButton("button icon small", ICONS.right, "Rotate one step on", "Rotate on (Shift+→ or the mouse wheel over the ring)");
     turnRight.addEventListener("click", () => app.rings.rotate(app.selected, 1));
-    turn.append(el("span", "label", "Drehen"), turnLeft, turnRight);
+    turn.append(el("span", "label", "Rotate"), turnLeft, turnRight);
 
     const spread = el("label", "line");
     parts.spread.type = "range";
     parts.spread.min = "0";
     parts.spread.step = "1";
-    parts.spread.title = "So viele Schläge gleichmäßig über den Ring verteilen";
+    parts.spread.title = "Spread this many hits evenly over the ring";
     parts.spread.addEventListener("input", () => app.rings.spread(app.selected, Number(parts.spread.value)));
     parts.spread.addEventListener("change", () => app.store.settle());
-    spread.append(el("span", "label", "Verteilen"), parts.spread, parts.spreadValue);
+    spread.append(el("span", "label", "Spread"), parts.spread, parts.spreadValue);
     ringGroup.append(steps, turn, spread);
     return ringGroup;
   }
@@ -643,16 +643,16 @@ export class Panels {
     const app = this.app;
     const quake = this.quake;
     const shaking = el("div", "line");
-    const paintIt = button("button small", "Malen", "Das Nachbeben in den Kick-Ring malen: außen bebt es stark, innen gar nicht (Werkzeug Beben)");
+    const paintIt = button("button small", "Paint", "Paint the rumble into the kick's ring: outside it shakes hard, inside not at all (tool Rumble)");
     paintIt.id = "rumble-paint";
     paintIt.addEventListener("click", () => app.rumble.pickUpBrush());
-    const throwIt = button("button small", "Würfeln", "Eine der üblichen Formen um die Kicks legen: Offbeat, rollend, Schweif");
+    const throwIt = button("button small", "Dice", "Lay one of the usual shapes around the kicks: offbeat, rolling, tail");
     throwIt.id = "rumble-dice";
     throwIt.addEventListener("click", () => app.rumble.dice());
-    const still = button("button small", "Aus", "Das Nachbeben wegnehmen");
+    const still = button("button small", "Off", "Take the rumble away");
     still.id = "rumble-off";
     still.addEventListener("click", () => app.rumble.shape(-1));
-    shaking.append(el("span", "label", "Nachbeben"), paintIt, throwIt, still);
+    shaking.append(el("span", "label", "Rumble"), paintIt, throwIt, still);
     const character = el("div", "line pair");
     const characterSlider = (label: string, field: "dirt" | "roll", title: string): void => {
       const half = el("label", "half");
@@ -666,8 +666,8 @@ export class Panels {
       half.append(el("span", "label", label), input);
       character.append(half);
     };
-    characterSlider("Dreck", "dirt", "Von tief und sauber bis verzerrt und dreckig");
-    characterSlider("Rollen", "roll", "Von einem einzigen Schwellen bis zu rollenden Sechzehnteln");
+    characterSlider("Dirt", "dirt", "From deep and clean to distorted and dirty");
+    characterSlider("roll", "roll", "From a single swell to rolling sixteenths");
     // The kick itself comes first: the Nachbeben is made from the kick as hard as it is here.
     const drive = el("label", "line");
     const hardness = el("input");
@@ -675,9 +675,9 @@ export class Panels {
     hardness.min = "0";
     hardness.max = "100";
     hardness.id = "kick-hard";
-    hardness.title = "Die Kick selbst verzerren: von sauber bis flach geklippt, mit stehendem Körper";
+    hardness.title = "Distort the kick itself: from clean to clipped flat, with a standing body";
     this.slider(hardness, () => app.project.hard, (value) => app.rumble.set({ hard: value }, "hard"), () => app.rumble.reset("hard"));
-    drive.append(el("span", "label", "Härte"), hardness);
+    drive.append(el("span", "label", "Hardness"), hardness);
     quake.append(drive, shaking, character);
     return quake;
   }
@@ -698,12 +698,12 @@ export class Panels {
       into.append(line);
       return line;
     };
-    mixSlider("Lautstärke", "level");
+    mixSlider("Volume", "level");
     const sends = el("div", "lines");
-    mixSlider("Hall", "hall", "", sends);
+    mixSlider("Reverb", "hall", "", sends);
     mixSlider("Echo", "echo", "", sends);
     mix.append(sends);
-    this.driveRow = mixSlider("Zerre", "drive", "Treibt den Ring in die Verzerrung. Funken aus dem Wetter kommen obendrauf.");
+    this.driveRow = mixSlider("Drive", "drive", "Pushes the ring into distortion. Sparks from the weather come on top.");
     this.driveRow.id = "drive-row";
     return mix;
   }
@@ -772,13 +772,13 @@ export class Panels {
       this.shownStage = app.stage;
       const toggle = byId("stage-toggle");
       toggle.setAttribute("aria-pressed", String(app.stage));
-      toggle.title = app.stage ? "Zurück von der Bühne (Esc)" : `Bühne: nur das Rad, im Dunkeln (${this.keyLabel("KeyO")})`;
+      toggle.title = app.stage ? "Back from the stage (Esc)" : `Stage: only the wheel, in the dark (${this.keyLabel("KeyO")})`;
       // The wheel reads the colours of the page: they have just changed.
       this.ring.repaint();
     }
     const lights = byId("lights-toggle");
     lights.setAttribute("aria-pressed", String(app.lights));
-    lights.title = app.lights ? "Lichtspiel: an" : "Lichtspiel: aus";
+    lights.title = app.lights ? "Light show: on" : "Light show: off";
     this.tourGuide.check();
     // What belongs to the ring in focus only moves when it changes, not when another ring comes into focus.
     const sameRing = this.shownRing === selected;
@@ -796,7 +796,7 @@ export class Panels {
     const project = app.project;
     const play = byId("play");
     play.setAttribute("aria-pressed", String(app.playing));
-    play.querySelector(".label")!.textContent = app.playing ? "Stopp" : "Start";
+    play.querySelector(".label")!.textContent = app.playing ? "Stop" : "Start";
     this.moved(play.querySelector(".glyph"), app.playing, "pop");
     const bpm = byId<HTMLInputElement>("bpm");
     if (document.activeElement !== bpm) bpm.value = String(project.bpm);
@@ -813,7 +813,7 @@ export class Panels {
     record.setAttribute("aria-pressed", String(app.engine.recording));
     const showTime = (): void => {
       const seconds = Math.floor(app.engine.recordedSeconds);
-      record.querySelector(".label")!.textContent = app.engine.recording ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} Stopp` : "Aufnehmen";
+      record.querySelector(".label")!.textContent = app.engine.recording ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} Stop` : "Record";
     };
     showTime();
     if (app.engine.recording && this.recordTimer === null) this.recordTimer = setInterval(showTime, 500);
@@ -854,15 +854,15 @@ export class Panels {
     const hold = this.toolButtons.get("laenge");
     if (hold && hold.dataset.shake !== String(selected === 0)) {
       hold.dataset.shake = String(selected === 0);
-      hold.querySelector(".name")!.textContent = selected === 0 ? "Beben" : "Länge";
+      hold.querySelector(".name")!.textContent = selected === 0 ? "Rumble" : "Length";
       hold.querySelector("path")?.setAttribute("d", selected === 0 ? "M2 12h3l2-7 3 14 3-10 2 6 1.5-3H22" : "M4 12h16M4 8v8M20 8v8");
-      hold.title = selected === 0 ? "Am Kick-Ring entlang ziehen malt das Nachbeben: außen stark, innen nichts; die rechte Taste radiert" : "Am Ring entlang ziehen hält den Ton länger";
+      hold.title = selected === 0 ? "Dragging along the kick's ring paints the rumble: strong outside, nothing inside; the right button erases" : "Dragging along the ring holds the note longer";
     }
     this.quake.hidden = selected !== 0;
     if (this.driveRow) this.driveRow.hidden = selected === 0;
   }
 
-  /** "Einspielen" and the effect keys: held, latched, or let go. */
+  /** "Play in" and the effect keys: held, latched, or let go. */
   private syncFx(): void {
     const app = this.app;
     byId("live").setAttribute("aria-pressed", String(app.rings.live));
@@ -889,12 +889,12 @@ export class Panels {
     parts.puck.style.bottom = `${settings.y * 100}%`;
     const sings = settings.sound === VOICE_SOUND;
     // For the acid machine the pad is its filter: how far open, and how much it rings.
-    const [xLabel, yLabel] = settings.sound === ACID_SOUND ? ["Filter", "Resonanz"] : [info.xLabel, info.yLabel];
+    const [xLabel, yLabel] = settings.sound === ACID_SOUND ? ["Filter", "Resonance"] : [info.xLabel, info.yLabel];
     parts.axisX.textContent = sings ? "" : `${xLabel} →`;
     parts.axisY.textContent = sings ? "" : `${yLabel} ↑`;
     this.vowels.hidden = !sings;
-    parts.pad.title = sings ? "Das Vokalfeld: Der Punkt zieht alle Vokale zu sich, am Rand ganz, in der Mitte gar nicht" : "";
-    parts.pad.setAttribute("aria-label", `Klangfeld: ${xLabel} ${Math.round(settings.x * 100)} %, ${yLabel} ${Math.round(settings.y * 100)} %. Pfeiltasten verändern.`);
+    parts.pad.title = sings ? "The vowel field: the point pulls all vowels towards itself, entirely at the edge, not at all in the middle" : "";
+    parts.pad.setAttribute("aria-label", `Sound pad: ${xLabel} ${Math.round(settings.x * 100)} %, ${yLabel} ${Math.round(settings.y * 100)} %. Arrow keys change it.`);
     parts.steps.textContent = String(pattern.len);
     this.moved(parts.steps, pattern.len, "tick", undefined, !sameRing);
     const hits = activeSteps(pattern).length;
@@ -917,15 +917,15 @@ export class Panels {
     const pattern = patternOf(project, selected);
     const settings = trackOf(project, selected);
     byId("status").textContent = app.weather.focused
-      ? `Wetter: ${describeWeather(currentScene(project))}`
+      ? `Weather: ${describeWeather(currentScene(project))}`
       : app.piece.laying && app.piece.key !== null
       ? app.piece.describeRoster(app.piece.lane, app.piece.key)
       : app.piece.focused
-      ? `Stück: ${describePiece(project.piece, project.bpm)}${project.piece.on ? "" : " (aus)"}${this.ahead()}`
-      : app.relay.veiled(selected) ? `${info.name}: verdeckt (Stille Post)`
-      : app.paint.isOpen ? `Klangmalerei ${info.name}: ${describeBild(settings.bild)}`
-      : app.body.isOpen ? `Klangkörper ${info.name}: ${describeBody(settings.body)}`
-      : app.voice.isOpen ? `Stimme ${info.name}: ${describeVoice(settings.voice)}`
+      ? `Piece: ${describePiece(project.piece, project.bpm)}${project.piece.on ? "" : " (off)"}${this.ahead()}`
+      : app.relay.veiled(selected) ? `${info.name}: covered (Telephone)`
+      : app.paint.isOpen ? `Painted sound ${info.name}: ${describeBild(settings.bild)}`
+      : app.body.isOpen ? `Body ${info.name}: ${describeBody(settings.body)}`
+      : app.voice.isOpen ? `Voice ${info.name}: ${describeVoice(settings.voice)}`
       : `${info.name}: ${describe(pattern)}${selected === 0 && hasRumble(currentScene(project), pattern.len) ? ` · ${describeRumble(currentScene(project), pattern)}` : ""}${this.pull(selected)}${this.ahead()}`;
   }
 }

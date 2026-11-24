@@ -12,9 +12,9 @@ import { drawScene, sceneLooks } from "./scene-thumb";
 const WHEEL = 36;
 
 const PLAYS: readonly { id: Plays; name: string; hint: string }[] = [
-  { id: "scene", name: "Szene", hint: "Die Szene auf dem Tisch spielt im Kreis" },
-  { id: "row", name: "Folge", hint: "Die Szenen spielen nacheinander, wie sie unter dem Rad liegen" },
-  { id: "piece", name: "Stück", hint: "Der äußere Ring sagt, was wann spielt: außen viel, innen wenig" },
+  { id: "scene", name: "Scene", hint: "The scene on the table plays in a circle" },
+  { id: "row", name: "Row", hint: "The scenes play one after another, as they lie under the wheel" },
+  { id: "piece", name: "Piece", hint: "The outer ring says what plays when: a lot outside, little inside" },
 ];
 
 interface Chip {
@@ -120,10 +120,10 @@ export class ScenesBox {
       node.classList.toggle("sounding", index === sounding);
       node.classList.toggle("queued", index === queued && index !== project.scene);
       node.setAttribute("aria-pressed", String(index === project.scene));
-      node.setAttribute("aria-label", scene ? `Szene ${name}` : `Szene ${name}, leer`);
+      node.setAttribute("aria-label", scene ? `Scene ${name}` : `Scene ${name}, empty`);
       node.title = scene
-        ? `Szene ${name} · ziehen legt sie in die Folge oder als Kopie auf eine leere Szene · mit Umschalt leeren`
-        : `Leer: Klick macht eine Kopie von Szene ${SCENE_NAMES[project.scene] ?? ""}`;
+        ? `Scene ${name} · dragging puts it into the row or as a copy onto an empty scene · with Shift clear it`
+        : `Empty: a click makes a copy of scene ${SCENE_NAMES[project.scene] ?? ""}`;
       const looks = sceneLooks(scene);
       if (looks !== chip.looks) {
         chip.looks = looks;

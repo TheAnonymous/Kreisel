@@ -6,10 +6,10 @@ import { focus, onLaptop, onPhone, open, status } from "./helpers";
  * Nachbeben: the rumble that is painted under the kick.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("malt ein Nachbeben unter die Kick", async ({ page }) => {
+  test("paints a rumble under the kick", async ({ page }) => {
     const problems = await open(page);
     const line = (): Promise<number[]> => page.evaluate(() => window.kreisel.app.project.scenes[window.kreisel.app.project.scene]!.rumble.slice(0, 16));
     const quakeAt = (step: number, share: number): Promise<{ x: number; y: number }> => page.evaluate(([at, much]) => window.kreisel.quake(at ?? 0, much ?? 0), [step, share]);
@@ -17,10 +17,10 @@ test.describe("am Laptop", () => {
 
     // A drum has no notes to hold: on the kick's ring that tool paints the Nachbeben, and the ring's field has its controls.
     await focus(page, 4);
-    await expect(hold).toContainText("Länge");
+    await expect(hold).toContainText("Length");
     await expect(page.locator(".quake")).toBeHidden();
     await focus(page, 0);
-    await expect(hold).toContainText("Beben");
+    await expect(hold).toContainText("Rumble");
     await expect(hold).toBeEnabled();
     await expect(page.locator(".quake")).toBeVisible();
 
@@ -29,11 +29,11 @@ test.describe("am Laptop", () => {
     let now = await line();
     expect([now[0], now[4], now[8], now[12]]).toEqual([0, 0, 0, 0]);
     expect(now.filter((value) => value > 0)).toHaveLength(12);
-    await expect(status(page)).toContainText("Nachbeben");
-    await expect(page.locator("#toast")).toContainText("Nachbeben: Offbeat");
+    await expect(status(page)).toContainText("Rumble");
+    await expect(page.locator("#toast")).toContainText("Rumble: Offbeat");
     await page.locator("#rumble-off").click();
     expect((await line()).every((value) => value === 0)).toBe(true);
-    await expect(status(page)).toHaveText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Gleichstand alle 3 Takte");
+    await expect(status(page)).toHaveText("Kick: 4 hits on 1, 5, 9, 13 of 16 · all rings meet every 3 bars");
 
     // Painting: one stroke along the ring. Far out is a lot, further in is less; the kicks stay as they are.
     await page.locator("#rumble-paint").click();
@@ -56,7 +56,7 @@ test.describe("am Laptop", () => {
     now = await line();
     expect(now.slice(0, 7)).toEqual([0, 15, 15, 15, 6, 6, 6]);
     expect(now.slice(7).every((value) => value === 0)).toBe(true);
-    await expect(status(page)).toContainText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Nachbeben auf 6 von 16 Schritten");
+    await expect(status(page)).toContainText("Kick: 4 hits on 1, 5, 9, 13 of 16 · Rumble on 6 of 16 steps");
 
     // Pulled along the ring, the right button erases and opens no menu. Each stroke is one step back.
     spot = await quakeAt(5, 0.5);
@@ -77,11 +77,11 @@ test.describe("am Laptop", () => {
     spot = await quakeAt(2, 0.5);
     await page.mouse.click(spot.x, spot.y, { button: "right" });
     const menu = page.locator("#context");
-    await expect(menu.locator("header")).toHaveText("Kick · Schritt 3");
-    await expect(menu.getByRole("menuitemradio", { name: "Das Nachbeben wegnehmen" })).toHaveAttribute("aria-checked", "true");
-    await menu.getByRole("menuitemradio", { name: /Form „Rollend“/ }).click();
+    await expect(menu.locator("header")).toHaveText("Kick · step 3");
+    await expect(menu.getByRole("menuitemradio", { name: "Take the rumble away" })).toHaveAttribute("aria-checked", "true");
+    await menu.getByRole("menuitemradio", { name: /shape “Rolling”/ }).click();
     expect((await line()).slice(0, 4)).toEqual([0, 15, 13, 15]);
-    await expect(menu.getByRole("menuitemradio", { name: /Form „Rollend“/ })).toHaveAttribute("aria-checked", "true");
+    await expect(menu.getByRole("menuitemradio", { name: /shape “Rolling”/ })).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("Escape");
     // A shape brings its way of rolling; the character has two sliders, and the right button puts them back.
     await expect(page.locator("#rumble-roll")).toHaveValue("85");
@@ -93,7 +93,7 @@ test.describe("am Laptop", () => {
     // The ring turns with its Nachbeben.
     await page.evaluate(() => window.kreisel.app.rings.rotate(0, 1));
     expect((await line()).slice(0, 6)).toEqual([15, 0, 15, 13, 15, 0]);
-    await expect(status(page)).toContainText("Kick: 4 Schläge auf 2, 6, 10, 14 von 16");
+    await expect(status(page)).toContainText("Kick: 4 hits on 2, 6, 10, 14 of 16");
     await page.keyboard.press("Control+z");
     expect((await line()).slice(0, 4)).toEqual([0, 15, 13, 15]);
 
@@ -113,7 +113,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("lässt es zwischen den Kicks beben, in der Tonart", async ({ page }) => {
+  test("lets it shake between the kicks, in the key", async ({ page }) => {
     const problems = await open(page);
     // Only the kick is heard, at 150 BPM: a sixteenth is a tenth of a second.
     await page.evaluate(() => {
@@ -127,7 +127,7 @@ test.describe("am Laptop", () => {
     const listen = async (): Promise<{ between: number; own: number[] }> => {
       await page.locator("#record-more").click();
       const rendered = page.waitForEvent("download");
-      await page.locator("#context").getByText("Als Opus speichern").click();
+      await page.locator("#context").getByText("Save as Opus").click();
       const bytes = readFileSync(await (await rendered).path());
       return page.evaluate(async (data) => {
         const context = new AudioContext();
@@ -179,10 +179,10 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("legt am Handy ein Nachbeben unter die Kick und malt es mit dem Finger", async ({ page }) => {
+  test("lays a rumble under the kick on a phone and paints it with a finger", async ({ page }) => {
     const problems = await open(page);
     const line = (): Promise<number[]> => page.evaluate(() => window.kreisel.app.project.scenes[0]!.rumble.slice(0, 16));
     await focus(page, 0);
@@ -196,7 +196,7 @@ test.describe("am Handy", () => {
     const spot = await page.evaluate(() => window.kreisel.quake(2, 1));
     await page.touchscreen.tap(spot.x, spot.y);
     expect((await line())[2]).toBe(15);
-    await expect(status(page)).toContainText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16 · Nachbeben auf 1 von 16 Schritten");
+    await expect(status(page)).toContainText("Kick: 4 hits on 1, 5, 9, 13 of 16 · Rumble on 1 of 16 steps");
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });

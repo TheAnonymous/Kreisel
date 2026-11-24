@@ -20,7 +20,7 @@ export const hzToHeight = (hz: number): number => clamp(Math.round((Math.log2(Ma
 /** One semitone in units of height. */
 export const SEMITONE = HEIGHT_MAX / (OCTAVES * 12);
 
-export const BRUSHES = ["Summen", "Sägen", "Zischen"] as const;
+export const BRUSHES = ["Hum", "Buzz", "Hiss"] as const;
 
 export interface Guide {
   y: number;
@@ -39,7 +39,7 @@ export function guides(track: number): Guide[] {
   if (ref > 0) {
     return [0.5, 1, 2, 3, 4, 5, 6, 8].map((multiple) => ({
       y: hzToHeight(ref * multiple),
-      label: multiple === 1 ? "Grundton" : multiple === 2 ? "Oktave" : "",
+      label: multiple === 1 ? "Root" : multiple === 2 ? "Octave" : "",
       root: multiple === 1,
     }));
   }
@@ -168,12 +168,12 @@ export function emptyBild(): Bild {
 /** The picture in words, for the status line and screen readers. */
 export function describeBild(bild: Bild | null): string {
   const count = bild?.strokes.length ?? 0;
-  if (count === 0) return "noch leer";
+  if (count === 0) return "still empty";
   const kinds = BRUSHES.map((name, kind) => {
     const of = bild?.strokes.filter((stroke) => stroke.kind === kind).length ?? 0;
     return of > 0 ? `${of}× ${name}` : "";
   }).filter(Boolean);
-  return `${count} ${count === 1 ? "Strich" : "Striche"} (${kinds.join(", ")})`;
+  return `${count} ${count === 1 ? "stroke" : "strokes"} (${kinds.join(", ")})`;
 }
 
 // ---- dice: a first picture in the manner of each ring -------------------------

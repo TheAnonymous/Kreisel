@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { onPhone, open, status } from "./helpers";
 
 /*
- * The pull of a loop ("Sog"): tides let a weather swell and ebb over a number
+ * The pull of a loop ("Pull"): tides let a weather swell and ebb over a number
  * of bars, the status line says when rings of unequal length are together
  * again and how far a ring lies behind the kick, and "Ausrichten" lets all
  * rings begin together again every eight bars.
@@ -11,18 +11,18 @@ import { onPhone, open, status } from "./helpers";
 const menuOf = (page: Page) => page.locator("#context");
 const sceneOf = (page: Page) => page.evaluate(() => window.kreisel.app.project.scenes[window.kreisel.app.project.scene]!);
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("gibt jedem Wetter Gezeiten, und der Link nimmt sie mit", async ({ page }) => {
+  test("gives every weather tides, and the link carries them", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => {
       const app = window.kreisel.app;
       app.store.edit((project) => { for (let step = 0; step < 16; step += 1) project.scenes[project.scene]!.weather[0]![2]![step] = 15; });
       app.weather.focus();
     });
-    const fog = page.getByLabel("Gezeiten für Nebel, in Takten");
-    const rain = page.getByLabel("Gezeiten für Regen, in Takten");
+    const fog = page.getByLabel("Tides for Fog, in bars");
+    const rain = page.getByLabel("Tides for Rain, in bars");
     await expect(fog).toBeVisible();
     await expect(fog).toHaveValue("0");
     expect((await sceneOf(page)).tide).toBeUndefined();
@@ -48,7 +48,7 @@ test.describe("am Laptop", () => {
     expect((state.c[0] as { e?: number[] }).e).toEqual([12, 0, 0, 0, 0, 0]);
     await page.evaluate(() => window.kreisel.app.store.save());
     await page.reload();
-    await expect(status(page)).toContainText("Schläge");
+    await expect(status(page)).toContainText("hits");
     expect((await sceneOf(page)).tide).toEqual([12, 0, 0, 0, 0, 0]);
     // Clearing a kind of weather takes its tide with it.
     await page.evaluate(() => window.kreisel.app.weather.clear(0));
@@ -57,7 +57,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("lässt ein Wetter mit den Gezeiten an- und abschwellen", async ({ page }) => {
+  test("lets a weather swell and ebb with the tides", async ({ page }) => {
     // Two renders of four bars.
     test.setTimeout(120_000);
     const problems = await open(page);
@@ -92,12 +92,12 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("sagt, wann ungleich lange Ringe wieder zusammenfallen und wie weit ein Ring hinter der Kick liegt, und richtet alle acht Takte neu aus", async ({ page }) => {
+  test("says when rings of unequal length meet again and how far a ring lies behind the kick, and realigns every eight bars", async ({ page }) => {
     test.setTimeout(120_000);
     const problems = await open(page);
     // The Werks-Kreisel has a ring of twelve steps among its sixteens: together again every three bars. The kick's line says so.
     await page.evaluate(() => window.kreisel.app.select(0));
-    await expect(status(page)).toContainText("Gleichstand alle 3 Takte");
+    await expect(status(page)).toContainText("all rings meet every 3 bars");
     // A hi-hat on the off-beats lies two steps behind a kick on every beat; a ring of five steps meets the others only after fifteen bars.
     await page.evaluate(() => {
       const app = window.kreisel.app;
@@ -105,26 +105,26 @@ test.describe("am Laptop", () => {
       for (const step of [2, 6, 10, 14]) app.rings.addNote(2, step, {}, "versatz");
       app.select(2);
     });
-    await expect(status(page)).toContainText("2 Schritte hinter der Kick");
-    await expect(status(page)).not.toContainText("trifft die Kick");
+    await expect(status(page)).toContainText("2 steps behind the kick");
+    await expect(status(page)).not.toContainText("meets the kick");
     // The ring that runs askew says when it meets the kick again; the kick says when all of them do.
     await page.evaluate(() => { window.kreisel.app.rings.resize(2, 5); });
-    await expect(status(page)).toContainText("trifft die Kick alle 5 Takte wieder");
+    await expect(status(page)).toContainText("meets the kick again every 5 bars");
     await page.evaluate(() => window.kreisel.app.select(0));
-    await expect(status(page)).toContainText("Gleichstand alle 15 Takte");
+    await expect(status(page)).toContainText("all rings meet every 15 bars");
     await page.evaluate(() => { window.kreisel.app.rings.resize(2, 16); });
 
     // "Ausrichten" is a switch in the Kreisel's own menu (the right button on the hub).
     const hub = await page.evaluate(() => { const box = document.getElementById("kreisel")!.getBoundingClientRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; });
     await page.mouse.click(hub.x, hub.y, { button: "right" });
     const menu = menuOf(page);
-    const row = menu.getByRole("menuitemcheckbox", { name: /^Alle acht Takte neu ausrichten/ });
+    const row = menu.getByRole("menuitemcheckbox", { name: /^Realign every eight bars/ });
     await expect(row).toHaveAttribute("aria-checked", "false");
     await row.click();
     await expect(row).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("Escape");
     expect(await page.evaluate(() => window.kreisel.app.project.align)).toBe(true);
-    await expect(status(page)).toContainText("Gleichstand alle 3 Takte, alle 8 neu ausgerichtet");
+    await expect(status(page)).toContainText("all rings meet every 3 bars, realigned every 8");
     expect((JSON.parse(await page.evaluate(() => window.kreisel.state())) as { a?: number }).a).toBe(1);
 
     // What it does: a ring of twelve steps with one hit at its beginning, by itself, on a piece of nine bars. Free, it

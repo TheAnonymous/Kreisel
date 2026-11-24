@@ -44,12 +44,12 @@ export class RumbleDesk {
       currentScene(project).rumble = diceRumble(patternOf(project, 0), shape, this.app.random);
       project.roll = SHAPE_ROLL[shape] ?? project.roll;
     });
-    this.hint(activeSteps(pattern).length, `Nachbeben: ${RUMBLE_SHAPES[shape]}.`);
+    this.hint(activeSteps(pattern).length, `Rumble: ${RUMBLE_SHAPES[shape]}.`);
   }
 
   private hint(kicks: number, text = ""): void {
-    if (kicks === 0) this.app.say("Ohne Kick bebt nichts: Setz zuerst Schläge in den Kick-Ring.");
-    else if (!this.app.playing) this.app.say(`${text ? `${text} ` : ""}Starte den Kreisel, dann hörst du das Nachbeben zwischen den Kicks.`);
+    if (kicks === 0) this.app.say("Without a kick nothing shakes: put hits into the kick's ring first.");
+    else if (!this.app.playing) this.app.say(`${text ? `${text} ` : ""}Start the Kreisel, then you hear the rumble between the kicks.`);
     else if (text) this.app.say(text);
   }
 
@@ -71,7 +71,7 @@ export class RumbleDesk {
   pickUpBrush(): void {
     this.app.select(0);
     this.app.setTool("laenge");
-    this.app.say("Zieh einmal mit der Maus um den Kick-Ring: außen bebt es stark, innen gar nicht. Die rechte Taste radiert.");
+    this.app.say("Drag once around the kick's ring with the mouse: outside it shakes hard, inside not at all. The right button erases.");
   }
 
   /** The keyboard on the Nachbeben: a step up or down at the cursor. */

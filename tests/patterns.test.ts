@@ -119,8 +119,8 @@ describe("dice", () => {
 
 describe("words", () => {
   it("says what is on a ring", () => {
-    expect(words(ring(16, [0, 4, 8, 12]))).toBe("4 Schläge auf 1, 5, 9, 13 von 16");
-    expect(words(ring(12, [3]))).toBe("1 Schlag auf 4 von 12");
-    expect(words(ring(8, []))).toBe("leer, 8 Schritte");
+    expect(words(ring(16, [0, 4, 8, 12]))).toBe("4 hits on 1, 5, 9, 13 of 16");
+    expect(words(ring(12, [3]))).toBe("1 hit on 4 of 12");
+    expect(words(ring(8, []))).toBe("empty, 8 steps");
   });
 });

@@ -10,10 +10,10 @@ import { barAt, focusPiece, onLaptop, onPhone, open, pieceOf } from "./helpers";
 const marked = async (page: Page): Promise<number[]> => (await pieceOf(page)).noKick?.flatMap((out, bar) => (out ? [bar] : [])) ?? [];
 const range = (from: number, to: number): number[] => Array.from({ length: to - from }, (_, index) => from + index);
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("macht acht Takte des Stücks zum Break ohne Kick: im Menü, mit der Taste, und der Link nimmt es mit", async ({ page }) => {
+  test("makes eight bars of the piece a break without the kick: in the menu, with the key, and the link carries it", async ({ page }) => {
     const problems = await open(page);
     // The Werks-Kreisel's piece has no such bars, and is the plain piece it always was.
     expect(Object.keys(await pieceOf(page))).toEqual(["on", "tension", "scenes", "order"]);
@@ -22,23 +22,23 @@ test.describe("am Laptop", () => {
     await page.evaluate(() => window.plainTechno());
     await focusPiece(page);
     expect(await marked(page)).toEqual(range(48, 64));
-    await expect(page.locator("#panel")).toContainText("112 Takte");
-    await expect(page.locator("#panel")).toContainText("16 Takte Break");
+    await expect(page.locator("#panel")).toContainText("112 bars");
+    await expect(page.locator("#panel")).toContainText("16 bars of break");
 
     // The right button on a bar: the kick stays out of the eight bars around it, or plays there again.
     const bar = await barAt(page, 20, 0.5);
     await page.mouse.click(bar.x, bar.y, { button: "right" });
     const menu = page.locator("#context");
-    await expect(menu).toContainText("Takt 17 bis 24");
+    await expect(menu).toContainText("Bars 17 to 24");
     await expect(menu).toContainText("Break");
-    const plays = menu.getByRole("menuitemradio", { name: "Die Kick spielt in diesen Takten" });
-    const rests = menu.getByRole("menuitemradio", { name: "Break: Kick und Nachbeben setzen in diesen Takten aus" });
+    const plays = menu.getByRole("menuitemradio", { name: "The kick plays in these bars" });
+    const rests = menu.getByRole("menuitemradio", { name: "Break: kick and rumble drop out in these bars" });
     await expect(plays).toHaveAttribute("aria-checked", "true");
     await expect(rests).toHaveAttribute("aria-checked", "false");
     await rests.click();
     expect(await marked(page)).toEqual([...range(16, 24), ...range(48, 64)]);
-    await expect(page.locator("#toast")).toContainText("Break in Takt 17 bis 24");
-    await expect(page.locator("#panel")).toContainText("24 Takte Break");
+    await expect(page.locator("#toast")).toContainText("Break in bars 17 to 24");
+    await expect(page.locator("#panel")).toContainText("24 bars of break");
     await page.keyboard.press("Escape");
     // One step back, and forth again.
     await page.keyboard.press("Control+z");
@@ -56,7 +56,7 @@ test.describe("am Laptop", () => {
     // In the menu the break itself can be given its kick back.
     const inBreak = await barAt(page, 50, 0.5);
     await page.mouse.click(inBreak.x, inBreak.y, { button: "right" });
-    await expect(menu).toContainText("Takt 49 bis 56");
+    await expect(menu).toContainText("Bars 49 to 56");
     await expect(rests).toHaveAttribute("aria-checked", "true");
     await plays.click();
     await page.keyboard.press("Escape");
@@ -64,7 +64,7 @@ test.describe("am Laptop", () => {
 
     // It is kept over a restart, and a Kreisel read from what was kept has it too.
     await page.reload();
-    await expect(page.locator("#status")).toContainText("Melodie");
+    await expect(page.locator("#status")).toContainText("Melody");
     expect(await marked(page)).toEqual([...range(16, 24), ...range(56, 64)]);
     const state = JSON.parse(await page.evaluate(() => window.kreisel.state())) as { z: unknown[] };
     // The marks, and after them the build-up that the drop out of the break has of its own.
@@ -82,7 +82,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("stellt den Build-up aller Drops im Feld des Stücks ein, und schaltet die Fills dort und im Menü", async ({ page }) => {
+  test("sets the build-up of all drops in the piece's panel, and switches the fills there and in the menu", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => window.plainTechno());
     await focusPiece(page);
@@ -91,16 +91,16 @@ test.describe("am Laptop", () => {
     const menu = page.locator("#context");
     await expect(page.locator("#piece-moves")).toContainText("Build-up");
     await expect(page.locator("#piece-moves")).toContainText("Fills");
-    await expect(kit).toHaveText("alle Drops: klein ▾");
-    await expect(vary).toHaveText("alle 8 Takte");
-    await expect(page.getByRole("button", { name: "Fills alle acht Takte" })).toBeVisible();
+    await expect(kit).toHaveText("all drops: small ▾");
+    await expect(vary).toHaveText("every 8 bars");
+    await expect(page.getByRole("button", { name: "Fills every eight bars" })).toBeVisible();
     // A fresh piece has the small build-up before every drop, and no fills.
     await expect(vary).toHaveAttribute("aria-pressed", "false");
     expect([(await pieceOf(page)).build, (await pieceOf(page)).vary]).toEqual([undefined, undefined]);
 
     // The button opens the kit for all drops under itself; a second press puts it away.
     await kit.click();
-    await expect(menu).toContainText("Alle Drops · Build-up");
+    await expect(menu).toContainText("All drops · Build-up");
     await expect(kit).toHaveAttribute("aria-expanded", "true");
     // All of the kit is there at once, on the page and beside its button: nothing of it has to be scrolled to.
     expect(await page.evaluate(() => {
@@ -110,10 +110,10 @@ test.describe("am Laptop", () => {
       const apart = box.right <= opener.left || box.top >= opener.bottom;
       return node.scrollHeight <= node.clientHeight + 1 && box.top >= 0 && box.left >= 0 && box.bottom <= window.innerHeight && box.right <= window.innerWidth && apart;
     })).toBe(true);
-    await menu.getByRole("menuitemcheckbox", { name: /^Snare-Roll/ }).click();
-    await menu.getByRole("menuitemcheckbox", { name: "Letzter Takt ohne Hi-Hat" }).click();
-    await expect(menu.getByRole("menuitemcheckbox", { name: /^Snare-Roll/ })).toHaveAttribute("aria-checked", "true");
-    await expect(kit).toHaveText("alle Drops: eigen ▾");
+    await menu.getByRole("menuitemcheckbox", { name: /^Snare roll/ }).click();
+    await menu.getByRole("menuitemcheckbox", { name: "Last bar without hi-hat" }).click();
+    await expect(menu.getByRole("menuitemcheckbox", { name: /^Snare roll/ })).toHaveAttribute("aria-checked", "true");
+    await expect(kit).toHaveText("all drops: own ▾");
     await kit.click();
     await expect(menu).toBeHidden();
     await vary.click();
@@ -131,12 +131,12 @@ test.describe("am Laptop", () => {
     // The piece's menu has the fills as a tick, and leads to the same kit.
     const bar = await barAt(page, 20, 0.5);
     await page.mouse.click(bar.x, bar.y, { button: "right" });
-    await expect(menu).toContainText("Build-up aller Drops: eigen");
-    await menu.getByRole("menuitemcheckbox", { name: "Fills alle acht Takte" }).click();
-    await menu.getByRole("menuitem", { name: /^Build-up aller Drops/ }).click();
-    await expect(menu).toContainText("Alle Drops · Build-up");
-    await expect(menu.getByRole("menuitemcheckbox", { name: "Letzter Takt ohne Kick" })).toHaveAttribute("aria-checked", "false");
-    await menu.getByRole("menuitemcheckbox", { name: "Letzter Takt ohne Kick" }).click();
+    await expect(menu).toContainText("Build-up of all drops: own");
+    await menu.getByRole("menuitemcheckbox", { name: "Fills every eight bars" }).click();
+    await menu.getByRole("menuitem", { name: /^Build-up of all drops/ }).click();
+    await expect(menu).toContainText("All drops · Build-up");
+    await expect(menu.getByRole("menuitemcheckbox", { name: "Last bar without kick" })).toHaveAttribute("aria-checked", "false");
+    await menu.getByRole("menuitemcheckbox", { name: "Last bar without kick" }).click();
     await page.keyboard.press("Escape");
     await expect(vary).toHaveAttribute("aria-pressed", "false");
     expect((await pieceOf(page)).build).toMatchObject({ bars: 1, roll: true, kick: true, hat: true });
@@ -147,15 +147,15 @@ test.describe("am Laptop", () => {
     expect(state.z.slice(4, 6)).toEqual([0, []]);
     // Back at the small size, the piece has no build-up of its own for all drops.
     await kit.click();
-    await menu.getByRole("menuitemradio", { name: /^Klein/ }).click();
+    await menu.getByRole("menuitemradio", { name: /^Small/ }).click();
     await page.keyboard.press("Escape");
-    await expect(kit).toHaveText("alle Drops: klein ▾");
+    await expect(kit).toHaveText("all drops: small ▾");
     expect((await pieceOf(page)).build).toBeUndefined();
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });
 
-  test("spielt den Break ohne Kick, den Snare-Roll und die Fills", async ({ page }) => {
+  test("plays the break without the kick, the snare roll and the fills", async ({ page }) => {
     // A dozen renders of eight bars.
     test.setTimeout(120_000);
     const problems = await open(page);
@@ -204,10 +204,10 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("hat am Handy Build-up und Fills im Feld des Stücks, und alles passt in die Breite", async ({ page }) => {
+  test("has build-up and fills in the piece's panel on a phone, and everything fits the width", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => {
       window.plainTechno();
@@ -217,16 +217,16 @@ test.describe("am Handy", () => {
     await kit.scrollIntoViewIfNeeded();
     await kit.tap();
     const menu = page.locator("#context");
-    await expect(menu).toContainText("Alle Drops · Build-up");
-    await menu.getByRole("menuitemcheckbox", { name: /^Snare-Roll/ }).tap();
-    await expect(menu.getByRole("menuitemcheckbox", { name: /^Snare-Roll/ })).toHaveAttribute("aria-checked", "true");
+    await expect(menu).toContainText("All drops · Build-up");
+    await menu.getByRole("menuitemcheckbox", { name: /^Snare roll/ }).tap();
+    await expect(menu.getByRole("menuitemcheckbox", { name: /^Snare roll/ })).toHaveAttribute("aria-checked", "true");
     // The whole kit is within reach of a finger: the menu fits on the page.
     expect(await menu.evaluate((node) => { const box = node.getBoundingClientRect(); return box.left >= 0 && box.right <= window.innerWidth && box.top >= 0 && box.bottom <= window.innerHeight; })).toBe(true);
     await page.keyboard.press("Escape");
     await page.locator("#piece-vary").tap();
     await expect(page.locator("#piece-vary")).toHaveAttribute("aria-pressed", "true");
     expect([(await pieceOf(page)).build?.roll, (await pieceOf(page)).vary]).toEqual([true, true]);
-    await expect(page.locator("#panel")).toContainText("16 Takte Break");
+    await expect(page.locator("#panel")).toContainText("16 bars of break");
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);

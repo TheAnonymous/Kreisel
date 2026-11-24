@@ -19,7 +19,7 @@ const WEATHER_ICONS = [
  */
 export class WeatherPanel {
   private readonly weatherBox = el("div", "panel-box panel-weather");
-  private readonly sky = { info: el("p", "info"), clear: button("button small", "Aufklaren", "Alles Wetter wegnehmen (Umschalt+Entf)") };
+  private readonly sky = { info: el("p", "info"), clear: button("button small", "Clear up", "Take all weather away (Shift+Del)") };
   readonly cloudButtons: HTMLButtonElement[] = [];
   private readonly windInputs: HTMLInputElement[] = [];
   private readonly windNames: HTMLElement[] = [];
@@ -45,9 +45,9 @@ export class WeatherPanel {
     });
 
     const head = el("header", "panel-head");
-    head.append(el("span", "dot"), el("h2", "", "Wetter"));
+    head.append(el("span", "dot"), el("h2", "", "Weather"));
     const doing = el("div", "doing");
-    const roll = button("button small", "Würfeln", "Ein neues Wetter würfeln (N)");
+    const roll = button("button small", "Dice", "Dice a new weather (N)");
     roll.id = "weather-dice";
     roll.addEventListener("click", () => app.weather.dice());
     this.sky.clear.id = "weather-clear";
@@ -55,7 +55,7 @@ export class WeatherPanel {
     doing.append(roll, this.sky.clear);
 
     const winds = el("div", "group");
-    winds.append(el("h3", "", "Wind: so zieht jedes Wetter um das Rad · Gezeiten: über so viele Takte schwillt es an und ab"));
+    winds.append(el("h3", "", "Wind: this is how each weather drifts around the wheel · Tides: over so many bars it swells and ebbs"));
     WEATHER_NAMES.forEach((name, kind) => {
       const line = el("label", "line sky");
       const swatch = el("span", "swatch");
@@ -65,7 +65,7 @@ export class WeatherPanel {
       input.min = "0";
       input.max = String(WINDS.length - 1);
       input.step = "1";
-      input.title = `Wie schnell ${name} um das Rad zieht: nach links gegen, nach rechts mit dem Uhrzeiger · Rechtsklick hält es an`;
+      input.title = `How fast ${name} drifts around the wheel: to the left against, to the right with the clock · right click stops it`;
       input.addEventListener("input", () => app.weather.setWind(kind, WINDS[Number(input.value)] ?? 0, "wind"));
       input.addEventListener("change", () => app.store.settle());
       input.addEventListener("pointerdown", (event) => {
@@ -75,8 +75,8 @@ export class WeatherPanel {
       input.addEventListener("contextmenu", (event) => event.preventDefault());
       const speed = el("output");
       const tide = el("select", "tide");
-      tide.title = `Gezeiten: Über so viele Takte schwillt ${name} an und wieder ab. Schiefe Längen wie 12 oder 20 laufen gegen die Phrasen`;
-      tide.setAttribute("aria-label", `Gezeiten für ${name}, in Takten`);
+      tide.title = `Tides: over so many bars ${name} swells and ebbs again. Odd lengths like 12 or 20 run against the phrases`;
+      tide.setAttribute("aria-label", `Tides for ${name}, in bars`);
       for (const bars of TIDES) {
         const option = el("option", "", bars === 0 ? "–" : String(bars));
         option.value = String(bars);
@@ -89,7 +89,7 @@ export class WeatherPanel {
       this.windNames.push(speed);
       this.tides.push(tide);
     });
-    const hint = el("p", "easel-hint", "Mal Wetter auf das Rad: Wie weit außen, sagt welcher Ring, der Winkel sagt wann. Ein Strich quer über mehrere Ringe trifft sie alle. Noch einmal darüber macht es stärker, die rechte Taste nimmt es weg, das Mausrad ändert die Pinselbreite. Mit Wind zieht das Wetter Takt für Takt weiter.");
+    const hint = el("p", "easel-hint", "Paint weather onto the wheel: how far out says which ring, the angle says when. A stroke across several rings hits them all. Going over it again makes it stronger, the right button takes it away, the mouse wheel changes the brush width. With wind the weather drifts on bar by bar.");
     this.weatherBox.append(head, this.sky.info, doing, winds, hint);
     this.weatherBox.hidden = true;
     byId("panel").append(this.weatherBox);
@@ -104,7 +104,7 @@ export class WeatherPanel {
     this.panels.weatherRow.classList.toggle("selected", focus);
     this.panels.weatherRow.classList.toggle("silent", kinds.length === 0);
     this.panels.weatherRow.querySelector(".pick")!.setAttribute("aria-pressed", String(focus));
-    this.panels.weatherRow.querySelector(".sound")!.textContent = kinds.length === 0 ? "klar" : kinds.length <= 2 ? kinds.join(", ") : `${kinds.length} Wetter`;
+    this.panels.weatherRow.querySelector(".sound")!.textContent = kinds.length === 0 ? "clear" : kinds.length <= 2 ? kinds.join(", ") : `${kinds.length} kinds of weather`;
     byId("weathers").hidden = !focus;
     this.weatherBox.hidden = !focus;
     if (focus) {

@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { barAt, focusPiece, onPhone, open, pieceOf } from "./helpers";
 
 /*
- * What the tension moves beyond who plays ("Was die Spannung bewegt"): the
+ * What the tension moves beyond who plays ("What the tension moves"): the
  * hi-hat's length, the brightness of bass, chords and melody, the kick, the
  * quiet hits, Zerre and hall. The piece's panel has a button that opens the
  * list; what each then does to the sound is measured on a short piece that is
@@ -51,35 +51,35 @@ const hear = async (page: Page, solo: number, low: number, sway: Record<string, 
   return { low: half(1, 4), top: half(5, 8) };
 };
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("stellt im Feld des Stücks ein, was die Spannung bewegt, und der Link nimmt es mit", async ({ page }) => {
+  test("sets in the piece's panel what the tension moves, and the link carries it", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => { window.plainTechno(); window.kreisel.app.dismiss(); });
     await focusPiece(page);
     const button = page.locator("#piece-sway");
     const menu = menuOf(page);
-    await expect(button).toHaveText("nur die Einsätze ▾");
+    await expect(button).toHaveText("only the roster ▾");
     expect((await pieceOf(page)).sway).toBeUndefined();
     // The piece's panel still fits on this screen with the new line.
     expect(await page.evaluate(() => { const panel = document.getElementById("panel")!; return panel.scrollHeight - panel.clientHeight <= 2; })).toBe(true);
 
     await button.click();
-    await expect(menu).toContainText("Was die Spannung bewegt");
-    for (const name of ["Hi-Hat öffnet sich", "Helligkeit", "Kick wächst", "Dichte", "Zerre", "Raum"]) await expect(menu).toContainText(name);
+    await expect(menu).toContainText("What the tension moves");
+    for (const name of ["Hi-hat opens", "Brightness", "Kick grows", "Density", "Drive", "Room"]) await expect(menu).toContainText(name);
     // All of the list is there at once, on the page.
     expect(await menu.evaluate((node) => { const box = node.getBoundingClientRect(); return node.scrollHeight <= node.clientHeight + 1 && box.top >= 0 && box.bottom <= window.innerHeight && box.right <= window.innerWidth; })).toBe(true);
     const pick = (name: RegExp) => menu.getByRole("menuitemradio", { name });
-    await expect(pick(/^Hi-Hat öffnet sich: aus/)).toHaveAttribute("aria-checked", "true");
-    await pick(/^Hi-Hat öffnet sich, deutlich/).click();
-    await expect(pick(/^Hi-Hat öffnet sich, deutlich/)).toHaveAttribute("aria-checked", "true");
-    await expect(button).toHaveText("1 Sache mehr ▾");
-    await pick(/^Raum, sanft/).click();
-    await pick(/^Helligkeit, sanft/).click();
-    await expect(button).toHaveText("3 Sachen mehr ▾");
+    await expect(pick(/^Hi-hat opens: off/)).toHaveAttribute("aria-checked", "true");
+    await pick(/^Hi-hat opens, clearly/).click();
+    await expect(pick(/^Hi-hat opens, clearly/)).toHaveAttribute("aria-checked", "true");
+    await expect(button).toHaveText("1 thing more ▾");
+    await pick(/^Room, gently/).click();
+    await pick(/^Brightness, gently/).click();
+    await expect(button).toHaveText("3 things more ▾");
     expect((await pieceOf(page)).sway).toEqual({ hat: 2, bright: 1, kick: 0, dense: 0, drive: 0, room: 1 });
-    await pick(/^Helligkeit: aus/).click();
+    await pick(/^Brightness: off/).click();
     await button.click();
     await expect(menu).toBeHidden();
     expect((await pieceOf(page)).sway).toEqual({ hat: 2, bright: 0, kick: 0, dense: 0, drive: 0, room: 1 });
@@ -87,9 +87,9 @@ test.describe("am Laptop", () => {
     // The piece's menu leads to the same list.
     const bar = await barAt(page, 30, 0.5);
     await page.mouse.click(bar.x, bar.y, { button: "right" });
-    await menu.getByRole("menuitem", { name: /^Die Spannung bewegt: 2 Sachen mehr/ }).click();
-    await expect(menu).toContainText("Was die Spannung bewegt");
-    await expect(pick(/^Raum, sanft/)).toHaveAttribute("aria-checked", "true");
+    await menu.getByRole("menuitem", { name: /^The tension moves: 2 things more/ }).click();
+    await expect(menu).toContainText("What the tension moves");
+    await expect(pick(/^Room, gently/)).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("Escape");
 
     // A link carries it as the eighth part of the piece, and it is there again after a reload.
@@ -99,7 +99,7 @@ test.describe("am Laptop", () => {
     const kept = await pieceOf(page);
     await page.evaluate(() => window.kreisel.app.store.save());
     await page.reload();
-    await expect(page.locator("#status")).toContainText("Melodie");
+    await expect(page.locator("#status")).toContainText("Melody");
     expect(await pieceOf(page)).toEqual(kept);
     // One step back takes the last change away.
     await page.evaluate(() => { window.kreisel.app.piece.setSway("room", 0); window.kreisel.app.undo(); });
@@ -108,7 +108,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("lässt die Spannung Hi-Hat, Helligkeit und Kick bewegen", async ({ page }) => {
+  test("lets the tension move hi-hat, brightness and kick", async ({ page }) => {
     // Six renders of eight bars.
     test.setTimeout(180_000);
     const problems = await open(page);
@@ -133,7 +133,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("lässt die Spannung Dichte, Zerre und Raum bewegen", async ({ page }) => {
+  test("lets the tension move density, drive and room", async ({ page }) => {
     // Six renders of eight bars.
     test.setTimeout(180_000);
     const problems = await open(page);

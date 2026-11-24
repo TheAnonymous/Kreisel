@@ -10,14 +10,14 @@ import type { Random } from "./patterns";
  * plays under moves on, bar after bar.
  */
 
-export const WEATHER_NAMES = ["Nebel", "Sonne", "Wolken", "Regen", "Funken", "Hagel"] as const;
+export const WEATHER_NAMES = ["Fog", "Sun", "Clouds", "Rain", "Sparks", "Hail"] as const;
 export const WEATHER_HINTS = [
-  "Nebel: Was darunter liegt, klingt dumpfer",
-  "Sonne: Was darunter liegt, klingt heller",
-  "Wolken: Hall",
-  "Regen: Echo",
-  "Funken: Zerre",
-  "Hagel: zerhackt den Klang",
+  "Fog: what lies under it sounds duller",
+  "Sun: what lies under it sounds brighter",
+  "Clouds: reverb",
+  "Rain: echo",
+  "Sparks: drive",
+  "Hail: chops the sound up",
 ] as const;
 /** The colour each kind of weather is drawn in. */
 export const WEATHER_COLORS = ["#7f93a8", "#f2b705", "#b9b3c9", "#3d7edb", "#e4572e", "#2a2233"] as const;
@@ -31,10 +31,10 @@ export const WINDS = [-16, -8, -4, -2, -1, 0, 1, 2, 4, 8, 16] as const;
 
 /** How a wind is called. */
 export function windName(wind: number): string {
-  if (wind === 0) return "still";
+  if (wind === 0) return "calm";
   const speed = Math.abs(wind) / 4;
-  const steps = speed === 0.25 ? "¼ Schritt" : speed === 0.5 ? "½ Schritt" : speed === 1 ? "1 Schritt" : `${speed} Schritte`;
-  return `${steps} je Takt ${wind > 0 ? "↻" : "↺"}`;
+  const steps = speed === 0.25 ? "¼ step" : speed === 0.5 ? "½ step" : speed === 1 ? "1 step" : `${speed} steps`;
+  return `${steps} a bar ${wind > 0 ? "↻" : "↺"}`;
 }
 
 /** The tides a kind of weather can have: the bars over which it swells and ebbs once, 0 for none. Odd lengths (12, 20) run against the phrases. */
@@ -79,7 +79,7 @@ export function shaded(x: number, bright: number): number {
 }
 
 /** Whether sun and fog reach into ring `ring`'s sound itself (its brightness), not only what comes after it. */
-export const shadesSound = (ring: number): boolean => trackInfo(ring).xLabel === "Helligkeit";
+export const shadesSound = (ring: number): boolean => trackInfo(ring).xLabel === "Brightness";
 
 export function hasWeather(scene: Scene, kind?: number, ring?: number): boolean {
   return scene.weather.some((rings, which) => (kind === undefined || kind === which)
@@ -92,11 +92,11 @@ export function describeWeather(scene: Scene): string {
   for (let kind = 0; kind < WEATHER_COUNT; kind += 1) {
     const rings = Array.from({ length: TRACK_COUNT }, (_, ring) => ring).filter((ring) => hasWeather(scene, kind, ring));
     if (rings.length === 0) continue;
-    const where = rings.length === TRACK_COUNT ? "überall" : rings.length === 1 ? `auf ${trackInfo(rings[0] ?? 0).name}` : `auf ${rings.length} Ringen`;
+    const where = rings.length === TRACK_COUNT ? "everywhere" : rings.length === 1 ? `on ${trackInfo(rings[0] ?? 0).name}` : `on ${rings.length} rings`;
     const wind = scene.wind[kind] ?? 0;
-    parts.push(`${WEATHER_NAMES[kind]} ${where}${wind === 0 ? "" : `, zieht ${windName(wind)}`}`);
+    parts.push(`${WEATHER_NAMES[kind]} ${where}${wind === 0 ? "" : `, drifting ${windName(wind)}`}`);
   }
-  return parts.length > 0 ? parts.join(" · ") : "klarer Himmel";
+  return parts.length > 0 ? parts.join(" · ") : "clear sky";
 }
 
 /** Weather as it may be: whole numbers in range, every kind, every ring, every step. */

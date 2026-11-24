@@ -70,8 +70,8 @@ describe("people", () => {
     expect(cleanName("  Jodie  ", MAX_NAME)).toBe("Jodie");
     expect(cleanName("a\u0000b\u0007c\n", MAX_NAME)).toBe("abc");
     expect(cleanName("x".repeat(99), MAX_NAME)).toHaveLength(MAX_NAME);
-    expect(cleanName("", MAX_NAME)).toBe("Jemand");
-    expect(cleanName(42, MAX_NAME)).toBe("Jemand");
+    expect(cleanName("", MAX_NAME)).toBe("Someone");
+    expect(cleanName(42, MAX_NAME)).toBe("Someone");
     expect(cleanName("<b>Mika</b>", MAX_NAME)).toBe("<b>Mika</b>");
   });
 });

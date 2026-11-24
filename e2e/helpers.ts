@@ -10,8 +10,8 @@ import { STORAGE_KEY } from "../src/store";
  * server, which sends the production Content-Security-Policy: whatever the
  * live site would block fails here.
  *
- * There is a file a subject. In each, the tests "am Laptop" are for mouse and
- * keyboard and the tests "am Handy" for a finger; Firefox takes a second look
+ * There is a file a subject. In each, the tests "on a laptop" are for mouse and
+ * keyboard and the tests "on a phone" for a finger; Firefox takes a second look
  * at what it can (see playwright.config.ts, which picks by these names).
  */
 
@@ -59,7 +59,7 @@ async function watch(page: Page): Promise<string[]> {
 }
 
 /**
- * Opens the Kreisel as someone who has been here before, with the Werks-Kreisel on the table;
+ * Opens the Kreisel as someone who has been here before, with the factory Kreisel on the table;
  * with `firstVisit`, as someone who has not seen the tour yet (then it comes).
  */
 export async function open(page: Page, path = "./", firstVisit = false): Promise<string[]> {
@@ -70,7 +70,7 @@ export async function open(page: Page, path = "./", firstVisit = false): Promise
     if (localStorage.getItem(key) === null) localStorage.setItem(key, werk);
   }, [!firstVisit, STORAGE_KEY, WERK] as const);
   await page.goto(path);
-  await expect(page.locator("#status")).toContainText("Schläge");
+  await expect(page.locator("#status")).toContainText("hits");
   return problems;
 }
 
@@ -78,7 +78,7 @@ export async function open(page: Page, path = "./", firstVisit = false): Promise
 export async function firstLook(page: Page): Promise<string[]> {
   const problems = await watch(page);
   await page.goto("./");
-  await expect(page.locator("#status")).toContainText("Melodie");
+  await expect(page.locator("#status")).toContainText("Melody");
   return problems;
 }
 
@@ -187,7 +187,7 @@ export async function fromBar(page: Page, opener: "kreisel-menu" | "sound" | "sh
   await page.locator("#context").getByRole("menuitem", { name: row }).click();
 }
 
-/** "Teilen", then "Link kopieren". */
-export const copyLink = (page: Page): Promise<void> => fromBar(page, "share", /Link kopieren/);
-/** "Teilen", then Reihum: the window with the turns. */
-export const openRelay = (page: Page): Promise<void> => fromBar(page, "share", /Reihum/);
+/** "Share", then "Copy link". */
+export const copyLink = (page: Page): Promise<void> => fromBar(page, "share", /Copy link/);
+/** "Share", then Reihum: the window with the turns. */
+export const openRelay = (page: Page): Promise<void> => fromBar(page, "share", /Pass around/);

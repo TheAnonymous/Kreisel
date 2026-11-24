@@ -6,10 +6,10 @@ import { firstLook, focus, focusPiece, onLaptop, onPhone, open, pieceOf, status 
  * the menu, and the style that the dice and the piece throw in.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("beginnt beim ersten Besuch mit dem Techno-Kreisel, und der spielt", async ({ page }) => {
+  test("starts with the techno Kreisel on a first visit, and it plays", async ({ page }) => {
     const problems = await firstLook(page);
     await expect(page.locator("#tour")).toBeVisible();
     await page.locator("#tour-skip").click();
@@ -20,11 +20,11 @@ test.describe("am Laptop", () => {
     await expect(page.locator("#swing")).toHaveValue("0");
     await expect(page.locator("#scale")).toHaveValue("phrygisch");
     expect(await page.evaluate(() => [window.kreisel.app.project.style, window.kreisel.app.project.scenes[0]!.chords])).toEqual(["techno", [0]]);
-    await expect(status(page)).toHaveText("Melodie: leer, 16 Schritte");
+    await expect(status(page)).toHaveText("Melody: empty, 16 steps");
     await focus(page, 0);
-    await expect(status(page)).toContainText("Kick: 4 Schläge auf 1, 5, 9, 13 von 16");
+    await expect(status(page)).toContainText("Kick: 4 hits on 1, 5, 9, 13 of 16");
     await focus(page, 4);
-    await expect(status(page)).toContainText("Bass: 11 Schläge");
+    await expect(status(page)).toContainText("Bass: 11 hits");
 
     // It plays, loud and without clipping, and the acid line slides.
     await page.keyboard.press("Space");
@@ -50,13 +50,13 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("lädt beide Kreisel aus dem Menü und würfelt im Stil des Kreisels", async ({ page }) => {
+  test("loads both Kreisels from the menu and dices in the Kreisel's style", async ({ page }) => {
     const problems = await open(page);
     // What concerns the Kreisel as a whole hangs under its name.
     const name = page.locator("#kreisel-menu");
     const menu = page.locator("#context");
-    const techno = menu.getByRole("menuitemradio", { name: /Techno/ });
-    const free = menu.getByRole("menuitemradio", { name: /frei/ });
+    const techno = menu.getByRole("menuitemradio", { name: /techno:/ });
+    const free = menu.getByRole("menuitemradio", { name: /freely/ });
     const project = () => page.evaluate(() => window.kreisel.app.project);
     const hits = (track: number) => page.evaluate((ring) => window.kreisel.app.project.scenes[0]!.patterns[ring]!.steps.slice(0, 16).map((step) => step.on), track);
 
@@ -64,8 +64,8 @@ test.describe("am Laptop", () => {
     await name.click();
     await expect(techno).toHaveAttribute("aria-checked", "false");
     await expect(free).toHaveAttribute("aria-checked", "true");
-    await menu.getByRole("menuitem", { name: "Techno-Kreisel" }).click();
-    await expect(page.locator("#toast")).toContainText("Der Techno-Kreisel ist da.");
+    await menu.getByRole("menuitem", { name: "Techno Kreisel" }).click();
+    await expect(page.locator("#toast")).toContainText("The techno Kreisel is here.");
     await expect(page.locator("#bpm")).toHaveValue("150");
     await name.click();
     await expect(techno).toHaveAttribute("aria-checked", "true");
@@ -82,7 +82,7 @@ test.describe("am Laptop", () => {
     }
     await focus(page, 0);
     await page.keyboard.press("n");
-    await expect(status(page)).toContainText("auf 1, 5, 9, 13");
+    await expect(status(page)).toContainText("on 1, 5, 9, 13");
 
     // A control goes back to where the techno Kreisel has it, and an empty Kreisel stays techno.
     await page.evaluate(() => {
@@ -91,40 +91,40 @@ test.describe("am Laptop", () => {
     });
     expect((await project()).swing).toBe(0);
     await name.click();
-    await menu.getByRole("menuitem", { name: "Leerer Kreisel" }).click();
+    await menu.getByRole("menuitem", { name: "Empty Kreisel" }).click();
     expect(await page.evaluate(() => [window.kreisel.app.project.style, window.kreisel.app.project.bpm, window.kreisel.app.project.scenes[0]!.chords])).toEqual(["techno", 150, [0]]);
 
-    // "Frei" turns the dice back, without touching what is on the table; the menu stays and shows it.
+    // "Free" turns the dice back, without touching what is on the table; the menu stays and shows it.
     await name.click();
     await free.click();
-    await expect(page.locator("#toast")).toContainText("Die Würfel werfen wieder frei.");
+    await expect(page.locator("#toast")).toContainText("The dice throw freely again.");
     await expect(free).toHaveAttribute("aria-checked", "true");
     expect(await page.evaluate(() => [window.kreisel.app.project.style, window.kreisel.app.project.bpm])).toEqual(["frei", 150]);
     await page.keyboard.press("Escape");
     await page.keyboard.press("Control+z");
     expect((await project()).style).toBe("techno");
 
-    // And the Werks-Kreisel is still there, as it was.
+    // And the factory Kreisel is still there, as it was.
     await name.click();
-    await menu.getByRole("menuitem", { name: /Werks-Kreisel/ }).click();
-    await expect(page.locator("#toast")).toContainText("Der Werks-Kreisel ist wieder da.");
+    await menu.getByRole("menuitem", { name: /Factory Kreisel/ }).click();
+    await expect(page.locator("#toast")).toContainText("The factory Kreisel is back.");
     await expect(page.locator("#bpm")).toHaveValue("112");
     expect(await page.evaluate(() => [window.kreisel.app.project.style, window.kreisel.app.project.scenes[0]!.chords])).toEqual(["frei", [0, 5, 2, 6]]);
     await focus(page, 6);
-    await expect(status(page)).toHaveText("Melodie: 7 Schläge auf 1, 4, 7, 9, 11, 13, 15 von 16");
+    await expect(status(page)).toHaveText("Melody: 7 hits on 1, 4, 7, 9, 11, 13, 15 of 16");
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });
 
-  test("würfelt dem Stück eine Techno-Form, bis 256 Takte lang", async ({ page }) => {
+  test("dices a techno form for the piece, up to 256 bars long", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => window.kreisel.app.newProject(false, "techno"));
     await focusPiece(page);
-    await expect(status(page)).toContainText("Stück: 160 Takte, 4:16 Minuten");
+    await expect(status(page)).toContainText("Piece: 160 bars, 4:16 minutes");
     expect((await pieceOf(page)).order).toEqual([0, 2, 3, 4, 1, 5, 6]);
 
     await page.locator(".panel-piece").getByRole("button", { name: "256", exact: true }).click();
-    await expect(status(page)).toContainText("Stück: 256 Takte, 6:50 Minuten");
+    await expect(status(page)).toContainText("Piece: 256 bars, 6:50 minutes");
     // The row for the length has room for a number of three digits: nothing in it lies over its neighbour.
     expect(await page.evaluate(() => {
       const parts = [...document.querySelector(".panel-piece .line")!.children].map((child) => child.getBoundingClientRect());
@@ -148,10 +148,10 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("zeigt am Handy beim ersten Besuch den Techno-Kreisel, und der spielt", async ({ page }) => {
+  test("shows the techno Kreisel on a first visit on a phone, and it plays", async ({ page }) => {
     const problems = await firstLook(page);
     await expect(page.locator("#tour")).toBeVisible();
     await page.locator("#tour-skip").click();

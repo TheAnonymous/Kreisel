@@ -7,19 +7,19 @@ import { BAR, type Project, type Scene, type ScaleId, wrap } from "./model";
  */
 
 export const SCALES: Record<ScaleId, { name: string; steps: readonly number[] }> = {
-  moll: { name: "Moll", steps: [0, 2, 3, 5, 7, 8, 10] },
-  dur: { name: "Dur", steps: [0, 2, 4, 5, 7, 9, 11] },
-  dorisch: { name: "Dorisch", steps: [0, 2, 3, 5, 7, 9, 10] },
-  phrygisch: { name: "Phrygisch", steps: [0, 1, 3, 5, 7, 8, 10] },
-  lydisch: { name: "Lydisch", steps: [0, 2, 4, 6, 7, 9, 11] },
-  mixolydisch: { name: "Mixolydisch", steps: [0, 2, 4, 5, 7, 9, 10] },
-  harmonisch: { name: "Harmonisch Moll", steps: [0, 2, 3, 5, 7, 8, 11] },
+  moll: { name: "Minor", steps: [0, 2, 3, 5, 7, 8, 10] },
+  dur: { name: "Major", steps: [0, 2, 4, 5, 7, 9, 11] },
+  dorisch: { name: "Dorian", steps: [0, 2, 3, 5, 7, 9, 10] },
+  phrygisch: { name: "Phrygian", steps: [0, 1, 3, 5, 7, 8, 10] },
+  lydisch: { name: "Lydian", steps: [0, 2, 4, 6, 7, 9, 11] },
+  mixolydisch: { name: "Mixolydian", steps: [0, 2, 4, 5, 7, 9, 10] },
+  harmonisch: { name: "Harmonic minor", steps: [0, 2, 3, 5, 7, 8, 11] },
 };
 
 export const SCALE_IDS = Object.keys(SCALES) as ScaleId[];
 
-/** German note names: H is B natural, B is B flat. */
-export const NOTE_NAMES = ["C", "Cis", "D", "Es", "E", "F", "Fis", "G", "As", "A", "B", "H"] as const;
+/** The twelve notes as the page names them, the black keys as a key signature usually has them. */
+export const NOTE_NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"] as const;
 
 
 /** Semitones above the key's root for a scale step (7 is the octave, −1 the step below the root). */
@@ -103,9 +103,9 @@ export function chordAt(scene: Scene, position: number): number {
 /** What a step's pitch is called on a ring, for hints: the note for tuned rings. */
 export function pitchName(project: Project, track: number, pitch: number, chord: number): string {
   if (track === 4) return noteName(bassMidi(project, chord, pitch));
-  if (track === 5) return pitch === 0 ? "Grundlage" : `Lage ${pitch > 0 ? "+" : "−"}${Math.abs(pitch)}`;
+  if (track === 5) return pitch === 0 ? "root position" : `register ${pitch > 0 ? "+" : "−"}${Math.abs(pitch)}`;
   if (track === 6) return noteName(leadMidi(project, pitch));
   if (track === 3) return noteName(percMidi(project, pitch));
-  if (track === 2) return pitch > 0 ? `offen ${pitch}` : pitch < 0 ? `kurz ${-pitch}` : "zu";
+  if (track === 2) return pitch > 0 ? `open ${pitch}` : pitch < 0 ? `short ${-pitch}` : "closed";
   return pitch === 0 ? "normal" : `${pitch > 0 ? "+" : "−"}${Math.abs(pitch)}`;
 }

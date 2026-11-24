@@ -4,7 +4,7 @@ import { clone } from "../model";
 import type { App } from "./app";
 
 /** How a saved file's format is named; a WAV says why it is not Opus. */
-const FORMATS = { opus: "Opus", wav: "WAV (dieser Browser schreibt kein Opus)" } as const;
+const FORMATS = { opus: "Opus", wav: "WAV (this browser cannot write Opus)" } as const;
 
 function download(blob: Blob, name: string): void {
   // Handed over without a type: Firefox looks into a file it knows the type of and renames an Opus file to ".ogx".
@@ -44,14 +44,14 @@ export class FileDesk {
 
   async share(): Promise<void> {
     if ((await this.copyLink()) === "copied") {
-      this.app.say("Link kopiert. Wer ihn öffnet, bekommt eine eigene Kopie deines Kreisels.");
+      this.app.say("Link copied. Whoever opens it gets their own copy of your Kreisel.");
       this.app.onDeed({ what: "share" });
     } else {
-      this.app.say("Der Link steht jetzt in der Adresszeile: von dort kopieren.");
+      this.app.say("The link is now in the address bar: copy it from there.");
     }
   }
 
-  /** Opens a Kreisel from a link's `#k=`; the one on the table is kept for "Zurück". */
+  /** Opens a Kreisel from a link's `#k=`; the one on the table is kept for "Undo". */
   async openLink(hash: string): Promise<void> {
     const text = /[#&]k=([^&]+)/.exec(hash)?.[1];
     if (!text) return;
@@ -63,12 +63,12 @@ export class FileDesk {
       this.app.store.replace(project);
       const relay = project.relay;
       const last = relay?.turns[relay.turns.length - 1];
-      const back = { label: "Zurück zu meinem", run: () => this.app.undo() };
-      if (!relay || !last) this.app.say("Ein geteilter Kreisel. Deiner ist nicht weg.", back);
-      else if (relay.rule === 2 && !relay.open) this.app.say(`Stille Post von ${last.name}: Du hörst nur den Ring davor. Bau deinen dazu und schick den Link weiter.`, back);
-      else this.app.say(`Reihum: ${last.name} hat Zug ${relay.turns.length} gemacht. Du bist dran.`, back);
+      const back = { label: "Back to mine", run: () => this.app.undo() };
+      if (!relay || !last) this.app.say("A shared Kreisel. Yours is not gone.", back);
+      else if (relay.rule === 2 && !relay.open) this.app.say(`Telephone from ${last.name}: you hear only the ring before yours. Add your own and pass the link on.`, back);
+      else this.app.say(`Pass around: ${last.name} made turn ${relay.turns.length}. It's your turn.`, back);
     } catch {
-      this.app.say("Dieser Link ließ sich nicht öffnen.");
+      this.app.say("This link could not be opened.");
     }
   }
 
@@ -83,10 +83,10 @@ export class FileDesk {
         this.app.notify();
       });
       download(file.blob, `kreisel.${file.kind}`);
-      const what = this.app.project.piece.on ? "Das ganze Stück" : this.app.project.chain ? "Die ganze Folge" : "Die Szene";
-      this.app.say(`${what} als ${FORMATS[file.kind]} gespeichert${this.app.project.piece.on || this.app.project.chain ? "" : " (zweimal durch die Akkorde)"}.`);
+      const what = this.app.project.piece.on ? "The whole piece" : this.app.project.chain ? "The whole row" : "The scene";
+      this.app.say(`${what} saved as ${FORMATS[file.kind]}${this.app.project.piece.on || this.app.project.chain ? "" : " (twice through the chords)"}.`);
     } catch {
-      this.app.say("Die Datei konnte nicht erzeugt werden.");
+      this.app.say("The file could not be created.");
     } finally {
       this.exporting = null;
       this.app.notify();
@@ -95,19 +95,19 @@ export class FileDesk {
 
   async toggleRecording(): Promise<void> {
     if (!Engine.canRecord) {
-      this.app.say("Dieser Browser kann hier nicht aufnehmen. Nimm „Als Opus speichern“ im Menü.");
+      this.app.say("This browser cannot record here. Use “Save as Opus” in the menu.");
       return;
     }
     const wasRecording = this.app.engine.recording;
     const file = await this.app.engine.toggleRecording();
     if (!wasRecording) {
       if (!this.app.playing) await this.app.engine.start();
-      this.app.say("Aufnahme läuft: alles, was du hörst und spielst. Noch ein Klick speichert sie.");
+      this.app.say("Recording: everything you hear and play. One more click saves it.");
     } else if (file) {
-      download(file.blob, `kreisel-aufnahme.${file.kind}`);
-      this.app.say(`Aufnahme als ${FORMATS[file.kind]} gespeichert.`);
+      download(file.blob, `kreisel-recording.${file.kind}`);
+      this.app.say(`Recording saved as ${FORMATS[file.kind]}.`);
     } else {
-      this.app.say("Die Aufnahme war still und wurde nicht gespeichert.");
+      this.app.say("The recording was silent and was not saved.");
     }
   }
 }

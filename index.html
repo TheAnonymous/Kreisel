@@ -1,16 +1,16 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#f4ecdd" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#15121d" media="(prefers-color-scheme: dark)">
-    <meta name="description" content="Kreisel ist eine Groovebox im Kreis: Sieben Ringe, in die du Schläge und Töne malst. Dreh sie, würfle sie, lass sie gegeneinander laufen, mal dir eigene Klänge dazu und den Verlauf des ganzen Stücks in den äußersten Ring. Alles entsteht live im Browser.">
+    <meta name="description" content="Kreisel is a groovebox in a circle: seven rings into which you paint hits and notes. Rotate them, dice them, let them run against each other, paint your own sounds to go with them, and the course of the whole piece into the outermost ring. Everything is made live in the browser.">
     <meta property="og:type" content="website">
     <meta property="og:locale" content="de_DE">
     <meta property="og:title" content="Kreisel · Musik-Werkstatt">
-    <meta property="og:description" content="Eine Groovebox im Kreis: Schläge und Töne in sieben Ringe malen, drehen, würfeln und teilen. Eigene Klänge malst du als Bild, das ganze Stück als eine Linie.">
+    <meta property="og:description" content="A groovebox in a circle: paint hits and notes into seven rings, rotate, dice and share them. You paint your own sounds as a picture, the whole piece as one line.">
     <title>Kreisel · Musik-Werkstatt</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -20,7 +20,7 @@
     <div class="app" id="app">
       <header class="bar">
         <h1 class="brand">
-          <button id="kreisel-menu" type="button" aria-haspopup="menu" aria-expanded="false" title="Neu anfangen, Stil der Würfel, zur Musik-Werkstatt">
+          <button id="kreisel-menu" type="button" aria-haspopup="menu" aria-expanded="false" title="Start anew, style of the dice, to the Musik-Werkstatt">
             <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
               <circle cx="16" cy="16" r="14" fill="none" stroke="#e4572e" stroke-width="3.2"/>
               <circle cx="16" cy="16" r="9.6" fill="none" stroke="#e9bd24" stroke-width="3.2"/>
@@ -30,127 +30,127 @@
             <span class="name">Kreisel</span><span class="caret" aria-hidden="true">▾</span>
           </button>
         </h1>
-        <button id="play" class="button go" type="button" aria-pressed="false" title="Starten und anhalten (Leertaste)"><span class="glyph" aria-hidden="true"></span><span class="label">Start</span></button>
+        <button id="play" class="button go" type="button" aria-pressed="false" title="Start and stop (Space)"><span class="glyph" aria-hidden="true"></span><span class="label">Start</span></button>
         <div class="knobs">
-          <label class="field"><span>Tempo</span><input id="bpm" type="number" min="60" max="200" step="1" inputmode="numeric" aria-label="Tempo in Schlägen pro Minute"></label>
+          <label class="field"><span>Tempo</span><input id="bpm" type="number" min="60" max="200" step="1" inputmode="numeric" aria-label="Tempo in beats per minute"></label>
           <label class="field slide"><span>Swing</span><input id="swing" type="range" min="0" max="100" step="1"></label>
-          <label class="field"><span>Tonart</span><select id="root"></select></label>
-          <label class="field"><span>Leiter</span><select id="scale"></select></label>
-          <label class="field slide"><span>Sidechain</span><input id="pump" type="range" min="0" max="100" step="1" title="Wie stark die Kick Bass, Akkorde und Melodie wegdrückt"></label>
-          <button id="sound" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" title="Lautstärke und Druck" aria-label="Lautstärke und Druck"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg></button>
+          <label class="field"><span>Key</span><select id="root"></select></label>
+          <label class="field"><span>Scale</span><select id="scale"></select></label>
+          <label class="field slide"><span>Sidechain</span><input id="pump" type="range" min="0" max="100" step="1" title="How hard the kick pushes bass, chords and melody away"></label>
+          <button id="sound" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" title="Volume and pressure" aria-label="Volume and pressure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg></button>
         </div>
         <div class="actions">
-          <button id="undo" class="button icon" type="button" title="Rückgängig (Strg+Z)" aria-label="Rückgängig"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 12h-2" transform="translate(0 -3)"/></svg></button>
-          <button id="redo" class="button icon" type="button" title="Wiederholen (Strg+Umschalt+Z)" aria-label="Wiederholen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 12h2" transform="translate(0 -3)"/></svg></button>
-          <button id="share" class="button" type="button" aria-haspopup="menu" aria-expanded="false" title="Den Kreisel weitergeben: als Link oder reihum" aria-label="Teilen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="label">Teilen</span><span class="caret" aria-hidden="true">▾</span></button>
+          <button id="undo" class="button icon" type="button" title="Undo (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 12h-2" transform="translate(0 -3)"/></svg></button>
+          <button id="redo" class="button icon" type="button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 12h2" transform="translate(0 -3)"/></svg></button>
+          <button id="share" class="button" type="button" aria-haspopup="menu" aria-expanded="false" title="Pass the Kreisel on: as a link or around" aria-label="Share"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="label">Share</span><span class="caret" aria-hidden="true">▾</span></button>
           <div class="split">
-            <button id="record" class="button rec" type="button" aria-pressed="false" title="Aufnehmen, was du hörst"><span class="lamp" aria-hidden="true"></span><span class="label">Aufnehmen</span></button>
-            <button id="record-more" class="button rec-more" type="button" aria-haspopup="menu" aria-expanded="false" title="Aufnehmen oder als Datei speichern" aria-label="Mehr zum Aufnehmen"><span class="caret" aria-hidden="true">▾</span></button>
+            <button id="record" class="button rec" type="button" aria-pressed="false" title="Record what you hear"><span class="lamp" aria-hidden="true"></span><span class="label">Record</span></button>
+            <button id="record-more" class="button rec-more" type="button" aria-haspopup="menu" aria-expanded="false" title="Record or save as a file" aria-label="More about recording"><span class="caret" aria-hidden="true">▾</span></button>
           </div>
           <div class="more">
-            <button id="help-open" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" title="Hilfe und Tour" aria-label="Hilfe"><span class="sign" aria-hidden="true">?</span></button>
-            <button id="more" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Mehr"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+            <button id="help-open" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" title="Help and tour" aria-label="Help"><span class="sign" aria-hidden="true">?</span></button>
+            <button id="more" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
           </div>
         </div>
       </header>
 
       <main class="table">
-        <section class="side left" aria-label="Ringe und Szenen">
-          <h2>Ringe</h2>
+        <section class="side left" aria-label="Rings and scenes">
+          <h2>Rings</h2>
           <ul id="tracks" class="tracks"></ul>
-          <button id="dice-all" class="button small" type="button" title="Alle sieben Ringe neu würfeln">Alles würfeln</button>
-          <h2>Szenen</h2>
-          <div id="scenes" class="scenes" role="group" aria-label="Szenen"></div>
-          <div id="plays" class="plays" role="radiogroup" aria-label="Was spielt"></div>
+          <button id="dice-all" class="button small" type="button" title="Dice all seven rings anew">Dice everything</button>
+          <h2>Scenes</h2>
+          <div id="scenes" class="scenes" role="group" aria-label="Scenes"></div>
+          <div id="plays" class="plays" role="radiogroup" aria-label="What plays"></div>
         </section>
 
         <section class="wheel" aria-label="Kreisel">
-          <div id="tools" class="tools" role="radiogroup" aria-label="Werkzeug"></div>
-          <div id="brushes" class="tools" role="radiogroup" aria-label="Pinsel" hidden></div>
-          <div id="mallets" class="tools" role="radiogroup" aria-label="Womit der Körper angeregt wird" hidden></div>
-          <div id="weathers" class="tools" role="radiogroup" aria-label="Wetter, das der Pinsel malt" hidden></div>
-          <div id="piece-tools" class="tools" role="radiogroup" aria-label="Was die Ringe vom Stück zeigen" hidden></div>
+          <div id="tools" class="tools" role="radiogroup" aria-label="Tool"></div>
+          <div id="brushes" class="tools" role="radiogroup" aria-label="Brush" hidden></div>
+          <div id="mallets" class="tools" role="radiogroup" aria-label="What the body is excited with" hidden></div>
+          <div id="weathers" class="tools" role="radiogroup" aria-label="Weather the brush paints" hidden></div>
+          <div id="piece-tools" class="tools" role="radiogroup" aria-label="What the rings show of the piece" hidden></div>
           <div class="stage" id="stage">
             <canvas id="licht" aria-hidden="true"></canvas>
-            <canvas id="kreisel" tabindex="0" role="application" aria-label="Der Kreisel: sieben Ringe aus Schritten. Pfeiltasten bewegen den Zeiger, Eingabe setzt einen Schlag." aria-describedby="status"></canvas>
+            <canvas id="kreisel" tabindex="0" role="application" aria-label="The Kreisel: seven rings of steps. The arrow keys move the pointer, Enter places a hit." aria-describedby="status"></canvas>
             <span class="invite" aria-hidden="true"></span>
-            <button id="stage-toggle" class="button icon small stage-toggle" type="button" aria-pressed="false" title="Bühne: nur das Rad, im Dunkeln" aria-label="Bühne"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="grow" d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/><path class="shrink" d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5"/></svg></button>
-            <button id="lights-toggle" class="button icon small lights-toggle" type="button" aria-pressed="true" title="Lichtspiel" aria-label="Lichtspiel"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="4.2"/><path d="M12 3v2.5M4.6 6.1l1.8 1.8M19.4 6.1l-1.8 1.8M3 13h2.5M18.5 13H21M9.5 20h5"/></svg></button>
+            <button id="stage-toggle" class="button icon small stage-toggle" type="button" aria-pressed="false" title="Stage: only the wheel, in the dark" aria-label="Stage"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="grow" d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/><path class="shrink" d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5"/></svg></button>
+            <button id="lights-toggle" class="button icon small lights-toggle" type="button" aria-pressed="true" title="Light show" aria-label="Light show"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="4.2"/><path d="M12 3v2.5M4.6 6.1l1.8 1.8M19.4 6.1l-1.8 1.8M3 13h2.5M18.5 13H21M9.5 20h5"/></svg></button>
             <div id="tip" class="tip" hidden></div>
             <div id="chord-menu" class="chord-menu" hidden></div>
             <div id="easel" class="easel" hidden>
               <div class="easel-card" role="dialog" aria-labelledby="easel-title">
                 <header class="easel-head">
                   <span class="dot"></span>
-                  <h2 id="easel-title">Klangmalerei</h2>
-                  <label class="check" id="hold-box" title="Solange eine Note dauert, bleibt der Klang an der Halten-Linie stehen"><input id="hold" type="checkbox"><span>Ton halten</span></label>
+                  <h2 id="easel-title">Sound painting</h2>
+                  <label class="check" id="hold-box" title="For as long as a note lasts, the sound stays at the hold line"><input id="hold" type="checkbox"><span>Hold note</span></label>
                   <span class="spacer"></span>
-                  <button id="easel-done" class="button small done" type="button" title="Zurück zum Kreisel (Esc)">Fertig</button>
+                  <button id="easel-done" class="button small done" type="button" title="Back to the Kreisel (Esc)">Done</button>
                 </header>
                 <div class="easel-actions">
-                  <button id="bild-listen" class="button small" type="button" title="Mach den Klang vor: summ, klopf oder zisch ins Mikrofon, und er wird gemalt">Vormachen</button>
-                  <button id="bild-dice" class="button small" type="button" title="Ein neues Bild für diesen Ring würfeln (N)">Würfeln</button>
-                  <button id="bild-clear" class="button small" type="button" title="Alle Striche wegnehmen">Leeren</button>
-                  <button id="bild-keep" class="button small" type="button" title="Das Bild ins Regal legen, für andere Ringe und andere Kreisel">Merken</button>
+                  <button id="bild-listen" class="button small" type="button" title="Show the sound: hum, knock or hiss into the microphone, and it gets painted">Show it</button>
+                  <button id="bild-dice" class="button small" type="button" title="Dice a new picture for this ring (N)">Dice</button>
+                  <button id="bild-clear" class="button small" type="button" title="Take all strokes away">Clear</button>
+                  <button id="bild-keep" class="button small" type="button" title="Put the picture on the shelf, for other rings and other Kreisels">Keep</button>
                 </div>
                 <div class="easel-paper">
-                  <canvas id="bild" tabindex="0" aria-label="Das Klangbild: Zeit von links nach rechts, Tonhöhe von unten nach oben. Mit Maus oder Finger malen." aria-describedby="status"></canvas>
-                  <span class="axis y">hoch ↑</span>
-                  <span class="axis x">Zeit →</span>
-                  <p id="bild-empty" class="bild-empty" hidden>Mal los: Jeder Strich ist ein Ton.</p>
-                  <div id="listening" class="listening" hidden><span class="ear" aria-hidden="true"></span><p id="listening-text">Ich höre zu …</p></div>
+                  <canvas id="bild" tabindex="0" aria-label="The sound picture: time from left to right, pitch from bottom to top. Paint with the mouse or a finger." aria-describedby="status"></canvas>
+                  <span class="axis y">high ↑</span>
+                  <span class="axis x">time →</span>
+                  <p id="bild-empty" class="bild-empty" hidden>Go ahead: every stroke is a tone.</p>
+                  <div id="listening" class="listening" hidden><span class="ear" aria-hidden="true"></span><p id="listening-text">I'm listening …</p></div>
                 </div>
-                <p class="easel-hint">Links fängt der Klang an, oben ist hoch. Wo du ansetzt, ist der Strich am lautesten, dann geht dem Pinsel die Farbe aus. Von rechts nach links gemalt schwillt er an.</p>
-                <div id="shelf" class="shelf" aria-label="Regal: gemerkte Klänge"></div>
+                <p class="easel-hint">The sound starts on the left, up is high. Where you set the brush down, the stroke is loudest, then the brush runs out of paint. Painted from right to left it swells.</p>
+                <div id="shelf" class="shelf" aria-label="Shelf: kept sounds"></div>
               </div>
             </div>
             <div id="bench" class="easel bench" hidden>
               <div class="easel-card" role="dialog" aria-labelledby="bench-title">
                 <header class="easel-head">
                   <span class="dot"></span>
-                  <h2 id="bench-title">Klangkörper</h2>
+                  <h2 id="bench-title">Body</h2>
                   <span class="spacer"></span>
-                  <button id="bench-dice" class="button small" type="button" title="Einen neuen Körper für diesen Ring würfeln (N)">Würfeln</button>
-                  <button id="bench-done" class="button small done" type="button" title="Zurück zum Kreisel (Esc)">Fertig</button>
+                  <button id="bench-dice" class="button small" type="button" title="Dice a new body for this ring (N)">Dice</button>
+                  <button id="bench-done" class="button small done" type="button" title="Back to the Kreisel (Esc)">Done</button>
                 </header>
-                <div id="bench-kinds" class="bench-kinds" role="group" aria-label="Was für ein Körper"></div>
+                <div id="bench-kinds" class="bench-kinds" role="group" aria-label="What kind of body"></div>
                 <div class="bench-stage">
-                  <canvas id="koerper" tabindex="0" aria-label="Der Klangkörper. Ein Klick klopft ihn an: Wo du triffst, schlägt ihn auch der Ring an. Pfeil links und rechts verschieben die Stelle, Eingabe klopft." aria-describedby="status"></canvas>
+                  <canvas id="koerper" tabindex="0" aria-label="The body. A click knocks on it: where you hit it, the ring strikes it too. Arrow left and right move the place, Enter knocks." aria-describedby="status"></canvas>
                 </div>
                 <div id="bench-shape" class="bench-shape"></div>
-                <p class="easel-hint">Klopf auf den Körper: Wo du triffst, klingt er anders, und dort schlägt ihn auch der Ring an. Der rechte Griff macht ihn größer, der linke spannt ihn. Links wählst du, womit er angeregt wird.</p>
+                <p class="easel-hint">Knock on the body: it sounds different depending on where you hit it, and that is where the ring strikes it too. The right grip makes it bigger, the left one tightens it. On the left you choose what excites it.</p>
               </div>
             </div>
             <div id="booth" class="easel booth" hidden>
               <div class="easel-card" role="dialog" aria-labelledby="booth-title">
                 <header class="easel-head">
                   <span class="dot"></span>
-                  <h2 id="booth-title">Stimme</h2>
+                  <h2 id="booth-title">Voice</h2>
                   <span class="spacer"></span>
-                  <button id="booth-dice" class="button small" type="button" title="Eine andere Zeile würfeln">Würfeln</button>
-                  <button id="booth-done" class="button small done" type="button" title="Zurück zum Kreisel (Esc)">Fertig</button>
+                  <button id="booth-dice" class="button small" type="button" title="Dice another line">Dice</button>
+                  <button id="booth-done" class="button small done" type="button" title="Back to the Kreisel (Esc)">Done</button>
                 </header>
                 <div class="booth-line">
-                  <input id="voice-text" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Was soll der Ring singen?" aria-label="Die Zeile, die der Ring singt">
-                  <button id="voice-sing" class="button small" type="button" title="Die Zeile einmal vorsingen (Eingabe)">Vorsingen</button>
+                  <input id="voice-text" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="What should the ring sing?" aria-label="The line the ring sings">
+                  <button id="voice-sing" class="button small" type="button" title="Sing the line once (Enter)">Sing it</button>
                 </div>
                 <div class="booth-stage">
                   <canvas id="mund" aria-hidden="true"></canvas>
                 </div>
-                <div id="voice-syllables" class="syllables" aria-label="Die Silben der Zeile"></div>
+                <div id="voice-syllables" class="syllables" aria-label="The syllables of the line"></div>
                 <div class="booth-foot">
                   <div id="booth-shape" class="bench-shape"></div>
-                  <p class="easel-hint">Jeder Schlag des Rings singt die nächste Silbe, auf seinem Ton. Ein Bindestrich trennt, wo du willst. Im Klangfeld des Rings ziehst du alle Vokale zu i, e, a, o oder u.</p>
+                  <p class="easel-hint">Every hit of the ring sings the next syllable, on its note. A hyphen splits where you want. In the ring's sound pad you pull all vowels towards i, e, a, o or u.</p>
                 </div>
               </div>
             </div>
           </div>
-          <div id="fx" class="fx" role="group" aria-label="Effekte, solange gehalten"></div>
-          <div id="row" class="row-band" role="group" aria-label="Folge: die Szenen in der Reihenfolge, in der sie spielen" hidden></div>
+          <div id="fx" class="fx" role="group" aria-label="Effects, while held"></div>
+          <div id="row" class="row-band" role="group" aria-label="Row: the scenes in the order they play" hidden></div>
           <p id="status" class="status" aria-live="polite"></p>
         </section>
 
-        <section class="side right panel" id="panel" aria-label="Der gewählte Ring"></section>
+        <section class="side right panel" id="panel" aria-label="The chosen ring"></section>
       </main>
 
       <div id="tour" class="tour" hidden>
@@ -160,8 +160,8 @@
           <h2 id="tour-title"></h2>
           <p id="tour-text"></p>
           <div class="tour-foot">
-            <button id="tour-skip" class="button small" type="button">Überspringen</button>
-            <button id="tour-next" class="button small" type="button">Weiter</button>
+            <button id="tour-skip" class="button small" type="button">Skip</button>
+            <button id="tour-next" class="button small" type="button">Next</button>
           </div>
         </div>
       </div>
@@ -170,20 +170,20 @@
 
       <dialog id="reihum" class="help reihum" aria-labelledby="reihum-title">
         <form method="dialog">
-          <header><h2 id="reihum-title">Reihum</h2><button class="button icon" aria-label="Schließen" value="close">×</button></header>
+          <header><h2 id="reihum-title">Pass around</h2><button class="button icon" aria-label="Close" value="close">×</button></header>
           <div class="reihum-body">
-            <p>Ein Kreisel wandert von Hand zu Hand: Du baust einen Zug und schickst den Link weiter, die nächste Person baut weiter und schickt ihn zurück oder an jemand Dritten. Alle Züge bleiben im Link und lassen sich wieder anhören. Es gibt kein Konto und keinen Upload.</p>
-            <label class="field"><span>Dein Name (reist im Link mit)</span><input id="relay-name" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="z. B. Jodie"></label>
-            <fieldset id="relay-rules" class="rules"><legend>Spielregel</legend></fieldset>
+            <p>A Kreisel travels from hand to hand: you build a turn and send the link on, the next person builds on and sends it back or to someone else. All turns stay in the link and can be listened to again. There is no account and no upload.</p>
+            <label class="field"><span>Your name (travels in the link)</span><input id="relay-name" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="e.g. Jodie"></label>
+            <fieldset id="relay-rules" class="rules"><legend>Rule</legend></fieldset>
             <p id="relay-rule" class="info"></p>
-            <h3 id="relay-turns-title">Züge</h3>
+            <h3 id="relay-turns-title">Turns</h3>
             <ol id="relay-turns" class="turns" aria-labelledby="relay-turns-title"></ol>
             <p id="relay-now" class="relay-now"></p>
             <p id="relay-message" class="relay-message" role="alert" hidden></p>
             <div class="doing">
-              <button id="relay-send" class="button go" type="button">Zug abschließen und Link kopieren</button>
-              <button id="relay-reveal" class="button" type="button" hidden>Aufdecken</button>
-              <button id="relay-end" class="button small" type="button" hidden title="Die Züge vergessen; der Kreisel bleibt, wie er ist">Reihum beenden</button>
+              <button id="relay-send" class="button go" type="button">Finish the turn and copy the link</button>
+              <button id="relay-reveal" class="button" type="button" hidden>Reveal</button>
+              <button id="relay-end" class="button small" type="button" hidden title="Forget the turns; the Kreisel stays as it is">End pass around</button>
             </div>
           </div>
         </form>
@@ -191,87 +191,87 @@
 
       <dialog id="protokoll" class="help" aria-labelledby="protokoll-title">
         <form method="dialog">
-          <header><h2 id="protokoll-title">Protokoll des Stücks</h2><button class="button icon" aria-label="Schließen" value="close">×</button></header>
+          <header><h2 id="protokoll-title">Outline of the piece</h2><button class="button icon" aria-label="Close" value="close">×</button></header>
           <div class="help-body">
-            <p>Das Stück, Phrase für Phrase aufgeschrieben: wer in welchen acht Takten spielt und wo Break, Build-up und Drop liegen. So lässt es sich neben einen Track legen, den du dir genauso aufgeschrieben hast.</p>
+            <p>The piece, written down phrase by phrase: who plays in which eight bars and where break, build-up and drop are. So it can be laid beside a track you have written down the same way.</p>
             <ol id="protokoll-lines" class="protokoll"></ol>
-            <p><button id="protokoll-copy" class="button small" type="button">Als Text kopieren</button></p>
+            <p><button id="protokoll-copy" class="button small" type="button">Copy as text</button></p>
           </div>
         </form>
       </dialog>
 
       <dialog id="help" class="help" aria-labelledby="help-title">
         <form method="dialog">
-          <header><h2 id="help-title">Kreisel spielen</h2><button class="button icon" aria-label="Schließen" value="close">×</button></header>
+          <header><h2 id="help-title">Playing Kreisel</h2><button class="button icon" aria-label="Close" value="close">×</button></header>
           <div class="help-body">
             <section>
-              <h3>Die Idee</h3>
-              <p>Jeder Ring ist ein Instrument, eine Runde ist sein Muster. Schritt 1 liegt oben, die Zeit läuft im Uhrzeigersinn. Ringe dürfen verschieden lang sein: Dann verschieben sie sich gegeneinander und das Muster wandert.</p>
-              <p>Bass, Akkorde und Melodie bleiben immer in der Tonart. Der Bass folgt den Akkorden in der Mitte, ein Takt je Feld.</p>
+              <h3>The idea</h3>
+              <p>Every ring is an instrument, one round is its pattern. Step 1 is at the top, time runs clockwise. Rings may be of different lengths: then they shift against each other and the pattern wanders.</p>
+              <p>Bass, chords and melody always stay in the key. The bass follows the chords in the middle, one bar a field.</p>
             </section>
             <section>
-              <h3>Maus und Finger</h3>
+              <h3>Mouse and finger</h3>
               <dl>
-                <dt>Klick</dt><dd>Schlag setzen oder löschen</dd>
-                <dt>Am Ring entlang ziehen</dt><dd>mehrere malen oder radieren</dd>
-                <dt>Nach außen oder innen ziehen</dt><dd>höher oder tiefer (bei der Hi-Hat: offener)</dd>
-                <dt>Rechtsklick</dt><dd>zeigt, was an der Stelle geht: am Schlag, am Ring, am Stück, am Akkordfeld, an einer Szene, in der Mitte</dd>
-                <dt>Mit der rechten Taste ziehen</dt><dd>radieren, egal mit welchem Werkzeug</dd>
-                <dt>Rechtsklick auf einen Effekt</dt><dd>er rastet ein, bis du ihn wieder anklickst</dd>
-                <dt>Rechtsklick auf einen Regler</dt><dd>zurück auf den Wert eines frischen Kreisels</dd>
-                <dt>Finger lange halten</dt><dd>dasselbe Menü wie der Rechtsklick</dd>
-                <dt>Mausrad über einem Ring</dt><dd>den Ring drehen</dd>
-                <dt>Mitte</dt><dd>Start und Stopp</dd>
-                <dt>Akkordfeld</dt><dd>Akkord wählen, Takte dazu oder weg</dd>
+                <dt>Click</dt><dd>place or remove a hit</dd>
+                <dt>Drag along the ring</dt><dd>paint or erase several</dd>
+                <dt>Drag outwards or inwards</dt><dd>higher or lower (on the hi-hat: more open)</dd>
+                <dt>Right click</dt><dd>shows what can be done at that place: at a hit, at a ring, at the piece, at a chord field, at a scene, in the middle</dd>
+                <dt>Drag with the right button</dt><dd>erase, whatever the tool</dd>
+                <dt>Right click on an effect</dt><dd>it latches until you click it again</dd>
+                <dt>Right click on a slider</dt><dd>back to the value of a fresh Kreisel</dd>
+                <dt>Hold a finger down</dt><dd>the same menu as the right click</dd>
+                <dt>Mouse wheel over a ring</dt><dd>rotate the ring</dd>
+                <dt>Middle</dt><dd>Start and stop</dd>
+                <dt>Chord field</dt><dd>pick a chord, add or remove bars</dd>
               </dl>
             </section>
             <section>
-              <h3>Reihum</h3>
-              <p>Unter „Reihum“ wandert ein Kreisel als Link von Hand zu Hand. Jeder Zug hinterlässt in der Mitte einen Ring in der Farbe der Person, wie Jahresringe. Im Reihum-Fenster hörst du jeden alten Zug wieder an oder baust von dort neu weiter.</p>
-              <p>Spielregeln: frei, ein Ring pro Zug, oder Stille Post. Bei der Stillen Post hörst du nur den Ring der Person vor dir und baust deinen blind dazu, bis jemand aufdeckt.</p>
+              <h3>Pass around</h3>
+              <p>Under “Pass around” a Kreisel travels as a link from hand to hand. Every turn leaves a ring in the middle in that person's colour, like tree rings. In the pass-around window you listen to any old turn again or build on anew from there.</p>
+              <p>Rules: free, one ring a turn, or Telephone. In Telephone you hear only the ring of the person before you and add yours blind, until someone reveals it.</p>
             </section>
             <section>
-              <h3>Das Stück</h3>
-              <p>Der äußerste Ring ist das ganze Stück: Eine Runde dauert so viele Takte, wie du willst. Du malst nur die Spannung hinein, außen viel, innen wenig. Mit steigender Linie setzen die Ringe nacheinander ein, der Klang wird heller, und vor einem steilen Anstieg nimmt der Kreisel Anlauf.</p>
-              <p>Die farbigen Linien im Ring zeigen, ab wo ein Ring mitspielt; die Reihenfolge stellst du im Feld des Stücks ein. Am inneren Rand legst du Szenen ab. „an“ in der Ring-Liste schaltet zwischen Stück und Loop um.</p>
+              <h3>The piece</h3>
+              <p>The outermost ring is the whole piece: one round lasts as many bars as you want. You only paint the tension into it, a lot outside, little inside. As the line rises, the rings come in one after another, the sound gets brighter, and before a steep rise the Kreisel takes a run-up.</p>
+              <p>The coloured lines in the ring show from where a ring plays along; you set the order in the piece's panel. At the inner rim you lay down scenes. “on” in the ring list switches between piece and loop.</p>
             </section>
             <section>
-              <h3>Eigene Klänge malen</h3>
-              <p>„Malen“ im Feld des Rings öffnet den Malkasten. Das Bild ist der Klang: Links fängt er an, oben ist hoch. Jeder Strich ist ein Ton, am lautesten dort, wo du ansetzt; von rechts nach links gemalt schwillt er an. Summen ist weich, Sägen scharf, Zischen ist Rauschen.</p>
-              <p>Bei Bass, Akkorden und Melodie bleiben Striche auf den Linien in der Stimmung. „Ton halten“ lässt lange Noten an der Linie stehen. Der Kreisel läuft beim Malen weiter.</p>
+              <h3>Painting your own sounds</h3>
+              <p>“Paint” in the ring's panel opens the paint box. The picture is the sound: it starts on the left, up is high. Every stroke is a tone, loudest where you set the brush down; painted from right to left it swells. Hum is soft, Buzz sharp, Hiss is noise.</p>
+              <p>On bass, chords and melody, strokes on the lines stay in tune. “Hold note” lets long notes stay at the line. The Kreisel keeps running while you paint.</p>
             </section>
             <section>
-              <h3>Stimme</h3>
-              <p>„Text“ im Feld des Rings gibt ihm eine Stimme: Du schreibst eine Zeile, und jeder Schlag des Rings singt die nächste Silbe, auf dem Ton, den der Ring spielt. Auf dem Akkord-Ring singt ein kleiner Chor. Ein Bindestrich trennt eine Silbe, wo du willst.</p>
-              <p>Das Klangfeld wird zum Vokalfeld: Der Punkt zieht alle Vokale zu i, e, a, o oder u, am Rand ganz. „Mundraum“ macht die Stimme hell und klein oder dunkel und groß, „Hauch“ gibt ihr Atem. Es ist ein Roboter-Chor: Die Vokale sind klar, die Wörter nur zum Teil zu verstehen. Aufgenommen wird nichts.</p>
+              <h3>Voice</h3>
+              <p>“Text” in the ring's panel gives it a voice: you write a line, and every hit of the ring sings the next syllable, on the note the ring plays. On the chord ring a small choir sings. A hyphen splits a syllable where you want.</p>
+              <p>The sound pad becomes the vowel field: the point pulls all vowels towards i, e, a, o or u, entirely at the edge. “Mouth” makes the voice bright and small or dark and big, “Breath” gives it air. It is a robot choir that reads letters the German way: the vowels are clear, the words only partly understood. Nothing is recorded.</p>
             </section>
             <section>
-              <h3>Wetter</h3>
-              <p>Effekte malst du als Wetter auf das Rad. Wähl oben in der Liste „Wetter“ und links, was der Pinsel malt: Nebel macht dumpfer, Sonne heller, Wolken geben Hall, Regen Echo, Funken zerren, Hagel zerhackt. Wie weit außen du malst, sagt welcher Ring; der Winkel sagt wann in seiner Runde. Ein Strich quer über mehrere Ringe trifft sie alle, noch einmal darüber macht es stärker, die rechte Taste nimmt es weg.</p>
-              <p>Jedes Wetter hat einen Wind. Dann zieht es Takt für Takt um das Rad, und der Klang verändert sich von selbst. Bei Bass, Akkorden und Melodie reichen Sonne und Nebel in den Klang hinein: Note für Note heller oder dunkler, wie eine Filterfahrt. Hältst du bei „Einspielen“ Dumpf, Echo oder Stotter, bleibt dort Nebel, Regen oder Hagel liegen.</p>
+              <h3>Weather</h3>
+              <p>You paint effects onto the wheel as weather. Pick “Weather” at the top of the list and, on the left, what the brush paints: fog makes it duller, sun brighter, clouds give reverb, rain echo, sparks drive, hail chops. How far out you paint says which ring; the angle says when in its round. A stroke across several rings hits them all, going over it again makes it stronger, the right button takes it away.</p>
+              <p>Every weather has a wind. Then it drifts around the wheel bar by bar, and the sound changes by itself. On bass, chords and melody, sun and fog reach into the sound: note by note brighter or darker, like a filter ride. If you hold Dull, Echo or Stutter during “Play in”, fog, rain or hail stays there.</p>
             </section>
             <section>
-              <h3>Nachbeben</h3>
-              <p>Der Rumble unter der Kick. Jeder Kick geht auch in einen dunklen Keller; was zurückkommt, wird verzerrt und dann dunkel gefiltert, und darunter liegt ein tiefer Ton in der Tonart: Er stimmt sich auf den Akkord des Takts. Du malst nur, wo es bebt: Wähl den Kick-Ring, nimm das Werkzeug „Beben“ und zieh einmal um den Ring, außen stark, innen gar nicht. Jeder Kick drückt das Beben für einen Augenblick weg, so bleibt er allein zu hören.</p>
-              <p>Im Feld des Kick-Rings legt „Würfeln“ die üblichen Formen um deine Kicks: Offbeat, rollend, Schweif. „Härte“ verzerrt die Kick selbst, bis ihr Körper steht; aus dieser Kick entsteht auch das Beben. „Dreck“ macht das Beben verzerrt, „Rollen“ zerlegt es in Sechzehntel. Die Kick landet immer auf dem Grundton oder der Quinte der Tonart. Den Sub hörst du nur mit Kopfhörern oder Boxen richtig.</p>
+              <h3>Rumble</h3>
+              <p>The rumble under the kick. Every kick also goes into a dark cellar; what comes back is distorted and then filtered dark, and below it lies a deep tone in the key: it tunes itself to the bar's chord. You only paint where it shakes: pick the kick's ring, take the tool “Rumble” and drag once around the ring, strong outside, not at all inside. Every kick pushes the rumble away for a moment, so the kick stays heard alone.</p>
+              <p>In the kick ring's panel “Dice” lays the usual shapes around your kicks: offbeat, rolling, tail. “Hardness” distorts the kick itself until its body stands; the rumble is made from this kick too. “Dirt” makes the rumble distorted, “Roll” breaks it into sixteenths. The kick always lands on the root or the fifth of the key. You hear the sub properly only with headphones or speakers.</p>
             </section>
             <section>
-              <h3>Klangkörper bauen</h3>
-              <p>„Bauen“ im Feld des Rings öffnet die Werkbank. Dort steht ein Ding, das klingt: ein Fell, eine Saite, ein Stab, ein Rohr oder eine Schale. Klopf darauf: In der Mitte klingt es anders als am Rand, und wo du zuletzt getroffen hast, schlägt es auch der Ring an.</p>
-              <p>Groß klingt tief und lang, straff hell und kurz. Holz verklingt schnell, Metall und Glas klingen nach. Schlägel, Zupfen, Streichen und Blasen wählst du links; gestrichen und geblasen klingt ein Körper so lange, wie die Note dauert.</p>
+              <h3>Building a body</h3>
+              <p>“Build” in the ring's panel opens the workbench. A thing that sounds stands there: a skin, a string, a rod, a tube or a bowl. Knock on it: it sounds different in the middle than at the edge, and where you hit it last, the ring strikes it too.</p>
+              <p>Big sounds deep and long, tight bright and short. Wood dies away fast, metal and glass ring on. Mallets, plucking, bowing and blowing you choose on the left; bowed and blown, a body sounds for as long as the note lasts.</p>
             </section>
             <section>
-              <h3>Bühne und Lichtspiel</h3>
-              <p>Solange der Kreisel spielt, wirft jeder Schlag Licht auf den Tisch, betonte Schläge sprühen Funken, und die Kick schickt eine Welle durch die Ringe. Das Lichtspiel schaltest du mit der Lampe in der Ecke neben dem Rad aus und wieder an; wer im System weniger Bewegung eingestellt hat, sieht es nie.</p>
-              <p>Die Bühne zeigt nur das Rad, im Dunkeln: mit dem Knopf in der Ecke neben dem Rad oder der Taste O. Esc bringt alles zurück. Das Fragezeichen in der Leiste zeigt die ersten Schritte noch einmal („Tour“).</p>
+              <h3>Stage and light show</h3>
+              <p>While the Kreisel plays, every hit throws light on the table, accented hits spray sparks, and the kick sends a wave through the rings. You switch the light show off and on again with the lamp in the corner beside the wheel; whoever has set less motion in the system never sees it.</p>
+              <p>The stage shows only the wheel, in the dark: with the button in the corner beside the wheel or the key O. Esc brings everything back. The question mark in the top bar shows the first steps once more (“Tour”).</p>
             </section>
             <section>
-              <h3>Tasten</h3>
+              <h3>Keys</h3>
               <dl id="help-keys"></dl>
             </section>
             <section>
-              <h3>Gut zu wissen</h3>
-              <p>Dein Kreisel bleibt im Speicher dieses Browsers. „Teilen“ packt ihn ganz in einen Link, ohne Upload: Wer ihn öffnet, bekommt eine eigene Kopie. Eine leere Szene wird beim Anklicken zur Kopie der aktuellen, so baust du aus einem Loop ein Stück.</p>
+              <h3>Good to know</h3>
+              <p>Your Kreisel stays in this browser's storage. “Share” packs all of it into a link, without an upload: whoever opens it gets their own copy. An empty scene becomes a copy of the current one when clicked, so you build a piece out of a loop.</p>
               <p id="version" class="version"></p>
             </section>
           </div>
@@ -279,7 +279,7 @@
       </dialog>
     </div>
     <div id="context" class="context" role="menu" hidden></div>
-    <div id="palette" class="palette" role="dialog" aria-label="Alle Klänge des Rings" hidden></div>
+    <div id="palette" class="palette" role="dialog" aria-label="All sounds of the ring" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

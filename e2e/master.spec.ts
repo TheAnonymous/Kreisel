@@ -18,34 +18,34 @@ const over = (now: number, before: number): number => 20 * Math.log10(Math.max(n
 async function techno(page: Page): Promise<string[]> {
   const problems = await open(page);
   await page.locator("#kreisel-menu").click();
-  await menuOf(page).getByRole("menuitem", { name: /Techno-Kreisel/ }).click();
-  await expect(page.locator("#toast")).toContainText("Der Techno-Kreisel ist da.");
+  await menuOf(page).getByRole("menuitem", { name: /Techno Kreisel/ }).click();
+  await expect(page.locator("#toast")).toContainText("The techno Kreisel is here.");
   await page.evaluate(() => window.kreisel.app.dismiss());
   await focusPiece(page);
   return problems;
 }
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("bringt als Techno-Kreisel ein Stück mit, das mit Spannung arbeitet: vier Drops, jeder mit eigenem Build-up", async ({ page }) => {
+  test("comes as the techno Kreisel with a piece that works with tension: four drops, each with a build-up of its own", async ({ page }) => {
     const problems = await techno(page);
-    await expect(status(page)).toContainText("Stück: 160 Takte, 4:16 Minuten");
-    await expect(status(page)).toContainText("24 Takte Break");
+    await expect(status(page)).toContainText("Piece: 160 bars, 4:16 minutes");
+    await expect(status(page)).toContainText("24 bars of break");
     // It waits switched off: the Kreisel plays the scene on the table until the piece is asked for.
     expect((await pieceOf(page)).on).toBe(false);
-    await expect(page.locator("#piece-sway")).toHaveText("6 Sachen mehr ▾");
-    await expect(page.locator("#piece-ends")).toHaveText("Phrasen-Enden: 3 ▾");
+    await expect(page.locator("#piece-sway")).toHaveText("6 things more ▾");
+    await expect(page.locator("#piece-ends")).toHaveText("Phrase ends: 3 ▾");
     // The piece's panel still fits on this screen.
     expect(await page.evaluate(() => { const panel = document.getElementById("panel")!; return panel.scrollHeight - panel.clientHeight <= 2; })).toBe(true);
 
     // Pointing at a drop says what leads up to it: no two are alike.
     await page.evaluate(() => { window.kreisel.app.piece.toggle(); window.kreisel.app.dismiss(); });
     const tips: [number, string][] = [
-      [32, "Drop in Takt 33 · Build-up eigen, 2 Takte: Riser, Roll · klicken zum Ändern"],
-      [72, "Drop in Takt 73 · Build-up eigen, 4 Takte: Riser, Roll, Tiefen raus, letzter Takt ohne Hi-Hat, später Drop · klicken zum Ändern"],
-      [120, "Drop in Takt 121 · Build-up eigen, 8 Takte: Riser mit Ton, Roll, Tiefen raus, Hall-Wolke, leiser, Lücke ein halber Takt · klicken zum Ändern"],
-      [128, "Drop in Takt 129 · Build-up eigen, 2 Takte: Riser, Roll, letzter Takt ohne Kick · klicken zum Ändern"],
+      [32, "Drop in bar 33 · Build-up own, 2 bars: riser, roll · click to change"],
+      [72, "Drop in bar 73 · Build-up own, 4 bars: riser, roll, lows out, last bar without hi-hat, late drop · click to change"],
+      [120, "Drop in bar 121 · Build-up own, 8 bars: riser with a tone, roll, lows out, cloud of reverb, quieter, gap half a bar · click to change"],
+      [128, "Drop in bar 129 · Build-up own, 2 bars: riser, roll, last bar without kick · click to change"],
     ];
     for (const [bar, tip] of tips) {
       const at = await wedge(page, bar);
@@ -54,75 +54,75 @@ test.describe("am Laptop", () => {
     }
     // Seven effects lie on it, and pointing at a bar that has one names it.
     expect(((await pieceOf(page)).marks ?? []).map((mark) => mark.bar)).toEqual([15, 47, 55, 87, 95, 111, 143]);
-    const marked: [number, string][] = [[15, "Pause"], [47, "Stotter"], [87, "Dünn"], [111, "Dumpf"], [143, "Echo"]];
+    const marked: [number, string][] = [[15, "Pause"], [47, "Stutter"], [87, "Thin"], [111, "Dull"], [143, "Echo"]];
     for (const [bar, name] of marked) {
       const at = await barAt(page, bar, 0.5);
       await page.mouse.move(at.x, at.y);
-      await expect(page.locator("#tip")).toContainText(`Takt ${bar + 1} von 160`);
-      await expect(page.locator("#tip")).toContainText(`Effekt: ${name}`);
+      await expect(page.locator("#tip")).toContainText(`bar ${bar + 1} of 160`);
+      await expect(page.locator("#tip")).toContainText(`Effect: ${name}`);
     }
     await page.waitForTimeout(300);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });
 
-  test("lässt sich als Protokoll lesen: Alle Ringe spielen nur ganz oben zusammen", async ({ page }) => {
+  test("can be read as an outline: all rings play together only at the very top", async ({ page }) => {
     const problems = await techno(page);
     const bar = await barAt(page, 30, 0.5);
     await page.mouse.click(bar.x, bar.y, { button: "right" });
-    await menuOf(page).getByRole("menuitem", { name: "Protokoll …" }).click();
+    await menuOf(page).getByRole("menuitem", { name: "Outline …" }).click();
     const dialog = page.locator("#protokoll");
     await expect(dialog).toBeVisible();
     const lines = dialog.locator("#protokoll-lines li");
     await expect(lines).toHaveCount(20);
     const want: [number, string][] = [
-      [0, "Takt 1–8: Kick"],
-      [1, "Takt 9–16: Kick, Hi-Hat"],
-      [2, "Takt 17–24: Kick, Hi-Hat, Trommel"],
-      [3, "Takt 25–32: Kick, Hi-Hat, Trommel, Bass · Build-up"],
-      [4, "Takt 33–40: Kick, Snare, Hi-Hat, Trommel, Bass · Drop in Takt 33"],
-      [6, "Takt 49–56: Kick, Snare, Hi-Hat, Bass, Akkorde"],
-      [7, "Takt 57–64: Kick, Snare, Bass, Akkorde"],
-      [8, "Takt 65–72: Snare, Hi-Hat (teils), Bass · Break · Build-up"],
-      [9, "Takt 73–80: Kick, Snare, Hi-Hat, Bass, Akkorde, Melodie · Drop in Takt 73"],
-      [11, "Takt 89–96: Kick, Snare, Hi-Hat, Bass"],
-      [12, "Takt 97–104: Kick, Hi-Hat, Bass"],
-      [13, "Takt 105–112: Hi-Hat, Akkorde · Break"],
-      [14, "Takt 113–120: Snare (teils), Hi-Hat, Bass, Akkorde · Break · Build-up"],
-      [15, "Takt 121–128: Kick (teils), Snare (teils), Bass · Build-up · Drop in Takt 121"],
-      [16, "Takt 129–136: alle · Drop in Takt 129"],
-      [17, "Takt 137–144: alle"],
-      [19, "Takt 153–160: Kick, Hi-Hat (teils), Trommel (teils)"],
+      [0, "Bars 1–8: Kick"],
+      [1, "Bars 9–16: Kick, Hi-Hat"],
+      [2, "Bars 17–24: Kick, Hi-Hat, Drum"],
+      [3, "Bars 25–32: Kick, Hi-Hat, Drum, Bass · Build-up"],
+      [4, "Bars 33–40: Kick, Snare, Hi-Hat, Drum, Bass · Drop in bar 33"],
+      [6, "Bars 49–56: Kick, Snare, Hi-Hat, Bass, Chords"],
+      [7, "Bars 57–64: Kick, Snare, Bass, Chords"],
+      [8, "Bars 65–72: Snare, Hi-Hat (partly), Bass · Break · Build-up"],
+      [9, "Bars 73–80: Kick, Snare, Hi-Hat, Bass, Chords, Melody · Drop in bar 73"],
+      [11, "Bars 89–96: Kick, Snare, Hi-Hat, Bass"],
+      [12, "Bars 97–104: Kick, Hi-Hat, Bass"],
+      [13, "Bars 105–112: Hi-Hat, Chords · Break"],
+      [14, "Bars 113–120: Snare (partly), Hi-Hat, Bass, Chords · Break · Build-up"],
+      [15, "Bars 121–128: Kick (partly), Snare (partly), Bass · Build-up · Drop in bar 121"],
+      [16, "Bars 129–136: all · Drop in bar 129"],
+      [17, "Bars 137–144: all"],
+      [19, "Bars 153–160: Kick, Hi-Hat (partly), Drum (partly)"],
     ];
     for (const [index, text] of want) await expect(lines.nth(index)).toHaveText(text);
     // "alle" stands at the top and nowhere else.
-    expect((await lines.allTextContents()).filter((line) => line.includes(": alle"))).toHaveLength(2);
+    expect((await lines.allTextContents()).filter((line) => line.includes(": all"))).toHaveLength(2);
     // The window fits on the page, long as the list is.
     expect(await dialog.evaluate((node) => { const box = node.getBoundingClientRect(); return box.top >= 0 && box.bottom <= window.innerHeight && box.left >= 0 && box.right <= window.innerWidth; })).toBe(true);
-    await dialog.getByRole("button", { name: "Schließen" }).click();
+    await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });
 
-  test("hat zwei Wetter mit eigenen Gezeiten auf der Szene, und ein leerer Techno-Kreisel beginnt schlicht", async ({ page }) => {
+  test("has two kinds of weather with tides of their own on the scene, and an empty techno Kreisel starts plain", async ({ page }) => {
     const problems = await techno(page);
     await page.evaluate(() => window.kreisel.app.weather.focus());
-    await expect(status(page)).toContainText("Sonne auf Hi-Hat");
-    await expect(status(page)).toContainText("Regen auf Akkorde");
-    await expect(page.getByLabel("Gezeiten für Sonne, in Takten")).toHaveValue("20");
-    await expect(page.getByLabel("Gezeiten für Regen, in Takten")).toHaveValue("12");
+    await expect(status(page)).toContainText("Sun on Hi-Hat");
+    await expect(status(page)).toContainText("Rain on Chords");
+    await expect(page.getByLabel("Tides for Sun, in bars")).toHaveValue("20");
+    await expect(page.getByLabel("Tides for Rain, in bars")).toHaveValue("12");
     // The browser keeps the piece and the tides: after a reload both are there again.
     const kept = () => page.evaluate(() => { const { piece, scenes } = window.kreisel.app.project; return { piece, tide: scenes[0]!.tide, weather: scenes[0]!.weather }; });
     const before = await kept();
     await page.waitForTimeout(700);
     await page.reload();
-    await expect(page.locator("#status")).toContainText("Melodie");
+    await expect(page.locator("#status")).toContainText("Melody");
     expect(await kept()).toEqual(before);
 
     // An empty techno Kreisel has a clear sky and the plain techno form: nothing is laid for rings that have no hits yet.
     await page.locator("#kreisel-menu").click();
-    await menuOf(page).getByRole("menuitem", { name: "Leerer Kreisel" }).click();
+    await menuOf(page).getByRole("menuitem", { name: "Empty Kreisel" }).click();
     const empty = await page.evaluate(() => {
       const { piece, scenes, style } = window.kreisel.app.project;
       const scene = scenes[0]!;
@@ -133,7 +133,7 @@ test.describe("am Laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("spielt vom Abkühlen über den langen Break und den Anti-Drop bis nach ganz oben, wie es gelegt ist", async ({ page }) => {
+  test("plays from the cool-down over the long break and the anti-drop up to the very top, as it is laid", async ({ page }) => {
     // One render of forty-eight bars.
     test.setTimeout(240_000);
     const problems = await open(page);
@@ -185,16 +185,16 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(({ isMobile }) => !isMobile, "Finger");
 
-  test("zeigt das Stück des Techno-Kreisels mit seinen Knöpfen, und das Feld passt in die Breite", async ({ page }) => {
+  test("shows the techno Kreisel's piece with its buttons, and the panel fits the width", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => { window.kreisel.app.newProject(false, "techno"); window.kreisel.app.dismiss(); });
     await focusPiece(page);
-    await expect(status(page)).toContainText("Stück: 160 Takte, 4:16 Minuten");
-    await expect(page.locator("#piece-sway")).toHaveText("6 Sachen mehr ▾");
-    await expect(page.locator("#piece-ends")).toHaveText("Phrasen-Enden: 3 ▾");
+    await expect(status(page)).toContainText("Piece: 160 bars, 4:16 minutes");
+    await expect(page.locator("#piece-sway")).toHaveText("6 things more ▾");
+    await expect(page.locator("#piece-ends")).toHaveText("Phrase ends: 3 ▾");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);

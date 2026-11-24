@@ -9,10 +9,10 @@ import { WorkshopDesk } from "./workshop";
 
 /** The brushes of the paint box; the fourth takes strokes away again. */
 export const BRUSH_TOOLS: readonly { name: string; hint: string }[] = [
-  { name: "Summen", hint: "Ein weicher, reiner Ton" },
-  { name: "Sägen", hint: "Ein scharfer, schnarrender Ton" },
-  { name: "Zischen", hint: "Rauschen in dieser Höhe: Becken, Besen, Wind" },
-  { name: "Radieren", hint: "Einen Strich wegnehmen (auch mit Rechtsklick)" },
+  { name: "Hum", hint: "A soft, pure tone" },
+  { name: "Buzz", hint: "A sharp, buzzing tone" },
+  { name: "Hiss", hint: "Noise at this height: cymbals, brushes, wind" },
+  { name: "Erase", hint: "Take a stroke away (also with a right click)" },
 ];
 
 export const ERASER = 3;
@@ -64,7 +64,7 @@ export class PaintDesk extends WorkshopDesk<"bild"> {
     const stroke = makeStroke(kind, this.brushSize, drawn, (y) => snapHeight(track, kind, y));
     if (!stroke) return;
     if ((this.current?.strokes.length ?? 0) >= MAX_STROKES) {
-      this.app.say(`Mehr als ${MAX_STROKES} Striche passen nicht in einen Klang. Radier einen weg, dann geht es weiter.`);
+      this.app.say(`No more than ${MAX_STROKES} strokes fit into one sound. Erase one, then you can go on.`);
       return;
     }
     this.app.store.edit((project) => {
@@ -119,15 +119,15 @@ export class PaintDesk extends WorkshopDesk<"bild"> {
   keep(): void {
     const bild = this.current;
     if (!bild || bild.strokes.length === 0) {
-      this.app.say("Hier ist noch nichts gemalt.");
+      this.app.say("Nothing has been painted here yet.");
       return;
     }
     if (!keep(this.kept, this.app.selected, bild)) {
-      this.app.say("Dieses Bild liegt schon im Regal.");
+      this.app.say("This picture is already on the shelf.");
       return;
     }
     saveKept(this.kept);
-    this.app.say("Gemerkt. Das Bild liegt im Regal und passt in jeden Ring, auch in einem anderen Kreisel.");
+    this.app.say("Kept. The picture is on the shelf and fits any ring, in another Kreisel too.");
   }
 
   /** Takes a picture from the shelf into the ring in focus. */
@@ -156,7 +156,7 @@ export class PaintDesk extends WorkshopDesk<"bild"> {
       return;
     }
     if (!canListen()) {
-      this.app.say("Dieser Browser gibt hier kein Mikrofon her.");
+      this.app.say("This browser gives no microphone here.");
       return;
     }
     const track = this.app.selected;
@@ -165,29 +165,29 @@ export class PaintDesk extends WorkshopDesk<"bild"> {
     if (wasPlaying) this.app.engine.stop();
     const stop = new AbortController();
     this.stopListening = stop;
-    this.listening = "Mach den Klang vor: summ, klopf oder zisch. Es bleibt alles auf deinem Gerät.";
+    this.listening = "Show the sound: hum, knock or hiss. Everything stays on your device.";
     this.app.notify();
     try {
       const frames = await listen({
         signal: stop.signal,
         onLevel: (level, begun) => {
           this.onLoudness(level);
-          if (begun && this.listening !== "Ich höre dich …") {
-            this.listening = "Ich höre dich …";
+          if (begun && this.listening !== "I'm listening …") {
+            this.listening = "I'm listening …";
             this.app.notify();
           }
         },
       });
       const bild = framesToBild(frames, track);
       if (!bild) {
-        this.app.say(stop.signal.aborted ? "Vormachen abgebrochen." : "Ich habe nichts gehört. Etwas näher ans Mikrofon, oder lauter?");
+        this.app.say(stop.signal.aborted ? "Stopped listening." : "I heard nothing. A little closer to the microphone, or louder?");
       } else {
         this.app.store.edit((project) => { Object.assign(trackOf(project, track), { bild, sound: OWN_SOUND }); });
-        this.app.say("So habe ich dich verstanden. Mal daran weiter oder mach es noch einmal vor.", this.app.takeBack);
+        this.app.say("This is how I understood you. Paint on from here, or show it once more.", this.app.takeBack);
       }
     } catch (error) {
       const refused = error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "SecurityError");
-      this.app.say(refused ? "Ohne Mikrofon kein Vormachen. Erlaub es in der Adresszeile, dann klappt es." : "Das Mikrofon ließ sich nicht öffnen.");
+      this.app.say(refused ? "Without a microphone you cannot show a sound. Allow it in the address bar, then it works." : "The microphone could not be opened.");
     } finally {
       this.stopListening = null;
       this.listening = null;

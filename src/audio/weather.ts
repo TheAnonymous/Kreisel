@@ -8,7 +8,7 @@ import { ringGains } from "../press";
  * rain send what leaves the bus into the hall and the echo. Step by step the
  * player says how much of each kind lies on the ring right now.
  *
- * The shaper is also the ring's "Zerre": a ring can be driven all the time,
+ * The shaper is also the ring's "Drive": a ring can be driven all the time,
  * and the sparks that lie on it come on top.
  */
 

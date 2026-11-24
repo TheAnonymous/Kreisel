@@ -41,7 +41,7 @@ import type { Random } from "./patterns";
  * the five live effects, which then play there by themselves.
  *
  * And what the tension moves beyond that, each only if the piece says so
- * (`Sway`, "Was die Spannung bewegt"):
+ * (`Sway`, "What the tension moves"):
  *
  * - The hi-hat rings longer the higher the tension; bass, chords and melody
  *   get brighter; the kick is shorter and thinner where little is going on;
@@ -50,7 +50,7 @@ import type { Random } from "./patterns";
  *   the sound very slowly, and the stretch above the last ring's entry, where
  *   the line used to move nothing, means something.
  *
- * And who plays where, whatever the tension (the roster, "Einsätze"):
+ * And who plays where, whatever the tension (the roster, "Roster"):
  *
  * - A ring can be laid in for a bar, and then plays there in full although
  *   the tension has not reached it; or laid out, and then rests there
@@ -566,14 +566,14 @@ export function setBuild(piece: Piece, drop: number | null, build: Readonly<Buil
   tidyPiece(piece);
 }
 
-/** "Für alle Drops übernehmen": every drop gets the build-up of the one in bar `drop`, and none keeps its own. */
+/** "Use for all drops": every drop gets the build-up of the one in bar `drop`, and none keeps its own. */
 export function shareBuild(piece: Piece, drop: number): void {
   piece.build = { ...buildFor(piece, drop) };
   delete piece.drops;
   tidyPiece(piece);
 }
 
-/** "Wieder wie alle Drops": the drop in bar `drop` gives up its own build-up; with `null`, every drop does. */
+/** "Same as all drops again": the drop in bar `drop` gives up its own build-up; with `null`, every drop does. */
 export function clearBuild(piece: Piece, drop: number | null): void {
   if (drop === null) delete piece.drops;
   else if (piece.drops) piece.drops = piece.drops.filter((entry) => entry.bar !== drop);
@@ -583,8 +583,11 @@ export function clearBuild(piece: Piece, drop: number | null): void {
 /** The name of a build-up's size, as the page says it: "eigen" for one put together by hand. */
 export function sizeName(build: Readonly<Build>): string {
   const size = sizeOf(build);
-  return size === "gross" ? "groß" : size ?? "eigen";
+  return size === null ? "own" : SIZE_NAMES[size];
 }
+
+/** The ready-made sizes as the page calls them. */
+export const SIZE_NAMES: Record<BuildSize, string> = { keiner: "none", klein: "small", mittel: "medium", gross: "big" };
 
 /** How many bars before its drop a build-up begins on the piece's ring: its length, or less where another drop lands before. */
 export function buildReach(piece: Piece, drop: number): number {
@@ -595,19 +598,19 @@ export function buildReach(piece: Piece, drop: number): number {
 
 /** A build-up in words: its size, how long it runs and what it is made of. */
 export function describeBuild(build: Readonly<Build>): string {
-  if (build.bars === 0) return "kein Build-up";
+  if (build.bars === 0) return "no build-up";
   const parts = [
-    ...(build.riser === 2 ? ["Riser mit Ton"] : build.riser === 1 ? ["Riser"] : []),
-    ...(build.roll ? ["Roll"] : []),
-    ...(build.lows ? ["Tiefen raus"] : []),
-    ...(build.wash ? ["Hall-Wolke"] : []),
-    ...(build.dip ? ["leiser"] : []),
-    ...(build.kick ? ["letzter Takt ohne Kick"] : []),
-    ...(build.hat ? ["letzter Takt ohne Hi-Hat"] : []),
-    ...(build.gap > 0 ? [`Lücke ${build.gap === 1 ? "ein Schlag" : build.gap === 2 ? "ein halber Takt" : "ein Takt"}`] : []),
-    ...(build.late ? ["später Drop"] : []),
+    ...(build.riser === 2 ? ["riser with a tone"] : build.riser === 1 ? ["riser"] : []),
+    ...(build.roll ? ["roll"] : []),
+    ...(build.lows ? ["lows out"] : []),
+    ...(build.wash ? ["cloud of reverb"] : []),
+    ...(build.dip ? ["quieter"] : []),
+    ...(build.kick ? ["last bar without kick"] : []),
+    ...(build.hat ? ["last bar without hi-hat"] : []),
+    ...(build.gap > 0 ? [`gap ${build.gap === 1 ? "one beat" : build.gap === 2 ? "half a bar" : "one bar"}`] : []),
+    ...(build.late ? ["late drop"] : []),
   ];
-  return `Build-up ${sizeName(build)}, ${build.bars === 1 ? "1 Takt" : `${build.bars} Takte`}: ${parts.length > 0 ? parts.join(", ") : "nur der Crash"}`;
+  return `Build-up ${sizeName(build)}, ${build.bars === 1 ? "1 bar" : `${build.bars} bars`}: ${parts.length > 0 ? parts.join(", ") : "only the crash"}`;
 }
 
 export function setVary(piece: Piece, on: boolean): void {
@@ -751,12 +754,12 @@ function technoLine(count: number, random: Random): { tension: number[]; noKick:
 /** The shapes the dice can give a piece's line beside the form of its style. */
 export const SHAPES = ["plateau", "zwei", "wellen", "lang"] as const;
 export type ShapeId = (typeof SHAPES)[number];
-export const SHAPE_NAMES: Record<ShapeId, string> = { plateau: "Plateau", zwei: "Zwei Drops", wellen: "Wellen", lang: "Lang gezogen" };
+export const SHAPE_NAMES: Record<ShapeId, string> = { plateau: "Plateau", zwei: "Two drops", wellen: "Waves", lang: "Long climb" };
 export const SHAPE_HINTS: Record<ShapeId, string> = {
-  plateau: "Plateau: eine lange Ebene, die alle sechzehn Takte einen kleinen Schritt steigt, ohne Break und ohne Drop",
-  zwei: "Zwei Drops: zwei Breaks, nach jedem ein Drop, der zweite größer und spät",
-  wellen: "Wellen: heben, senken, wieder heben, jede Welle etwas höher",
-  lang: "Lang gezogen: ein einziger Anstieg über das ganze Stück",
+  plateau: "Plateau: a long level that takes a small step up every sixteen bars, without a break and without a drop",
+  zwei: "Two drops: two breaks, a drop after each, the second bigger and late",
+  wellen: "Waves: lift, lower, lift again, each wave a little higher",
+  lang: "Long climb: a single rise through the whole piece",
 };
 
 /**
@@ -885,10 +888,10 @@ export function protocol(piece: Piece): PhraseNote[] {
 /** The same as lines of text, with the rings called by `names`. */
 export function protocolLines(piece: Piece, names: readonly string[]): string[] {
   return protocol(piece).map((note) => {
-    const playing = note.rings.flatMap((state, ring) => (state === 0 ? [] : [`${names[ring] ?? ring}${state === 1 ? " (teils)" : ""}`]));
-    const who = playing.length === 0 ? "niemand" : note.rings.every((state) => state === 2) ? "alle" : playing.join(", ");
-    const what = [...(note.break ? ["Break"] : []), ...(note.build ? ["Build-up"] : []), ...note.drops.map((bar) => `Drop in Takt ${bar + 1}`)];
-    return `Takt ${note.from + 1}–${note.to}: ${who}${what.length > 0 ? ` · ${what.join(" · ")}` : ""}`;
+    const playing = note.rings.flatMap((state, ring) => (state === 0 ? [] : [`${names[ring] ?? ring}${state === 1 ? " (partly)" : ""}`]));
+    const who = playing.length === 0 ? "nobody" : note.rings.every((state) => state === 2) ? "all" : playing.join(", ");
+    const what = [...(note.break ? ["Break"] : []), ...(note.build ? ["Build-up"] : []), ...note.drops.map((bar) => `Drop in bar ${bar + 1}`)];
+    return `Bars ${note.from + 1}–${note.to}: ${who}${what.length > 0 ? ` · ${what.join(" · ")}` : ""}`;
   });
 }
 
@@ -993,7 +996,7 @@ export function describePiece(piece: Piece, bpm: number): string {
   const seconds = Math.round((count * 4 * 60) / bpm);
   const mean = Math.round((piece.tension.reduce((sum, value) => sum + value, 0) / (count * TENSION_MAX)) * 100);
   const breaks = piece.noKick?.filter(Boolean).length ?? 0;
-  return `${count} Takte, ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} Minuten, im Mittel ${mean} % Spannung${breaks > 0 ? `, ${breaks} Takte Break` : ""}`;
+  return `${count} bars, ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} minutes, ${mean} % tension on average${breaks > 0 ? `, ${breaks} bars of break` : ""}`;
 }
 
 /** How many drops of a piece can have a build-up of their own. */

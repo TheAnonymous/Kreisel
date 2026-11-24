@@ -61,7 +61,7 @@ export class RelayDesk {
 
   refuse(track: number): boolean {
     if (!this.veiled(track)) return false;
-    this.app.say("Stille Post: Dieser Ring ist verdeckt, da hat schon jemand gebaut. Nimm einen, der noch leer ist.");
+    this.app.say("Telephone: this ring is covered, someone has already built there. Take one that is still empty.");
     return true;
   }
 
@@ -82,12 +82,12 @@ export class RelayDesk {
    */
   async finishTurn(): Promise<boolean> {
     if (this.oldTurn) {
-      this.app.say("Geh erst zurück zu jetzt: Ein Rückblick ist kein Zug.");
+      this.app.say("Go back to now first: a look back is not a turn.");
       return false;
     }
     const name = this.name.trim();
     if (!name) {
-      this.app.say("Trag erst deinen Namen ein, damit die anderen wissen, von wem der Zug ist.");
+      this.app.say("Enter your name first, so the others know whose turn it was.");
       return false;
     }
     const relay = this.round;
@@ -97,15 +97,15 @@ export class RelayDesk {
     const touched = last === null ? ringsWithContent(state) : changedRings(last, state);
     const names = touched.map((ring) => trackInfo(ring).name).join(", ");
     if (last !== null && JSON.stringify(last) === JSON.stringify(state)) {
-      this.app.say("Du hast noch nichts verändert. Bau erst etwas, dann ist es ein Zug.");
+      this.app.say("You have not changed anything yet. Build something first, then it is a turn.");
       return false;
     }
     if (rule >= 1 && last !== null && touched.length > 1) {
-      this.app.say(`Die Regel sagt: ein Ring pro Zug. Du hast ${touched.length} angefasst (${names}). Nimm mit Strg+Z etwas zurück.`);
+      this.app.say(`The rule says: one ring a turn. You touched ${touched.length} (${names}). Take something back with Ctrl+Z.`);
       return false;
     }
     if (rule === 2 && touched.length !== 1) {
-      this.app.say(touched.length === 0 ? "Stille Post: Bau erst deinen Ring." : `Stille Post beginnt mit einem einzigen Ring, hier spielen ${touched.length} (${names}). Fang mit einem leeren Kreisel an.`);
+      this.app.say(touched.length === 0 ? "Telephone: build your ring first." : `Telephone starts with a single ring, here ${touched.length} are playing (${names}). Start with an empty Kreisel.`);
       return false;
     }
     this.app.store.edit((project) => {
@@ -115,7 +115,7 @@ export class RelayDesk {
     });
     const count = this.round?.turns.length ?? 1;
     const copied = (await this.app.files.copyLink()) === "copied";
-    this.app.say(copied ? `Zug ${count} ist abgeschlossen und der Link kopiert. Schick ihn an die nächste Person.` : `Zug ${count} ist abgeschlossen. Der Link steht in der Adresszeile: von dort kopieren und weiterschicken.`);
+    this.app.say(copied ? `Turn ${count} is finished and the link copied. Send it to the next person.` : `Turn ${count} is finished. The link is in the address bar: copy it from there and send it on.`);
     return true;
   }
 
@@ -125,7 +125,7 @@ export class RelayDesk {
     this.app.store.edit((project) => {
       if (project.relay) project.relay.open = true;
     });
-    this.app.say("Aufgedeckt! Jetzt hören alle alles.");
+    this.app.say("Revealed! Now everyone hears everything.");
   }
 
   /** Forgets the turns; the Kreisel stays as it is. */
@@ -133,7 +133,7 @@ export class RelayDesk {
     if (!this.round) return;
     this.look(null);
     this.app.store.edit((project) => { project.relay = null; });
-    this.app.say("Reihum ist beendet, die Züge sind vergessen.", this.app.takeBack);
+    this.app.say("Pass around has ended, the turns are forgotten.", this.app.takeBack);
   }
 
   /** Looks back at the Kreisel as it was after turn `index`, or returns to now (`null`). Nothing can be changed while looking back. */
@@ -141,7 +141,7 @@ export class RelayDesk {
     const relay = this.round;
     const turn = index === null ? null : relay?.turns[index];
     if (index !== null && relay?.rule === 2 && !relay.open) {
-      this.app.say("Stille Post: Zurückhören geht erst nach dem Aufdecken.");
+      this.app.say("Telephone: listening back only works after the reveal.");
       return;
     }
     if (!turn) {
@@ -179,6 +179,6 @@ export class RelayDesk {
     project.relay = { rule: relay.rule, open: relay.open, turns: relay.turns.slice(0, index + 1) };
     this.app.store.replace(project);
     if (this.app.playing) this.app.engine.queueScene(project.scene);
-    this.app.say(`Du baust von Zug ${index + 1} weiter. Die späteren Züge sind abgezweigt.`, this.app.takeBack);
+    this.app.say(`You are building on from turn ${index + 1}. The later turns have branched off.`, this.app.takeBack);
   }
 }

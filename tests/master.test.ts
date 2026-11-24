@@ -30,7 +30,7 @@ const share = (bar: number): number => (piece.tension[bar] ?? 0) / TENSION_MAX;
 describe("the techno Kreisel's own piece", () => {
   it("is a track of 160 bars, a little over four minutes, that waits switched off", () => {
     expect([barCount(piece), piece.on, piece.scenes.every((scene) => scene === 0)]).toEqual([160, false, true]);
-    expect(describePiece(piece, 150)).toMatch(/^160 Takte, 4:16 Minuten, im Mittel \d+ % Spannung, 24 Takte Break$/);
+    expect(describePiece(piece, 150)).toMatch(/^160 bars, 4:16 minutes, \d+ % tension on average, 24 bars of break$/);
     expect(piece.tension.every((value) => Number.isInteger(value) && value >= 0 && value <= TENSION_MAX)).toBe(true);
   });
 
@@ -168,19 +168,19 @@ describe("the techno Kreisel's own piece", () => {
   });
 
   it("can be read as a protocol", () => {
-    const names = ["Kick", "Clap", "Hi-Hat", "Trommel", "Bass", "Akkorde", "Melodie"];
+    const names = ["Kick", "Clap", "Hi-Hat", "Drum", "Bass", "Chords", "Melody"];
     const lines = protocolLines(piece, names);
     expect(lines).toHaveLength(20);
-    expect(lines[0]).toBe("Takt 1–8: Kick");
-    expect(lines[4]).toBe("Takt 33–40: Kick, Clap, Hi-Hat, Trommel, Bass · Drop in Takt 33");
+    expect(lines[0]).toBe("Bars 1–8: Kick");
+    expect(lines[4]).toBe("Bars 33–40: Kick, Clap, Hi-Hat, Drum, Bass · Drop in bar 33");
     // The melody's ring is empty in the techno Kreisel; whoever paints one hears it in the second full section and at the top.
-    expect(lines[6]).toBe("Takt 49–56: Kick, Clap, Hi-Hat, Bass, Akkorde");
-    expect(lines[9]).toBe("Takt 73–80: Kick, Clap, Hi-Hat, Bass, Akkorde, Melodie · Drop in Takt 73");
-    expect(lines[11]).toBe("Takt 89–96: Kick, Clap, Hi-Hat, Bass");
-    expect(lines[8]).toBe("Takt 65–72: Clap, Hi-Hat (teils), Bass · Break · Build-up");
-    expect(lines[13]).toBe("Takt 105–112: Hi-Hat, Akkorde · Break");
-    expect(lines[15]).toBe("Takt 121–128: Kick (teils), Clap (teils), Bass · Build-up · Drop in Takt 121");
-    expect(lines[16]).toBe("Takt 129–136: alle · Drop in Takt 129");
+    expect(lines[6]).toBe("Bars 49–56: Kick, Clap, Hi-Hat, Bass, Chords");
+    expect(lines[9]).toBe("Bars 73–80: Kick, Clap, Hi-Hat, Bass, Chords, Melody · Drop in bar 73");
+    expect(lines[11]).toBe("Bars 89–96: Kick, Clap, Hi-Hat, Bass");
+    expect(lines[8]).toBe("Bars 65–72: Clap, Hi-Hat (partly), Bass · Break · Build-up");
+    expect(lines[13]).toBe("Bars 105–112: Hi-Hat, Chords · Break");
+    expect(lines[15]).toBe("Bars 121–128: Kick (partly), Clap (partly), Bass · Build-up · Drop in bar 121");
+    expect(lines[16]).toBe("Bars 129–136: all · Drop in bar 129");
   });
 });
 

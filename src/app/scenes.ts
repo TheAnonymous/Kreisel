@@ -7,7 +7,7 @@ export type Plays = "scene" | "row" | "piece";
 
 /*
  * The eight scenes: picking, copying and clearing them. And the row
- * ("Folge") they are laid into: which scene plays when, round by round.
+ * ("Row") they are laid into: which scene plays when, round by round.
  */
 export class SceneDesk {
   /** The round the row begins with at the next start: the one picked last while the Kreisel stood. */
@@ -39,7 +39,7 @@ export class SceneDesk {
     });
     if (!taken) return;
     // The row answers by coming up under the wheel; the piece has nothing new to show, so it says what it does.
-    if (what === "piece") this.app.say("Der Kreisel spielt jetzt nach dem Stück-Ring: außen ist viel los, innen wenig. Mal die Spannung in den Ring.");
+    if (what === "piece") this.app.say("The Kreisel now plays by the piece's ring: a lot is going on outside, little inside. Paint the tension into the ring.");
   }
 
   /**
@@ -86,7 +86,7 @@ export class SceneDesk {
     const project = this.app.project;
     if (!project.scenes[scene]) return;
     if (project.order.length >= MAX_ROUNDS) {
-      this.app.say(`Mehr als ${MAX_ROUNDS} Runden passen nicht in die Folge.`);
+      this.app.say(`No more than ${MAX_ROUNDS} rounds fit into the row.`);
       return;
     }
     if (!this.change((draft) => { draft.order = layRound(draft.order, scene, at); })) return;
@@ -96,7 +96,7 @@ export class SceneDesk {
       this.app.engine.followRow((round) => roundOnceLaid(round, at));
     }
     // Laid from the scene's menu while the row is not on the page: say where it went.
-    if (this.plays !== "row") this.app.say(`Szene ${SCENE_NAMES[scene]} liegt jetzt als ${this.app.project.order.length}. Runde in der Folge. Stell unter den Szenen auf „Folge“, dann spielt sie.`);
+    if (this.plays !== "row") this.app.say(`Scene ${SCENE_NAMES[scene]} is now round ${this.app.project.order.length} of the row. Switch to “Row” under the scenes, then it plays.`);
   }
 
   /** Round `round` once more, right after it. */
@@ -177,7 +177,7 @@ export class SceneDesk {
         project.scenes[index] = clone(currentScene(project));
         project.order = layRound(project.order, index);
       });
-      this.app.say(`Szene ${SCENE_NAMES[index]} ist eine Kopie von ${from}. Jetzt kannst du sie verändern.`);
+      this.app.say(`Scene ${SCENE_NAMES[index]} is a copy of ${from}. Now you can change it.`);
     }
     if (this.app.playing && !this.app.project.piece.on) {
       this.app.engine.queueScene(index);
@@ -214,7 +214,7 @@ export class SceneDesk {
       project.order = layRound(project.order, free);
     });
     this.pick(free);
-    this.app.say(`Szene ${SCENE_NAMES[free]} ist eine Kopie von ${SCENE_NAMES[index]}.`);
+    this.app.say(`Scene ${SCENE_NAMES[free]} is a copy of ${SCENE_NAMES[index]}.`);
   }
 
   /** A copy of scene `from` in the empty scene `to`: a new part to change, at the end of the row. */
@@ -227,7 +227,7 @@ export class SceneDesk {
     });
     if (!taken) return;
     this.pick(to);
-    this.app.say(`Szene ${SCENE_NAMES[to]} ist eine Kopie von ${SCENE_NAMES[from]}.`);
+    this.app.say(`Scene ${SCENE_NAMES[to]} is a copy of ${SCENE_NAMES[from]}.`);
   }
 
   clear(index: number): void {
@@ -243,6 +243,6 @@ export class SceneDesk {
     });
     this.begin = null;
     if (this.app.playing) this.app.engine.queueScene(this.app.project.scene);
-    this.app.say(`Szene ${SCENE_NAMES[index]} geleert.`, this.app.takeBack);
+    this.app.say(`Scene ${SCENE_NAMES[index]} cleared.`, this.app.takeBack);
   }
 }

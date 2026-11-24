@@ -22,13 +22,13 @@ export class TourGuide {
     let before = 0;
     let ring = 0;
     const steps: TourStep[] = [
-      { target: "#kreisel", side: "right", title: "Das ist dein Kreisel", text: "Jeder Ring ist ein Instrument, eine Runde ist sein Muster. Drück auf die Mitte oder die Leertaste, dann läuft er los.", done: () => app.playing },
-      { target: "#kreisel", side: "right", title: "Mal einen Schlag", text: "Ein Klick in einen Ring setzt einen Schlag, ein zweiter nimmt ihn wieder weg. Ziehen malt mehrere, nach außen ziehen macht den Ton höher.", done: () => hits() !== before },
-      { target: "#tracks", side: "right", title: "Sieben Ringe", text: "Hier wählst du einen Ring. Der Lautsprecher schaltet ihn stumm, der Würfel gibt ihm ein neues Muster.", done: () => app.selected !== ring },
-      { target: "#panel", side: "left", title: "Sein Klang", text: "Jeder Ring hat 50 Klänge: Die Pfeile blättern, ein Klick auf den Namen zeigt die ganze Palette. Zieh den Punkt im Klangfeld, und der Klang verändert sich. „Würfeln“ bringt eine neue Idee, „Variieren“ ändert sie nur ein wenig." },
-      { target: "#fx", side: "left", title: "Effekte zum Festhalten", text: "Halt eine dieser Tasten, solange es spielt: dumpf, dünn, Stottern, Echo, Pause. Auf der anderen Seite des Rads liegen die Werkzeuge zum Malen." },
-      { target: "#scenes", side: "right", title: "Vom Loop zum Stück", text: "Acht Szenen, jede ein kleines Rad: Eine leere wird beim Anklicken zur Kopie der aktuellen, und schon hast du einen zweiten Teil. Stell darunter auf „Folge“, dann legst du unter dem großen Rad, in welcher Reihenfolge sie spielen. „Teilen“ oben packt alles in einen Link." },
-      { target: ".more", side: "below", title: "Und überall: die rechte Taste", text: "Ein Rechtsklick zeigt an jeder Stelle, was dort geht. Hier oben findest du die Hilfe und diese Tour wieder; am Namen „Kreisel“ fängst du neu an." },
+      { target: "#kreisel", side: "right", title: "This is your Kreisel", text: "Every ring is an instrument, one round is its pattern. Press the middle or the space bar, and off it goes.", done: () => app.playing },
+      { target: "#kreisel", side: "right", title: "Paint a hit", text: "A click in a ring places a hit, a second one takes it away again. Dragging paints several, dragging outwards makes the note higher.", done: () => hits() !== before },
+      { target: "#tracks", side: "right", title: "Seven rings", text: "Here you pick a ring. The speaker mutes it, the dice give it a new pattern.", done: () => app.selected !== ring },
+      { target: "#panel", side: "left", title: "Its sound", text: "Every ring has 50 sounds: the arrows leaf through them, a click on the name shows the whole palette. Drag the point in the sound pad, and the sound changes. “Dice” brings a new idea, “Vary” changes it only a little." },
+      { target: "#fx", side: "left", title: "Effects to hold", text: "Hold one of these keys while it plays: dull, thin, stutter, echo, pause. On the other side of the wheel are the tools for painting." },
+      { target: "#scenes", side: "right", title: "From loop to piece", text: "Eight scenes, each a little wheel: an empty one becomes a copy of the current one when clicked, and you already have a second part. Switch to “Row” below, then you lay out under the big wheel in which order they play. “Share” at the top packs everything into a link." },
+      { target: ".more", side: "below", title: "And everywhere: the right button", text: "A right click shows what can be done at any place. Up here you find the help and this tour again; at the name “Kreisel” you start anew." },
     ];
     const tour = new Tour(byId("tour"), steps, () => {
       try {

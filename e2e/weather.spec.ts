@@ -6,10 +6,10 @@ import { focus, onLaptop, onPhone, open, state, status, where } from "./helpers"
  * Wetter: effects painted onto the wheel, and the wind that moves them.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("malt Wetter auf das Rad", async ({ page }) => {
+  test("paints weather onto the wheel", async ({ page }) => {
     const problems = await open(page);
     const sky = (kind: number, ring: number): Promise<number[]> =>
       page.evaluate(([which, on]) => window.kreisel.app.project.scenes[window.kreisel.app.project.scene]!.weather[which ?? 0]![on ?? 0]!.slice(0, 16), [kind, ring]);
@@ -34,7 +34,7 @@ test.describe("am Laptop", () => {
     await expect(page.locator("#tools")).toBeHidden();
     await expect(page.locator(".panel-weather")).toBeVisible();
     await expect(page.locator(".panel-ring")).toBeHidden();
-    await expect(status(page)).toHaveText("Wetter: klarer Himmel");
+    await expect(status(page)).toHaveText("Weather: clear sky");
     await expect(page.locator("#weathers .tool").nth(2)).toHaveAttribute("aria-checked", "true");
     // No ring is in focus now: they all rest at the same width, and the wheel is one sheet.
     await expect.poll(async () => {
@@ -50,8 +50,8 @@ test.describe("am Laptop", () => {
     expect(await sky(2, 4)).toEqual([0, 0, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect((await sky(2, 3)).every((value) => value === 0)).toBe(true);
     expect((await sky(2, 5)).every((value) => value === 0)).toBe(true);
-    await expect(status(page)).toHaveText("Wetter: Wolken auf Bass");
-    await expect(page.locator(".weather-row .sound")).toHaveText("Wolken");
+    await expect(status(page)).toHaveText("Weather: Clouds on Bass");
+    await expect(page.locator(".weather-row .sound")).toHaveText("Clouds");
     // Over it again, it gets stronger; three times is all there is.
     await stroke([[4, 3], [4, 4], [4, 5]]);
     expect((await sky(2, 4)).slice(2, 7)).toEqual([5, 10, 10, 10, 5]);
@@ -84,7 +84,7 @@ test.describe("am Laptop", () => {
     // The tuned drum has twelve steps: the same angle is its fourth.
     expect(fog[3]![3]).toBe(5);
     expect(fog.filter((line) => line.some((value) => value > 0)).length).toBeGreaterThanOrEqual(3);
-    await expect(status(page)).toContainText("Nebel auf");
+    await expect(status(page)).toContainText("Fog on");
     // Delete takes the weather of the brush away, all of it.
     await page.keyboard.press("Delete");
     expect((await sky(0, 2)).every((value) => value === 0)).toBe(true);
@@ -94,8 +94,8 @@ test.describe("am Laptop", () => {
     const wind = page.locator(".line.sky input").nth(2);
     await wind.fill("8");
     expect(await page.evaluate(() => window.kreisel.app.project.scenes[0]!.wind)).toEqual([0, 0, 4, 0, 0, 0]);
-    await expect(page.locator(".line.sky output").nth(2)).toHaveText("1 Schritt je Takt ↻");
-    await expect(status(page)).toHaveText("Wetter: Wolken auf Bass, zieht 1 Schritt je Takt ↻");
+    await expect(page.locator(".line.sky output").nth(2)).toHaveText("1 step a bar ↻");
+    await expect(status(page)).toHaveText("Weather: Clouds on Bass, drifting 1 step a bar ↻");
     await wind.click({ button: "right" });
     expect(await page.evaluate(() => window.kreisel.app.project.scenes[0]!.wind[2])).toBe(0);
 
@@ -103,12 +103,12 @@ test.describe("am Laptop", () => {
     await page.keyboard.press("Escape");
     await expect(page.locator(".panel-ring")).toBeVisible();
     await expect(page.locator("#tools")).toBeVisible();
-    await expect(page.locator(".weather-row .sound")).toHaveText("Wolken");
+    await expect(page.locator(".weather-row .sound")).toHaveText("Clouds");
     await focus(page, 4);
     const spot = await where(page, 4, 9);
     await page.mouse.click(spot.x, spot.y, { button: "right" });
     const menu = page.locator("#context");
-    await menu.getByRole("menuitem", { name: "Das Wetter über diesem Ring wegnehmen" }).click();
+    await menu.getByRole("menuitem", { name: "Take the weather over this ring away" }).click();
     expect((await sky(2, 4)).every((value) => value === 0)).toBe(true);
     await page.keyboard.press("Escape");
     await page.keyboard.press("Control+z");
@@ -116,11 +116,11 @@ test.describe("am Laptop", () => {
 
     // The weather's row has a menu of its own: dice, and a clear sky. Cleared, the Kreisel is as it was.
     await page.locator(".weather-row").click({ button: "right" });
-    await expect(menu.locator("header")).toHaveText("Wetter");
-    await menu.getByRole("menuitem", { name: "Würfeln" }).click();
+    await expect(menu.locator("header")).toHaveText("Weather");
+    await menu.getByRole("menuitem", { name: "Dice" }).click();
     expect(await page.evaluate(() => window.kreisel.app.project.scenes[0]!.weather.flat(2).some((value) => value > 0))).toBe(true);
-    await menu.getByRole("menuitem", { name: "Alles aufklaren" }).click();
-    await expect(page.locator(".weather-row .sound")).toHaveText("klar");
+    await menu.getByRole("menuitem", { name: "Clear everything up" }).click();
+    await expect(page.locator(".weather-row .sound")).toHaveText("clear");
     expect(await state(page)).toBe(before);
 
     // Einspielen: an effect held while the Kreisel turns leaves its weather behind, over every ring; it is one step back.
@@ -137,14 +137,14 @@ test.describe("am Laptop", () => {
     await page.keyboard.press("Space");
     const trail = await Promise.all([0, 3, 6].map((ring) => sky(0, ring)));
     for (const line of trail) expect(line.filter((value) => value > 0).length).toBeGreaterThanOrEqual(2);
-    await expect(page.locator(".weather-row .sound")).toHaveText("Nebel");
+    await expect(page.locator(".weather-row .sound")).toHaveText("Fog");
     await page.keyboard.press("Control+z");
     expect(await page.evaluate(() => window.kreisel.app.project.scenes[0]!.weather.flat(2).every((value) => value === 0))).toBe(true);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });
 
-  test("lässt das Wetter hören: Nebel, der mit dem Wind zieht, Wolken, Sonne im Bass", async ({ page }) => {
+  test("lets the weather be heard: fog that drifts with the wind, clouds, sun in the bass", async ({ page }) => {
     const problems = await open(page);
     /** Saves the scene with only ring `ring` heard and listens to the file: how bright it is in each half bar, and how loud it rings on after the last step. */
     const listen = async (ring: number, kind = 0, steps: readonly number[] = [], wind = 0): Promise<{ bright: number[]; tail: number }> => {
@@ -168,7 +168,7 @@ test.describe("am Laptop", () => {
       }, [ring, kind, [...steps], wind] as const);
       await page.locator("#record-more").click();
       const rendered = page.waitForEvent("download");
-      await page.locator("#context").getByText("Als Opus speichern").click();
+      await page.locator("#context").getByText("Save as Opus").click();
       const bytes = readFileSync(await (await rendered).path());
       return page.evaluate(async (data) => {
         const context = new AudioContext();
@@ -217,10 +217,10 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("malt am Handy Wetter mit dem Finger", async ({ page }) => {
+  test("paints weather with a finger on a phone", async ({ page }) => {
     const problems = await open(page);
     await page.locator(".weather-row .pick").tap();
     await expect(page.locator("#weathers")).toBeVisible();
@@ -238,7 +238,7 @@ test.describe("am Handy", () => {
     const spot = await where(page, 6, 5);
     await page.touchscreen.tap(spot.x, spot.y);
     expect(await page.evaluate(() => window.kreisel.app.project.scenes[0]!.weather[3]![6]![5])).toBe(5);
-    await expect(status(page)).toContainText("Regen auf Melodie");
+    await expect(status(page)).toContainText("Rain on Melody");
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });

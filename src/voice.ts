@@ -12,7 +12,7 @@ import type { Random } from "./patterns";
 
 export type Formants = readonly [number, number, number];
 
-/** The vowels as the three lowest resonances of the mouth, in Hz. The second row are the short ones (as in "Bett", "Mitte"). */
+/** The vowels as the three lowest resonances of the mouth, in Hz. The second row are the short ones (as in "Bett", "Middle"). */
 export const VOWELS: Record<string, Formants> = {
   a: [750, 1250, 2500],
   e: [400, 2050, 2700],
@@ -217,7 +217,7 @@ export interface Sung {
 }
 
 const DARK = "aouAOU";
-/** What may follow the murmured e of an ending: "bitte", "singen", "Kreisel", "Atem", "alles", "Wetter" ... */
+/** What may follow the murmured e of an ending: "bitte", "singen", "Kreisel", "Atem", "alles", "Weather" ... */
 const ENDINGS = ["", "n", "l", "m", "s", "t", "r", "rn", "ln", "nd", "st"];
 
 /** Whether a syllable is an ending whose e is only murmured: the last of several, a plain e, and little after it. */
@@ -255,7 +255,7 @@ export function sing(syllable: Syllable, next: Syllable | null = null): Sung {
     // An open syllable or a doubled letter keeps the vowel long; a closed one makes it short.
     const short = coda.length > 0 && !long && letters.length === 1;
     // The e of an ending ("bitte", "singen", "Kreisel") is only murmured, and that of "be-" and "ge-" before the
-    // word proper ("Gespräch", "bekommen"); but a word keeps one full vowel ("Beben", "geben").
+    // word proper ("Gespräch", "bekommen"); but a word keeps one full vowel ("Rumble", "geben").
     const murmured = letter === "e" && letters.length === 1 && !long
       && (murmurs(syllable)
         || (syllable.first && !syllable.last && coda.length === 0 && ["b", "g"].includes(onset.join("")) && !(next && murmurs(next))));
@@ -407,7 +407,7 @@ export function hitNumber(pattern: Pattern, position: number, local: number): nu
 }
 
 /** Lines to start from. */
-const LINES = ["Kaffeepause jetzt", "Dreh dich Kreisel", "Alles dreht sich", "Mehr Bass bitte", "La la la la", "Oh ja", "Die Nacht ist lang", "Wir sind die Maschine", "Eins zwei drei vier", "Tanz mit mir", "Hallo Welt", "Nur noch ein Lied"];
+const LINES = ["Coffee is on", "Spin Kreisel spin", "All is spinning", "Bring back the bass", "La la la la", "Oh no", "All night long", "I am a robot", "Kick clap kick clap", "Clap with us", "Hello world", "Just a bit longer"];
 
 export function diceLine(random: Random, not = ""): string {
   const others = LINES.filter((line) => line !== not);
@@ -416,7 +416,7 @@ export function diceLine(random: Random, not = ""): string {
 
 /** The voice in a few words, for the status line. */
 export function describeVoice(voice: Voice | null): string {
-  if (!voice) return "noch keine Stimme";
+  if (!voice) return "no voice yet";
   const count = syllables(voice.text).length;
-  return count === 0 ? "singt nur den Vokal vom Klangfeld" : `„${spell(voice.text)}“, ${count} ${count === 1 ? "Silbe" : "Silben"}`;
+  return count === 0 ? "sings only the vowel from the sound pad" : `“${spell(voice.text)}”, ${count} ${count === 1 ? "syllable" : "syllables"}`;
 }

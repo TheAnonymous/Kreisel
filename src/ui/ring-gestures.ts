@@ -554,32 +554,32 @@ export class RingGestures {
     const scene = currentScene(project);
     let text: string;
     if (spot.kind === "hub") {
-      text = this.app.playing ? "Anhalten (Leertaste)" : "Starten (Leertaste)";
+      text = this.app.playing ? "Stop (Space)" : "Start (Space)";
     } else if (spot.kind === "chord") {
-      text = `Takt ${spot.index + 1}: ${chordName(project.root, project.scale, scene.chords[spot.index] ?? 0)} · klicken zum Ändern`;
+      text = `Bar ${spot.index + 1}: ${chordName(project.root, project.scale, scene.chords[spot.index] ?? 0)} · click to change`;
     } else if (spot.kind === "piece") {
       const piece = project.piece;
       const tension = Math.round(((piece.tension[spot.bar] ?? 0) / TENSION_MAX) * 100);
       text = spot.lane && this.app.piece.focused
-        ? `Szene ${SCENE_NAMES[project.scene]} hierher malen · Takt ${spot.bar + 1}`
-        : `Stück · Takt ${spot.bar + 1} von ${piece.tension.length} · ${tension} % Spannung · Szene ${SCENE_NAMES[piece.scenes[spot.bar] ?? 0]}${this.app.piece.dropNear(spot.bar) === null ? "" : " · Build-up"}${this.app.piece.marksAt(spot.bar) === 0 ? "" : ` · Effekt: ${this.app.piece.markNames(spot.bar).join(", ")}`} · Rechtsklick: ab hier spielen und mehr`;
+        ? `Paint scene ${SCENE_NAMES[project.scene]} here · bar ${spot.bar + 1}`
+        : `Piece · bar ${spot.bar + 1} of ${piece.tension.length} · ${tension} % tension · scene ${SCENE_NAMES[piece.scenes[spot.bar] ?? 0]}${this.app.piece.dropNear(spot.bar) === null ? "" : " · Build-up"}${this.app.piece.marksAt(spot.bar) === 0 ? "" : ` · Effect: ${this.app.piece.markNames(spot.bar).join(", ")}`} · right click: play from here and more`;
     } else if (spot.kind === "drop") {
-      text = `${this.app.piece.describeDrop(spot.bar)} · klicken zum Ändern`;
+      text = `${this.app.piece.describeDrop(spot.bar)} · click to change`;
     } else if (spot.kind === "roster") {
       text = this.app.piece.describeRoster(spot.ring, spot.bar);
     } else {
       const pattern = scene.patterns[spot.track];
       const note = pattern ? stepAt(pattern, spot.step) : null;
       const info = trackInfo(spot.track);
-      text = this.app.relay.veiled(spot.track) ? `${info.name} · verdeckt (Stille Post)` : `${info.name} · Schritt ${spot.step + 1}`;
+      text = this.app.relay.veiled(spot.track) ? `${info.name} · covered (Telephone)` : `${info.name} · step ${spot.step + 1}`;
       if (this.app.weather.focused && !this.app.relay.veiled(spot.track)) {
         const kind = this.app.weather.cloud;
         const length = scene.patterns[spot.track]?.len ?? 16;
         const drift = Math.floor(windDrift(Math.floor(this.app.playhead() ?? 0), scene.wind[kind] ?? 0));
         const there = scene.weather[kind]?.[spot.track]?.[wrap(spot.step - drift, length)] ?? 0;
-        text = `${WEATHER_NAMES[kind]} über ${info.name} · Schritt ${spot.step + 1} · ${Math.round((there / WEATHER_MAX) * 100)} %`;
+        text = `${WEATHER_NAMES[kind]} over ${info.name} · step ${spot.step + 1} · ${Math.round((there / WEATHER_MAX) * 100)} %`;
       } else if (shakes(spot.track, this.app.tool) && !this.app.relay.veiled(spot.track)) {
-        text = `Nachbeben · Schritt ${spot.step + 1} · ${Math.round(((scene.rumble[spot.step] ?? 0) / RUMBLE_MAX) * 100)} % · ziehen malt (außen stark), die rechte Taste radiert`;
+        text = `Rumble · step ${spot.step + 1} · ${Math.round(((scene.rumble[spot.step] ?? 0) / RUMBLE_MAX) * 100)} % · dragging paints (strong outside), the right button erases`;
       } else if (note?.on && !this.app.relay.veiled(spot.track)) text += ` · ${pitchName(project, spot.track, note.pitch, chordAt(scene, this.app.playhead() ?? 0))}`;
     }
     this.tip.textContent = text;

@@ -56,7 +56,7 @@ describe("the kick's hardness in the link", () => {
     expect((JSON.parse(serialize(project)) as { w: number[] }).w).toHaveLength(2);
   });
 
-  it("travels with the Nachbeben's character", () => {
+  it("travels with the rumble's character", () => {
     const project = factoryProject();
     project.hard = 0.8;
     project.dirt = 0.6;
@@ -80,7 +80,7 @@ describe("the kick's hardness in the link", () => {
     expect(deserialize(JSON.stringify(old)).hard).toBe(0);
   });
 
-  it("counts as the kick's ring in Reihum", () => {
+  it("counts as the kick's ring in Pass around", () => {
     expect(changedRings(state(), state((project) => { project.hard = 0.5; }))).toEqual([0]);
     expect(changedRings(state((project) => { project.hard = 0.5; }), state((project) => { project.hard = 0.5; }))).toEqual([]);
   });

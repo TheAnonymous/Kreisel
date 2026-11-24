@@ -27,8 +27,8 @@ export interface MenuDoors {
   turnTo?(target: ContextTarget): void;
 }
 
-const VELOCITIES = ["leise", "normal", "laut"] as const;
-const CHANCES = ["immer", "75 %", "50 %", "25 %"] as const;
+const VELOCITIES = ["quiet", "normal", "loud"] as const;
+const CHANCES = ["always", "75 %", "50 %", "25 %"] as const;
 
 function ringMenu(app: App, track: number, step: number | null): MenuSpec | null {
   if (app.relay.veiled(track)) return null;
@@ -43,23 +43,23 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
     const note = stepAt(pattern, at);
     if (note.on) {
       rows.push(
-        { kind: "choice", label: "Betonung", options: VELOCITIES.map((label, vel) => ({ label, active: note.vel === vel, run: () => app.rings.setStep(track, at, { vel }) })) },
-        { kind: "choice", label: "Zufall", options: CHANCES.map((label, chance) => ({ label, active: note.chance === chance, title: chance === 0 ? "Der Schlag kommt jedes Mal" : `Der Schlag kommt in ${label} der Runden`, run: () => app.rings.setStep(track, at, { chance }) })) },
-        { kind: "choice", label: "Wirbel", options: [1, 2, 3, 4].map((ratchet) => ({ label: String(ratchet), active: note.ratchet === ratchet, title: ratchet === 1 ? "Ein Schlag" : `${ratchet} schnelle Schläge`, run: () => app.rings.setStep(track, at, { ratchet }) })) },
+        { kind: "choice", label: "Accent", options: VELOCITIES.map((label, vel) => ({ label, active: note.vel === vel, run: () => app.rings.setStep(track, at, { vel }) })) },
+        { kind: "choice", label: "Chance", options: CHANCES.map((label, chance) => ({ label, active: note.chance === chance, title: chance === 0 ? "The hit comes every time" : `The hit comes in ${label} of the rounds`, run: () => app.rings.setStep(track, at, { chance }) })) },
+        { kind: "choice", label: "Ratchet", options: [1, 2, 3, 4].map((ratchet) => ({ label: String(ratchet), active: note.ratchet === ratchet, title: ratchet === 1 ? "One hit" : `${ratchet} fast hits`, run: () => app.rings.setStep(track, at, { ratchet }) })) },
       );
       if (info.melodic) {
         const longest = Math.min(MAX_NOTE_LENGTH, pattern.len);
         rows.push({
           kind: "choice",
-          label: `Länge ${note.len}`,
+          label: `Length ${note.len}`,
           options: [
-            { label: "−", title: "Den Ton kürzer halten", disabled: note.len <= 1, run: () => app.rings.setStep(track, at, { len: note.len - 1 }) },
-            { label: "+", title: "Den Ton länger halten", disabled: note.len >= longest, run: () => app.rings.setStep(track, at, { len: note.len + 1 }) },
+            { label: "−", title: "Hold the note shorter", disabled: note.len <= 1, run: () => app.rings.setStep(track, at, { len: note.len - 1 }) },
+            { label: "+", title: "Hold the note longer", disabled: note.len >= longest, run: () => app.rings.setStep(track, at, { len: note.len + 1 }) },
           ],
         });
         // The acid machine ties a note that is held into the next one: the next is not struck again, and slides if it is another note.
         if (settings.sound === ACID_SOUND && nextHit(pattern, at)) {
-          rows.push({ kind: "choice", label: "In den nächsten", options: [{ label: "ziehen", active: app.acid.tied(track, at), title: "Den Ton in den nächsten hineinhalten: Der gleitet dann, statt neu anzuschlagen", run: () => app.acid.tie(track, at) }] });
+          rows.push({ kind: "choice", label: "Into the next", options: [{ label: "slide", active: app.acid.tied(track, at), title: "Hold the note into the next one: it then glides instead of striking anew", run: () => app.acid.tie(track, at) }] });
         }
       }
       rows.push(
@@ -67,124 +67,124 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
           kind: "choice",
           label: `${info.pitchLabel}: ${pitchName(project, track, note.pitch, app.chordNow())}`,
           options: [
-            { label: "−", title: "Tiefer", disabled: note.pitch <= PITCH_MIN, run: () => app.rings.setStep(track, at, { pitch: note.pitch - 1 }) },
-            { label: "+", title: "Höher", disabled: note.pitch >= PITCH_MAX, run: () => app.rings.setStep(track, at, { pitch: note.pitch + 1 }) },
+            { label: "−", title: "Lower", disabled: note.pitch <= PITCH_MIN, run: () => app.rings.setStep(track, at, { pitch: note.pitch - 1 }) },
+            { label: "+", title: "Higher", disabled: note.pitch >= PITCH_MAX, run: () => app.rings.setStep(track, at, { pitch: note.pitch + 1 }) },
           ],
         },
-        { kind: "action", label: "Schlag löschen", run: () => { app.rings.removeNote(track, at, "menue"); app.endGesture(); } },
+        { kind: "action", label: "Remove hit", run: () => { app.rings.removeNote(track, at, "menue"); app.endGesture(); } },
       );
     } else {
-      rows.push({ kind: "action", label: "Schlag setzen", keep: true, run: () => { app.rings.addNote(track, at, {}, "menue"); app.endGesture(); } });
+      rows.push({ kind: "action", label: "Place hit", keep: true, run: () => { app.rings.addNote(track, at, {}, "menue"); app.endGesture(); } });
     }
-    rows.push({ kind: "heading", label: "Ganzer Ring" });
+    rows.push({ kind: "heading", label: "Whole ring" });
   }
 
   const copied = app.rings.copied;
   rows.push(
-    { kind: "action", label: "Würfeln", hint: "N", keep: true, run: () => app.rings.dice(track) },
-    { kind: "action", label: "Variieren", hint: "Umschalt+N", keep: true, run: () => app.rings.vary(track) },
+    { kind: "action", label: "Dice", hint: "N", keep: true, run: () => app.rings.dice(track) },
+    { kind: "action", label: "Vary", hint: "Shift+N", keep: true, run: () => app.rings.vary(track) },
     {
       kind: "choice",
-      label: "Drehen",
+      label: "Rotate",
       options: [
-        { label: "←", title: "Einen Schritt zurückdrehen", run: () => app.rings.rotate(track, -1) },
-        { label: "→", title: "Einen Schritt weiterdrehen", run: () => app.rings.rotate(track, 1) },
+        { label: "←", title: "Rotate one step back", run: () => app.rings.rotate(track, -1) },
+        { label: "→", title: "Rotate one step on", run: () => app.rings.rotate(track, 1) },
       ],
     },
     {
       kind: "choice",
-      label: `Schritte ${pattern.len}`,
+      label: `Steps ${pattern.len}`,
       options: [
-        { label: "−", title: "Den Ring einen Schritt kürzer machen", disabled: pattern.len <= MIN_STEPS, run: () => app.rings.resize(track, pattern.len - 1) },
-        ...[8, 12, 16, 32].map((length) => ({ label: String(length), title: `${length} Schritte`, active: pattern.len === length, run: () => app.rings.resize(track, length) })),
-        { label: "+", title: "Den Ring einen Schritt länger machen", disabled: pattern.len >= MAX_STEPS, run: () => app.rings.resize(track, pattern.len + 1) },
+        { label: "−", title: "Make the ring one step shorter", disabled: pattern.len <= MIN_STEPS, run: () => app.rings.resize(track, pattern.len - 1) },
+        ...[8, 12, 16, 32].map((length) => ({ label: String(length), title: `${length} steps`, active: pattern.len === length, run: () => app.rings.resize(track, length) })),
+        { label: "+", title: "Make the ring one step longer", disabled: pattern.len >= MAX_STEPS, run: () => app.rings.resize(track, pattern.len + 1) },
       ],
     },
     {
       kind: "choice",
-      label: "Klang",
+      label: "Sound",
       options: [
-        { label: "‹", title: "Voriger Klang aus der Palette", run: () => app.rings.stepSound(track, -1) },
-        { label: soundLabel(track, settings), title: `Alle ${SOUND_COUNT} Klänge dieses Rings zeigen`, close: true, run: () => { app.select(track); if (!app.rings.paletteOpen) app.rings.togglePalette(); } },
-        { label: "›", title: "Nächster Klang aus der Palette", run: () => app.rings.stepSound(track, 1) },
-        { label: "Würfeln", title: app.project.style === "techno" ? "Einen der zehn Techno-Klänge dieses Rings nehmen" : "Irgendeinen Klang aus der Palette nehmen", run: () => app.rings.diceSound(track) },
+        { label: "‹", title: "Previous sound from the palette", run: () => app.rings.stepSound(track, -1) },
+        { label: soundLabel(track, settings), title: `Show all ${SOUND_COUNT} sounds of this ring`, close: true, run: () => { app.select(track); if (!app.rings.paletteOpen) app.rings.togglePalette(); } },
+        { label: "›", title: "Next sound from the palette", run: () => app.rings.stepSound(track, 1) },
+        { label: "Dice", title: app.project.style === "techno" ? "Take one of this ring's ten techno sounds" : "Take any sound from the palette", run: () => app.rings.diceSound(track) },
       ],
     },
     {
       kind: "choice",
-      label: "Eigener Klang",
+      label: "Own sound",
       options: [
-        { label: "Nehmen", active: settings.sound === OWN_SOUND, disabled: !settings.bild, title: settings.bild ? "Den gemalten Klang dieses Rings nehmen" : "Noch nicht gemalt", run: () => app.rings.setSound(track, OWN_SOUND) },
-        { label: "Malen …", title: "Den eigenen Klang dieses Rings malen", close: true, run: () => { app.select(track); app.paint.open(); } },
+        { label: "Use", active: settings.sound === OWN_SOUND, disabled: !settings.bild, title: settings.bild ? "Use this ring's painted sound" : "Not painted yet", run: () => app.rings.setSound(track, OWN_SOUND) },
+        { label: "Paint …", title: "Paint this ring's own sound", close: true, run: () => { app.select(track); app.paint.open(); } },
       ],
     },
     {
       kind: "choice",
-      label: "Stimme",
+      label: "Voice",
       options: [
-        { label: "Nehmen", active: settings.sound === VOICE_SOUND, disabled: !settings.voice, title: settings.voice ? "Die Stimme dieses Rings nehmen" : "Noch keine Zeile geschrieben", run: () => app.rings.setSound(track, VOICE_SOUND) },
-        { label: "Text …", title: "Die Zeile schreiben, die dieser Ring singt", close: true, run: () => { app.select(track); app.voice.open(); } },
+        { label: "Use", active: settings.sound === VOICE_SOUND, disabled: !settings.voice, title: settings.voice ? "Use this ring's voice" : "No line written yet", run: () => app.rings.setSound(track, VOICE_SOUND) },
+        { label: "Text …", title: "Write the line this ring sings", close: true, run: () => { app.select(track); app.voice.open(); } },
       ],
     },
     {
       kind: "choice",
-      label: "Klangkörper",
+      label: "Body",
       options: [
-        { label: "Nehmen", active: settings.sound === BODY_SOUND, disabled: !settings.body, title: settings.body ? "Den gebauten Klangkörper dieses Rings nehmen" : "Noch nicht gebaut", run: () => app.rings.setSound(track, BODY_SOUND) },
-        { label: "Bauen …", title: "Den Klangkörper dieses Rings bauen", close: true, run: () => { app.select(track); app.body.open(); } },
+        { label: "Use", active: settings.sound === BODY_SOUND, disabled: !settings.body, title: settings.body ? "Use this ring's built body" : "Not built yet", run: () => app.rings.setSound(track, BODY_SOUND) },
+        { label: "Build …", title: "Build this ring's body", close: true, run: () => { app.select(track); app.body.open(); } },
       ],
     },
     ...(track === 0
       ? [{
           kind: "choice" as const,
-          label: "Nachbeben",
+          label: "Rumble",
           options: [
-            ...RUMBLE_SHAPES.map((label, shape) => ({ label, active: shapeOf(pattern, currentScene(project).rumble) === shape, title: `Nachbeben in der Form „${label}“ um die Kicks legen`, run: () => app.rumble.shape(shape) })),
-            { label: "Aus", active: !hasRumble(currentScene(project), pattern.len), title: "Das Nachbeben wegnehmen", run: () => app.rumble.shape(-1) },
+            ...RUMBLE_SHAPES.map((label, shape) => ({ label, active: shapeOf(pattern, currentScene(project).rumble) === shape, title: `Lay rumble in the shape “${label}” around the kicks`, run: () => app.rumble.shape(shape) })),
+            { label: "Off", active: !hasRumble(currentScene(project), pattern.len), title: "Take the rumble away", run: () => app.rumble.shape(-1) },
           ],
         }]
       : []),
     {
       kind: "choice",
-      label: "Hören",
+      label: "Listen",
       options: [
-        { label: "Stumm", active: settings.mute, title: "Diesen Ring stumm schalten (M)", run: () => app.rings.toggleMute(track) },
-        { label: "Allein", active: app.rings.solo === track, title: "Nur diesen Ring hören (Umschalt+M)", run: () => app.rings.toggleSolo(track) },
+        { label: "Mute", active: settings.mute, title: "Mute this ring (M)", run: () => app.rings.toggleMute(track) },
+        { label: "Solo", active: app.rings.solo === track, title: "Hear only this ring (Shift+M)", run: () => app.rings.toggleSolo(track) },
       ],
     },
     {
       kind: "choice",
-      label: "Wetter",
+      label: "Weather",
       options: [
-        { label: "Malen …", title: "Wetter auf das Rad malen: Effekte, die mit dem Wind ziehen", close: true, run: () => app.weather.focus() },
-        { label: "Aufklaren", title: "Das Wetter über diesem Ring wegnehmen", disabled: !hasWeather(currentScene(project), undefined, track), run: () => app.weather.clear(undefined, track) },
+        { label: "Paint …", title: "Paint weather onto the wheel: effects that drift with the wind", close: true, run: () => app.weather.focus() },
+        { label: "Clear up", title: "Take the weather over this ring away", disabled: !hasWeather(currentScene(project), undefined, track), run: () => app.weather.clear(undefined, track) },
       ],
     },
     {
       kind: "choice",
-      label: "Muster",
+      label: "Pattern",
       options: [
-        { label: "Kopieren", title: "Das Muster dieses Rings merken", close: true, run: () => app.rings.copy(track) },
-        { label: "Einfügen", title: copied ? `Das Muster von ${trackInfo(copied.track).name} hierher legen` : "Noch nichts kopiert", disabled: !copied, run: () => app.rings.paste(track) },
-        { label: "Leeren", title: "Alle Schläge dieses Rings entfernen", disabled: activeSteps(pattern).length === 0, run: () => app.rings.clear(track) },
+        { label: "Copy", title: "Remember this ring's pattern", close: true, run: () => app.rings.copy(track) },
+        { label: "Paste", title: copied ? `Put the pattern of ${trackInfo(copied.track).name} here` : "Nothing copied yet", disabled: !copied, run: () => app.rings.paste(track) },
+        { label: "Clear", title: "Remove all hits of this ring", disabled: activeSteps(pattern).length === 0, run: () => app.rings.clear(track) },
       ],
     },
   );
-  return { title: at === null ? info.name : `${info.name} · Schritt ${at + 1}`, color: info.color, rows };
+  return { title: at === null ? info.name : `${info.name} · step ${at + 1}`, color: info.color, rows };
 }
 
 /** How many things the tension moves, in words. */
-export const swayName = (count: number): string => (count === 0 ? "nur die Einsätze" : count === 1 ? "1 Sache mehr" : `${count} Sachen mehr`);
+export const swayName = (count: number): string => (count === 0 ? "only the roster" : count === 1 ? "1 thing more" : `${count} things more`);
 
 /** The colour of a drop's mark on the wheel. */
 const DROP_COLOR = "#e4572e";
 
 /** What the ready-made sizes of a build-up are made of, for whoever points at one. */
 const SIZE_HINTS: Record<BuildSize, string> = {
-  keiner: "Kein Build-up: Der Drop kommt einfach, ohne Crash",
-  klein: "Klein: ein Takt Riser, dann der Crash",
-  mittel: "Mittel: vier Takte mit Riser und Snare-Roll, die Tiefen gehen raus, dann der Crash",
-  gross: "Groß: acht Takte mit Riser und Ton, Snare-Roll, Tiefen raus, Hall-Wolke, leiser werden, ein Schlag Lücke, dann der Crash",
+  keiner: "No build-up: the drop just comes, without a crash",
+  klein: "Small: one bar of riser, then the crash",
+  mittel: "Medium: four bars with riser and snare roll, the lows go, then the crash",
+  gross: "Big: eight bars with riser and tone, snare roll, lows out, cloud of reverb, getting quieter, a beat of gap, then the crash",
 };
 
 /**
@@ -201,76 +201,76 @@ function kitMenu(app: App, drop: number | null): MenuSpec | null {
   const set = (change: Partial<Build>) => (): void => app.piece.setBuild(drop, change);
   const part = (label: string, key: "roll" | "lows" | "wash" | "dip" | "kick" | "hat"): MenuRow => ({ kind: "action", label, checked: build[key], disabled: none, keep: true, run: set({ [key]: !build[key] }) });
   const rows: MenuRow[] = [
-    { kind: "choice", label: "Größe", options: (Object.keys(BUILD_SIZES) as BuildSize[]).map((id) => ({ label: sizeName(BUILD_SIZES[id]), title: SIZE_HINTS[id], active: size === id, run: () => app.piece.sizeBuild(drop, id) })) },
-    { kind: "choice", label: "Länge", options: [1, 2, 4, 8].map((bars) => ({ label: bars === 8 ? "8 Takte" : String(bars), title: bars === 1 ? "Der Build-up läuft einen Takt" : `Der Build-up läuft ${bars} Takte`, active: build.bars === bars, run: set({ bars }) })) },
-    { kind: "heading", label: "Zutaten" },
+    { kind: "choice", label: "Size", options: (Object.keys(BUILD_SIZES) as BuildSize[]).map((id) => ({ label: sizeName(BUILD_SIZES[id]), title: SIZE_HINTS[id], active: size === id, run: () => app.piece.sizeBuild(drop, id) })) },
+    { kind: "choice", label: "Length", options: [1, 2, 4, 8].map((bars) => ({ label: bars === 8 ? "8 bars" : String(bars), title: bars === 1 ? "The build-up runs one bar" : `The build-up runs ${bars} bars`, active: build.bars === bars, run: set({ bars }) })) },
+    { kind: "heading", label: "Parts" },
     {
       kind: "choice",
       label: "Riser",
       options: [
-        { label: "aus", title: "Kein Riser", active: build.riser === 0, disabled: none, run: set({ riser: 0 }) },
-        { label: "Rauschen", title: "Riser: Rauschen, das bis zum Drop ansteigt", active: build.riser === 1, disabled: none, run: set({ riser: 1 }) },
-        { label: "mit Ton", title: "Riser: Rauschen und ein Ton, der zwei Oktaven hochfährt und in der Tonart ankommt", active: build.riser === 2, disabled: none, run: set({ riser: 2 }) },
+        { label: "off", title: "No riser", active: build.riser === 0, disabled: none, run: set({ riser: 0 }) },
+        { label: "Noise", title: "Riser: noise that rises up to the drop", active: build.riser === 1, disabled: none, run: set({ riser: 1 }) },
+        { label: "with tone", title: "Riser: noise and a tone that climbs two octaves and arrives in the key", active: build.riser === 2, disabled: none, run: set({ riser: 2 }) },
       ],
     },
-    part(`Snare-Roll, am Ende ${build.bars >= 4 ? "Zweiunddreißigstel" : "Sechzehntel"}`, "roll"),
-    part("Tiefen raus: Bass dünnt aus, Kick wird schwächer", "lows"),
-    part("Hall-Wolke: wächst, am Drop trocken", "wash"),
-    part("Leiser werden", "dip"),
-    part("Letzter Takt ohne Kick", "kick"),
-    part("Letzter Takt ohne Hi-Hat", "hat"),
-    { kind: "heading", label: "Der Moment" },
+    part(`Snare roll, ${build.bars >= 4 ? "thirty-seconds" : "sixteenths"} at the end`, "roll"),
+    part("Lows out: the bass thins out, the kick gets weaker", "lows"),
+    part("Cloud of reverb: grows, dry at the drop", "wash"),
+    part("Getting quieter", "dip"),
+    part("Last bar without kick", "kick"),
+    part("Last bar without hi-hat", "hat"),
+    { kind: "heading", label: "The moment" },
     {
       kind: "choice",
-      label: "Lücke",
-      options: ([[0, "keine", "Keine Lücke: Der Build-up läuft bis zum Drop"], [1, "Schlag", "Der letzte Schlag vor dem Drop ist still: Nur Hall und Echo klingen aus"], [2, "½ Takt", "Der letzte halbe Takt vor dem Drop ist still"], [4, "Takt", "Der ganze letzte Takt vor dem Drop ist still"]] as const)
+      label: "Gap",
+      options: ([[0, "none", "No gap: the build-up runs up to the drop"], [1, "beat", "The last beat before the drop is silent: only reverb and echo ring out"], [2, "½ bar", "The last half bar before the drop is silent"], [4, "bar", "The whole last bar before the drop is silent"]] as const)
         .map(([gap, label, title]) => ({ label, title, active: build.gap === gap, disabled: none, run: set({ gap }) })),
     },
     {
       kind: "choice",
       label: "Drop",
       options: [
-        { label: "auf die Eins", title: "Alles setzt auf der Eins ein", active: !build.late, disabled: none, run: set({ late: false }) },
-        { label: "spät", title: "Später Drop: Auf der Eins kommen nur Kick und Bass, alles andere einen Schlag später", active: build.late, disabled: none, run: set({ late: true }) },
+        { label: "on the one", title: "Everything comes in on the one", active: !build.late, disabled: none, run: set({ late: false }) },
+        { label: "late", title: "Late drop: on the one only kick and bass come, everything else a beat later", active: build.late, disabled: none, run: set({ late: true }) },
       ],
     },
   ];
   if (drop === null) {
     const own = app.piece.ownBuilds;
-    if (own > 0) rows.push({ kind: "action", label: own === 1 ? "Auch für den Drop mit eigenem Build-up" : `Auch für die ${own} Drops mit eigenem Build-up`, keep: true, run: () => app.piece.clearBuild(null) });
-    return { title: "Alle Drops · Build-up", color: DROP_COLOR, rows };
+    if (own > 0) rows.push({ kind: "action", label: own === 1 ? "Also for the drop with a build-up of its own" : `Also for the ${own} drops with a build-up of their own`, keep: true, run: () => app.piece.clearBuild(null) });
+    return { title: "All drops · Build-up", color: DROP_COLOR, rows };
   }
   // Two bars of what comes before, so that the build-up is heard to begin.
   const from = wrap(drop - buildReach(piece, drop) - 2, barCount(piece));
   rows.push(
-    { kind: "action", label: `Anhören ab Takt ${from + 1}`, keep: true, run: () => app.piece.playFrom(from) },
-    { kind: "action", label: "Für alle Drops übernehmen", run: () => app.piece.shareBuild(drop) },
-    { kind: "action", label: "Wieder wie alle Drops", disabled: !app.piece.hasOwnBuild(drop), keep: true, run: () => app.piece.clearBuild(drop) },
+    { kind: "action", label: `Listen from bar ${from + 1}`, keep: true, run: () => app.piece.playFrom(from) },
+    { kind: "action", label: "Use for all drops", run: () => app.piece.shareBuild(drop) },
+    { kind: "action", label: "Same as all drops again", disabled: !app.piece.hasOwnBuild(drop), keep: true, run: () => app.piece.clearBuild(drop) },
   );
-  return { title: `Drop in Takt ${drop + 1} · Build-up`, color: DROP_COLOR, rows };
+  return { title: `Drop in bar ${drop + 1} · Build-up`, color: DROP_COLOR, rows };
 }
 
 /** What the tension can move beyond who plays, as the page names it and says what it does. */
 const SWAYS: readonly [part: keyof Sway, label: string, does: string][] = [
-  ["hat", "Hi-Hat öffnet sich", "Die Hi-Hat klingt länger aus, je höher die Spannung ist"],
-  ["bright", "Helligkeit", "Bass, Akkorde und Melodie werden mit der Spannung heller, vom Klang des Rings aus; bei einer Acid-Maschine geht der Biss mit"],
-  ["kick", "Kick wächst", "Bei wenig Spannung ist die Kick kürzer und dünner, am Gipfel ist sie ganz da"],
-  ["dense", "Dichte", "Bei wenig Spannung fallen die leisen Schläge weg, am Gipfel spielen alle"],
-  ["drive", "Zerre", "Zum Gipfel hin wird jeder Ring etwas härter verzerrt"],
-  ["room", "Raum", "Je weniger Spannung, desto mehr Hall liegt auf allem außer Kick und Bass"],
+  ["hat", "Hi-hat opens", "The hi-hat rings out longer the higher the tension is"],
+  ["bright", "Brightness", "Bass, chords and melody get brighter with the tension, from the ring's own sound; with an acid machine the bite goes along"],
+  ["kick", "Kick grows", "With little tension the kick is shorter and thinner, at the top it is all there"],
+  ["dense", "Density", "With little tension the quiet hits fall away, at the top all of them play"],
+  ["drive", "Drive", "Towards the top every ring is driven a little harder"],
+  ["room", "Room", "The less tension, the more reverb lies on everything but kick and bass"],
 ];
 
 /** What the piece's tension moves beyond who plays: each thing off, gently or clearly. */
 function swayMenu(app: App): MenuSpec {
   const sway = app.project.piece.sway;
   return {
-    title: "Was die Spannung bewegt",
+    title: "What the tension moves",
     rows: SWAYS.map(([part, label, does]) => ({
       kind: "choice" as const,
       label,
-      options: (["aus", "sanft", "deutlich"] as const).map((name, depth) => ({
+      options: (["off", "gently", "clearly"] as const).map((name, depth) => ({
         label: name,
-        title: depth === 0 ? `${label}: aus` : `${label}, ${name}: ${does}`,
+        title: depth === 0 ? `${label}: off` : `${label}, ${name}: ${does}`,
         active: (sway?.[part] ?? 0) === depth,
         run: () => app.piece.setSway(part, depth),
       })),
@@ -280,11 +280,11 @@ function swayMenu(app: App): MenuSpec {
 
 /** What each live effect does when it is laid on a bar of the piece, in the order of MARK_NAMES. */
 const MARK_HINTS = [
-  "Dumpf: Dieser Takt klingt dumpf, wie unter der Taste",
-  "Dünn: In diesem Takt fehlen die Tiefen",
-  "Stotter: Die zweite Hälfte dieses Takts stottert",
-  "Echo: Der letzte Schlag dieses Takts geht ins Echo",
-  "Pause: Im letzten Schlag dieses Takts setzen Drums und Bass aus",
+  "Dull: this bar sounds dull, as under the key",
+  "Thin: the lows are missing in this bar",
+  "Stutter: the second half of this bar stutters",
+  "Echo: the last beat of this bar goes into the echo",
+  "Pause: in the last beat of this bar drums and bass drop out",
 ] as const;
 
 /** What happens by itself where a phrase of eight bars ends and the next begins. */
@@ -292,17 +292,17 @@ function endsMenu(app: App): MenuSpec {
   const piece = app.project.piece;
   const crash = piece.ends?.crash ?? 0;
   return {
-    title: "Phrasen-Enden",
+    title: "Phrase ends",
     rows: [
-      { kind: "action", label: "Fills", note: "Jeder achte Takt endet mit einer Kick mehr, jeder sechzehnte dazu mit zwei Schlägen der Trommel", checked: piece.vary ?? false, keep: true, run: () => app.piece.toggleVary() },
-      { kind: "action", label: "Letzte Kick fehlt", note: "Die letzte Kick jeder Phrase bleibt weg, die Eins danach trifft härter", checked: piece.ends?.kick ?? false, keep: true, run: () => app.piece.setEnds({ kick: !(piece.ends?.kick ?? false) }) },
+      { kind: "action", label: "Fills", note: "Every eighth bar ends with one more kick, every sixteenth with two strokes of the drum as well", checked: piece.vary ?? false, keep: true, run: () => app.piece.toggleVary() },
+      { kind: "action", label: "Last kick left out", note: "The last kick of every phrase stays out, the one after it hits harder", checked: piece.ends?.kick ?? false, keep: true, run: () => app.piece.setEnds({ kick: !(piece.ends?.kick ?? false) }) },
       {
         kind: "choice",
-        label: "Crash auf die Eins",
-        options: ([[0, "aus", "Kein Crash an den Phrasen"], [16, "alle 16", "Ein Crash auf die Eins alle 16 Takte"], [32, "alle 32", "Ein Crash auf die Eins alle 32 Takte"]] as const)
+        label: "Crash on the one",
+        options: ([[0, "off", "No crash at the phrases"], [16, "every 16", "A crash on the one every 16 bars"], [32, "every 32", "A crash on the one every 32 bars"]] as const)
           .map(([every, label, title]) => ({ label, title, active: crash === every, run: () => app.piece.setEnds({ crash: every }) })),
       },
-      { kind: "action", label: "Rückwärts-Becken", note: "Ein Becken schwillt rückwärts in den Anfang jeder Phrase", checked: piece.ends?.swell ?? false, keep: true, run: () => app.piece.setEnds({ swell: !(piece.ends?.swell ?? false) }) },
+      { kind: "action", label: "Backwards cymbal", note: "A cymbal swells backwards into the start of every phrase", checked: piece.ends?.swell ?? false, keep: true, run: () => app.piece.setEnds({ swell: !(piece.ends?.swell ?? false) }) },
     ],
   };
 }
@@ -319,58 +319,58 @@ function pieceMenu(app: App, bar: number | null, doors: MenuDoors): MenuSpec {
     const phrase = phraseOf(piece, at);
     const out = kickOut(piece, at);
     rows.push(
-      { kind: "action", label: "Ab hier spielen", run: () => app.piece.playFrom(at) },
+      { kind: "action", label: "Play from here", run: () => app.piece.playFrom(at) },
       {
         kind: "choice",
-        label: `Spannung ${Math.round((tension / TENSION_MAX) * 100)} %`,
+        label: `Tension ${Math.round((tension / TENSION_MAX) * 100)} %`,
         options: [
-          { label: "−", title: "Weniger los in diesem Takt", disabled: tension <= 0, run: () => app.piece.paintTension(at, tension - 2, `spannung-menue${at}`) },
-          { label: "+", title: "Mehr los in diesem Takt", disabled: tension >= TENSION_MAX, run: () => app.piece.paintTension(at, tension + 2, `spannung-menue${at}`) },
+          { label: "−", title: "Less going on in this bar", disabled: tension <= 0, run: () => app.piece.paintTension(at, tension - 2, `spannung-menue${at}`) },
+          { label: "+", title: "More going on in this bar", disabled: tension >= TENSION_MAX, run: () => app.piece.paintTension(at, tension + 2, `spannung-menue${at}`) },
         ],
       },
       {
         kind: "choice",
-        label: `Szene, Takt ${from + 1} bis ${Math.min(count, from + 4)}`,
-        options: project.scenes.flatMap((scene, index) => (scene ? [{ label: SCENE_NAMES[index] ?? "", title: `Szene ${SCENE_NAMES[index]} auf diese vier Takte legen`, active: piece.scenes[at] === index, run: () => app.piece.sceneForBars(at, index) }] : [])),
+        label: `Scene, bars ${from + 1} to ${Math.min(count, from + 4)}`,
+        options: project.scenes.flatMap((scene, index) => (scene ? [{ label: SCENE_NAMES[index] ?? "", title: `Put scene ${SCENE_NAMES[index]} on these four bars`, active: piece.scenes[at] === index, run: () => app.piece.sceneForBars(at, index) }] : [])),
       },
       {
         kind: "choice",
-        label: `Takt ${phrase.from + 1} bis ${phrase.to}`,
+        label: `Bars ${phrase.from + 1} to ${phrase.to}`,
         options: [
-          { label: "mit Kick", title: "Die Kick spielt in diesen Takten, sobald die Spannung sie erreicht", active: !out, run: () => app.piece.kickForPhrase(at, true) },
-          { label: "Break", title: "Break: Kick und Nachbeben setzen in diesen Takten aus, alles andere spielt nach der Spannung", active: out, run: () => app.piece.kickForPhrase(at, false) },
+          { label: "with kick", title: "The kick plays in these bars as soon as the tension reaches it", active: !out, run: () => app.piece.kickForPhrase(at, true) },
+          { label: "Break", title: "Break: kick and rumble drop out in these bars, everything else plays by the tension", active: out, run: () => app.piece.kickForPhrase(at, false) },
         ],
       },
     );
     // One or more of the five live effects, laid on this bar: they play there by themselves, once.
     const marks = app.piece.marksAt(at);
-    rows.push({ kind: "choice", label: "Effekt", options: MARK_NAMES.map((label, bit) => ({ label, title: MARK_HINTS[bit] ?? label, active: (marks & (1 << bit)) !== 0, run: () => app.piece.toggleMark(at, 1 << bit) })) });
+    rows.push({ kind: "choice", label: "Effect", options: MARK_NAMES.map((label, bit) => ({ label, title: MARK_HINTS[bit] ?? label, active: (marks & (1 << bit)) !== 0, run: () => app.piece.toggleMark(at, 1 << bit) })) });
     // A bar that leads up to a drop, or the drop itself: the way to its build-up.
     const drop = app.piece.dropNear(at);
-    if (drop !== null) rows.push({ kind: "action", label: `Build-up vor dem Drop in Takt ${drop + 1} …`, note: app.piece.describeDrop(drop).split(" · ")[1] ?? "", run: () => doors.turnTo?.({ kind: "build", drop }) });
-    rows.push({ kind: "heading", label: "Ganzes Stück" });
+    if (drop !== null) rows.push({ kind: "action", label: `Build-up before the drop in bar ${drop + 1} …`, note: app.piece.describeDrop(drop).split(" · ")[1] ?? "", run: () => doors.turnTo?.({ kind: "build", drop }) });
+    rows.push({ kind: "heading", label: "Whole piece" });
   }
   rows.push(
-    { kind: "action", label: "Nach dem Stück spielen", checked: piece.on, keep: true, run: () => app.piece.toggle() },
-    { kind: "action", label: "Würfeln", hint: "N", keep: true, run: () => app.piece.dice() },
-    { kind: "choice", label: "Form würfeln", options: SHAPES.map((shape) => ({ label: SHAPE_NAMES[shape], title: SHAPE_HINTS[shape], run: () => app.piece.dice(shape) })) },
-    { kind: "action", label: "Glätten", keep: true, run: () => app.piece.smooth() },
+    { kind: "action", label: "Play by the piece", checked: piece.on, keep: true, run: () => app.piece.toggle() },
+    { kind: "action", label: "Dice", hint: "N", keep: true, run: () => app.piece.dice() },
+    { kind: "choice", label: "Dice a shape", options: SHAPES.map((shape) => ({ label: SHAPE_NAMES[shape], title: SHAPE_HINTS[shape], run: () => app.piece.dice(shape) })) },
+    { kind: "action", label: "Smooth", keep: true, run: () => app.piece.smooth() },
     {
       kind: "choice",
-      label: `Takte ${count}`,
+      label: `Bars ${count}`,
       options: [
-        { label: "−", title: "Vier Takte kürzer", disabled: count <= MIN_BARS, run: () => app.piece.resize(count - 4) },
-        ...[16, 32, 64].map((bars) => ({ label: String(bars), title: `${bars} Takte`, active: count === bars, run: () => app.piece.resize(bars) })),
-        { label: "+", title: "Vier Takte länger", disabled: count >= MAX_BARS, run: () => app.piece.resize(count + 4) },
+        { label: "−", title: "Four bars shorter", disabled: count <= MIN_BARS, run: () => app.piece.resize(count - 4) },
+        ...[16, 32, 64].map((bars) => ({ label: String(bars), title: `${bars} bars`, active: count === bars, run: () => app.piece.resize(bars) })),
+        { label: "+", title: "Four bars longer", disabled: count >= MAX_BARS, run: () => app.piece.resize(count + 4) },
       ],
     },
-    { kind: "action", label: `Die Spannung bewegt: ${swayName(app.piece.swayCount)} …`, run: () => doors.turnTo?.({ kind: "sway" }) },
-    { kind: "action", label: `Build-up aller Drops: ${sizeName(app.piece.build(null))} …`, run: () => doors.turnTo?.({ kind: "build", drop: null }) },
-    { kind: "action", label: "Fills alle acht Takte", checked: piece.vary ?? false, keep: true, run: () => app.piece.toggleVary() },
-    { kind: "action", label: `Phrasen-Enden: ${app.piece.endsCount === 0 ? "nichts" : app.piece.endsCount} …`, run: () => doors.turnTo?.({ kind: "ends" }) },
-    { kind: "action", label: "Protokoll …", run: () => doors.protocol?.() },
+    { kind: "action", label: `The tension moves: ${swayName(app.piece.swayCount)} …`, run: () => doors.turnTo?.({ kind: "sway" }) },
+    { kind: "action", label: `Build-up of all drops: ${sizeName(app.piece.build(null))} …`, run: () => doors.turnTo?.({ kind: "build", drop: null }) },
+    { kind: "action", label: "Fills every eight bars", checked: piece.vary ?? false, keep: true, run: () => app.piece.toggleVary() },
+    { kind: "action", label: `Phrase ends: ${app.piece.endsCount === 0 ? "nothing" : app.piece.endsCount} …`, run: () => doors.turnTo?.({ kind: "ends" }) },
+    { kind: "action", label: "Outline …", run: () => doors.protocol?.() },
   );
-  return { title: at === null ? "Stück" : `Stück · Takt ${at + 1}`, rows };
+  return { title: at === null ? "Piece" : `Piece · bar ${at + 1}`, rows };
 }
 
 /** The roster of one phrase: every ring, and whether it goes by the tension, plays or rests there. */
@@ -378,7 +378,7 @@ function rosterMenu(app: App, bar: number): MenuSpec | null {
   const piece = app.project.piece;
   if (bar < 0 || bar >= barCount(piece)) return null;
   const { from, to } = phraseOf(piece, bar);
-  const rows: MenuRow[] = [{ kind: "heading", label: "Einsätze in diesen Takten" }];
+  const rows: MenuRow[] = [{ kind: "heading", label: "Roster in these bars" }];
   // The melody first, as in the list of rings.
   for (let ring = TRACK_COUNT - 1; ring >= 0; ring -= 1) {
     const name = trackInfo(ring).name;
@@ -387,18 +387,18 @@ function rosterMenu(app: App, bar: number): MenuSpec | null {
       kind: "choice",
       label: name,
       options: [
-        { label: "Spannung", title: `${name}: Die Spannung entscheidet in diesen Takten`, active: state === ROSTER.tension, run: () => app.piece.layRoster(ring, bar, ROSTER.tension) },
-        { label: "spielt", title: `${name}: spielt in diesen Takten, was auch die Spannung sagt`, active: state === ROSTER.plays, run: () => app.piece.layRoster(ring, bar, ROSTER.plays) },
-        { label: "pausiert", title: `${name}: pausiert in diesen Takten`, active: state === ROSTER.rests, run: () => app.piece.layRoster(ring, bar, ROSTER.rests) },
+        { label: "Tension", title: `${name}: the tension decides in these bars`, active: state === ROSTER.tension, run: () => app.piece.layRoster(ring, bar, ROSTER.tension) },
+        { label: "plays", title: `${name}: plays in these bars, whatever the tension says`, active: state === ROSTER.plays, run: () => app.piece.layRoster(ring, bar, ROSTER.plays) },
+        { label: "rests", title: `${name}: rests in these bars`, active: state === ROSTER.rests, run: () => app.piece.layRoster(ring, bar, ROSTER.rests) },
       ],
     });
   }
   rows.push(
-    { kind: "action", label: "Alle spielen in diesen Takten", keep: true, run: () => app.piece.fillRoster(bar) },
-    { kind: "action", label: "Alle nach der Spannung", keep: true, run: () => app.piece.clearRoster(bar) },
-    { kind: "action", label: "Ab hier spielen", run: () => app.piece.playFrom(from) },
+    { kind: "action", label: "All play in these bars", keep: true, run: () => app.piece.fillRoster(bar) },
+    { kind: "action", label: "All by the tension", keep: true, run: () => app.piece.clearRoster(bar) },
+    { kind: "action", label: "Play from here", run: () => app.piece.playFrom(from) },
   );
-  return { title: `Stück · Takt ${from + 1} bis ${to}`, rows };
+  return { title: `Piece · bars ${from + 1} to ${to}`, rows };
 }
 
 function chordMenu(app: App, slot: number): MenuSpec | null {
@@ -407,12 +407,12 @@ function chordMenu(app: App, slot: number): MenuSpec | null {
   const degree = chords[slot];
   if (degree === undefined) return null;
   return {
-    title: `Takt ${slot + 1} von ${chords.length}`,
+    title: `Bar ${slot + 1} of ${chords.length}`,
     color: trackInfo(5).color,
     rows: [
-      { kind: "choice", label: "Akkord", options: Array.from({ length: 7 }, (_, index) => ({ label: chordName(project.root, project.scale, index), active: degree === index, run: () => app.chords.set(slot, index) })) },
-      { kind: "action", label: "Takt verdoppeln", disabled: chords.length >= MAX_CHORDS, keep: true, run: () => app.chords.insertBar(slot) },
-      { kind: "action", label: "Takt entfernen", disabled: chords.length <= 1, run: () => app.chords.removeBar(slot) },
+      { kind: "choice", label: "Chord", options: Array.from({ length: 7 }, (_, index) => ({ label: chordName(project.root, project.scale, index), active: degree === index, run: () => app.chords.set(slot, index) })) },
+      { kind: "action", label: "Double the bar", disabled: chords.length >= MAX_CHORDS, keep: true, run: () => app.chords.insertBar(slot) },
+      { kind: "action", label: "Remove the bar", disabled: chords.length <= 1, run: () => app.chords.removeBar(slot) },
     ],
   };
 }
@@ -422,18 +422,18 @@ function sceneMenu(app: App, index: number): MenuSpec | null {
   const name = SCENE_NAMES[index];
   if (name === undefined) return null;
   if (!project.scenes[index]) {
-    return { title: `Szene ${name} (leer)`, rows: [{ kind: "action", label: `Als Kopie von ${SCENE_NAMES[project.scene]} anlegen`, run: () => app.scenes.pick(index) }] };
+    return { title: `Scene ${name} (empty)`, rows: [{ kind: "action", label: `Create as a copy of ${SCENE_NAMES[project.scene]}`, run: () => app.scenes.pick(index) }] };
   }
   const free = app.scenes.free();
   const filled = project.scenes.filter((scene) => scene !== null).length;
   return {
-    title: `Szene ${name}`,
+    title: `Scene ${name}`,
     rows: [
-      { kind: "action", label: "Hierher wechseln", disabled: project.scene === index, run: () => app.scenes.pick(index) },
-      { kind: "action", label: free >= 0 ? `Kopie nach ${SCENE_NAMES[free]} legen` : "Kopie anlegen (kein Platz frei)", disabled: free < 0, run: () => app.scenes.copy(index) },
-      { kind: "action", label: "In die Folge legen", disabled: project.order.length >= MAX_ROUNDS, run: () => app.scenes.lay(index) },
-      { kind: "action", label: "Im ganzen Stück spielen", run: () => app.piece.sceneForBars(0, index, true) },
-      { kind: "action", label: "Leeren", hint: "Umschalt+Klick", disabled: filled <= 1, run: () => app.scenes.clear(index) },
+      { kind: "action", label: "Switch here", disabled: project.scene === index, run: () => app.scenes.pick(index) },
+      { kind: "action", label: free >= 0 ? `Put a copy on ${SCENE_NAMES[free]}` : "Create a copy (no room left)", disabled: free < 0, run: () => app.scenes.copy(index) },
+      { kind: "action", label: "Put into the row", disabled: project.order.length >= MAX_ROUNDS, run: () => app.scenes.lay(index) },
+      { kind: "action", label: "Play through the whole piece", run: () => app.piece.sceneForBars(0, index, true) },
+      { kind: "action", label: "Clear", hint: "Shift+click", disabled: filled <= 1, run: () => app.scenes.clear(index) },
     ],
   };
 }
@@ -445,15 +445,15 @@ function roundMenu(app: App, round: number): MenuSpec | null {
   if (scene === undefined) return null;
   const filled = project.scenes.flatMap((entry, index) => (entry ? [index] : []));
   return {
-    title: `Folge: ${round + 1}. Runde, Szene ${SCENE_NAMES[scene] ?? ""}`,
+    title: `Row: round ${round + 1}, scene ${SCENE_NAMES[scene] ?? ""}`,
     rows: [
-      { kind: "action", label: "Von hier spielen", run: () => app.scenes.playFrom(round) },
-      { kind: "action", label: "Noch einmal", keep: true, disabled: project.order.length >= MAX_ROUNDS, run: () => app.scenes.repeatRound(round) },
-      { kind: "choice", label: "Szene", options: filled.map((index) => ({ label: SCENE_NAMES[index] ?? "", title: `Diese Runde spielt Szene ${SCENE_NAMES[index] ?? ""}`, active: index === scene, run: () => app.scenes.setRound(round, index) })) },
+      { kind: "action", label: "Play from here", run: () => app.scenes.playFrom(round) },
+      { kind: "action", label: "Once more", keep: true, disabled: project.order.length >= MAX_ROUNDS, run: () => app.scenes.repeatRound(round) },
+      { kind: "choice", label: "Scene", options: filled.map((index) => ({ label: SCENE_NAMES[index] ?? "", title: `This round plays scene ${SCENE_NAMES[index] ?? ""}`, active: index === scene, run: () => app.scenes.setRound(round, index) })) },
       // What the mouse does by carrying the tile, for a finger and for the keyboard.
-      { kind: "action", label: "Eine Runde früher", disabled: round === 0, run: () => app.scenes.moveRound(round, round - 1) },
-      { kind: "action", label: "Eine Runde später", disabled: round >= project.order.length - 1, run: () => app.scenes.moveRound(round, round + 1) },
-      { kind: "action", label: "Herausnehmen", hint: "Entf", disabled: project.order.length <= 1, run: () => app.scenes.removeRound(round) },
+      { kind: "action", label: "One round earlier", disabled: round === 0, run: () => app.scenes.moveRound(round, round - 1) },
+      { kind: "action", label: "One round later", disabled: round >= project.order.length - 1, run: () => app.scenes.moveRound(round, round + 1) },
+      { kind: "action", label: "Take out", hint: "Del", disabled: project.order.length <= 1, run: () => app.scenes.removeRound(round) },
     ],
   };
 }
@@ -462,18 +462,18 @@ function hubMenu(app: App, doors: MenuDoors): MenuSpec {
   return {
     title: "Kreisel",
     rows: [
-      { kind: "action", label: app.playing ? "Anhalten" : "Starten", hint: "Leertaste", run: () => app.togglePlay() },
-      { kind: "action", label: app.engine.recording ? "Aufnahme beenden" : "Aufnehmen", run: () => void app.files.toggleRecording() },
-      { kind: "action", label: "Alle Ringe würfeln", run: () => app.rings.diceAll() },
-      { kind: "action", label: "Alle acht Takte neu ausrichten", note: "Ungleich lange Ringe reiben acht Takte lang und beginnen dann gemeinsam neu", checked: app.project.align ?? false, keep: true, run: () => app.toggleAlign() },
-      { kind: "action", label: "Rückgängig", hint: "Strg+Z", disabled: !app.store.canUndo, keep: true, run: () => app.undo() },
-      { kind: "action", label: "Wiederholen", hint: "Strg+Y", disabled: !app.store.canRedo, keep: true, run: () => app.redo() },
-      { kind: "heading", label: "Weitergeben" },
-      { kind: "action", label: "Link kopieren", run: () => void app.files.share() },
-      { kind: "action", label: "Reihum …", run: () => doors.relay() },
-      { kind: "action", label: "Als Opus speichern", run: () => void app.files.exportSound() },
-      { kind: "heading", label: "Hilfe" },
-      { kind: "action", label: "Hilfe und Tasten", hint: "?", run: () => doors.help() },
+      { kind: "action", label: app.playing ? "Stop" : "Start", hint: "Space", run: () => app.togglePlay() },
+      { kind: "action", label: app.engine.recording ? "Stop recording" : "Record", run: () => void app.files.toggleRecording() },
+      { kind: "action", label: "Dice all rings", run: () => app.rings.diceAll() },
+      { kind: "action", label: "Realign every eight bars", note: "Rings of unequal length rub for eight bars and then start together again", checked: app.project.align ?? false, keep: true, run: () => app.toggleAlign() },
+      { kind: "action", label: "Undo", hint: "Ctrl+Z", disabled: !app.store.canUndo, keep: true, run: () => app.undo() },
+      { kind: "action", label: "Redo", hint: "Ctrl+Y", disabled: !app.store.canRedo, keep: true, run: () => app.redo() },
+      { kind: "heading", label: "Pass on" },
+      { kind: "action", label: "Copy link", run: () => void app.files.share() },
+      { kind: "action", label: "Pass around …", run: () => doors.relay() },
+      { kind: "action", label: "Save as Opus", run: () => void app.files.exportSound() },
+      { kind: "heading", label: "Help" },
+      { kind: "action", label: "Help and keys", hint: "?", run: () => doors.help() },
     ],
   };
 }
@@ -481,9 +481,9 @@ function hubMenu(app: App, doors: MenuDoors): MenuSpec {
 function weatherMenu(app: App): MenuSpec {
   const scene = currentScene(app.project);
   const rows: MenuRow[] = [
-    { kind: "action", label: "Wetter malen …", run: () => app.weather.focus() },
-    { kind: "action", label: "Würfeln", keep: true, run: () => app.weather.dice() },
-    { kind: "action", label: "Alles aufklaren", disabled: !hasWeather(scene), run: () => app.weather.clear() },
+    { kind: "action", label: "Paint weather …", run: () => app.weather.focus() },
+    { kind: "action", label: "Dice", keep: true, run: () => app.weather.dice() },
+    { kind: "action", label: "Clear everything up", disabled: !hasWeather(scene), run: () => app.weather.clear() },
   ];
   // What lies in the sky can be taken away kind by kind, or held still.
   WEATHER_NAMES.forEach((name, kind) => {
@@ -492,12 +492,12 @@ function weatherMenu(app: App): MenuSpec {
       kind: "choice",
       label: `${name}: ${windName(scene.wind[kind] ?? 0)}`,
       options: [
-        { label: "anhalten", title: `Den Wind von ${name} anhalten`, disabled: (scene.wind[kind] ?? 0) === 0, run: () => app.weather.setWind(kind, 0) },
-        { label: "weg", title: `${name} wegnehmen`, run: () => app.weather.clear(kind) },
+        { label: "stop", title: `Stop the wind of ${name}`, disabled: (scene.wind[kind] ?? 0) === 0, run: () => app.weather.setWind(kind, 0) },
+        { label: "remove", title: `Take ${name} away`, run: () => app.weather.clear(kind) },
       ],
     });
   });
-  return { title: "Wetter", color: "#3d7edb", rows };
+  return { title: "Weather", color: "#3d7edb", rows };
 }
 
 /** The menu for what the right button landed on, or `null` when there is nothing to offer (any more). */

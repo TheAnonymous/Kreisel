@@ -54,7 +54,7 @@ export interface Graph {
   context: BaseAudioContext;
   kit: Kit;
   master: Master;
-  /** "Druck": where the sum is pressed before the master hears it. */
+  /** "Pressure": where the sum is pressed before the master hears it. */
   press: Press;
   mix: GainNode;
   /** The dry sum on its way to the press: the gap before a drop closes it, and hall and echo ring out. */
@@ -495,7 +495,7 @@ export class Player {
     // The riser's tone starts two octaves above the bass's keynote, and ends two octaves higher, in key.
     if (own) lead.bar(own, time, duration, midiToHz(bassMidi(project, 0, 0) + 24), this.thinHeld || thin);
     if (thin) {
-      // "Dünn" for this one bar: the lows go, as under the key.
+      // "Thin" for this one bar: the lows go, as under the key.
       highpass.frequency.setTargetAtTime(1300, time, 0.03);
       highpass.Q.setTargetAtTime(5, time, 0.03);
       this.marked.thin = true;
@@ -505,7 +505,7 @@ export class Player {
     this.rolls = own && kit && plan.roll ? rollHits(own.at, kit.bars, kit.gap) : [];
     this.gapFrom = own && kit && own.at === kit.bars - 1 ? BAR - gapSteps(kit) : BAR;
     if (dull) {
-      // "Dumpf" for this one bar: the sum is muffled, as under the key; the line has the filter back at the next bar.
+      // "Dull" for this one bar: the sum is muffled, as under the key; the line has the filter back at the next bar.
       lowpass.frequency.cancelScheduledValues(time);
       lowpass.frequency.setValueAtTime(this.cutoff, time);
       lowpass.frequency.exponentialRampToValueAtTime(300, time + 0.08);
@@ -570,7 +570,7 @@ export class Player {
       if (this.pieceSteps % BAR === 0) this.barLine(project, time, duration);
       const marks = this.plan?.marks ?? 0;
       if ((marks & MARK.stotter) !== 0 && this.pieceSteps % BAR === BAR / 2 && !this.stutter) {
-        // "Stotter" for the second half of this bar.
+        // "Stutter" for the second half of this bar.
         this.setStutter(true);
         this.marked.stutter = true;
       }

@@ -69,7 +69,7 @@ describe("the machine's filter", () => {
     expect([restHz(-3), restHz(9), resonanceDb(9)]).toEqual([restHz(0), restHz(1), resonanceDb(1)]);
   });
 
-  it("is opened as far as Biss says and falls as slowly as Dauer says", () => {
+  it("is opened as far as Bite says and falls as slowly as Duration says", () => {
     const soft = biteOf({ bite: 0, decay: 0, square: false }, false, 0, 0.5);
     const hard = biteOf({ bite: 1, decay: 1, square: false }, false, 0, 0.5);
     expect(soft).toEqual({ open: 1, seconds: 0.05, loud: 1 });
@@ -118,7 +118,7 @@ describe("a machine in a Kreisel", () => {
     expect(cleanAcid({ bite: Number.NaN })).toEqual(firstAcid());
   });
 
-  it("travels in a link, after the ring's Zerre; a ring without one is packed as before", async () => {
+  it("travels in a link, after the ring's drive; a ring without one is packed as before", async () => {
     const project = factoryProject();
     Object.assign(project.tracks[4]!, { sound: ACID_SOUND, acid: { bite: 0.8, decay: 0.2, square: true }, x: 0.4, y: 0.7 });
     const packed = pack(project);
@@ -150,7 +150,7 @@ describe("a machine in a Kreisel", () => {
     expect(unpack(data).tracks[6]!.sound).toBe(0);
   });
 
-  it("plays the techno Kreisel's acid line, and the Werks-Kreisel has none", async () => {
+  it("plays the techno Kreisel's acid line, and the factory Kreisel has none", async () => {
     const techno = technoProject();
     expect(techno.tracks[4]).toMatchObject({ sound: ACID_SOUND, acid: firstAcid() });
     expect(techno.tracks[6]!.acid).toBeNull();

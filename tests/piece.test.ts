@@ -139,8 +139,8 @@ describe("shaping the piece", () => {
   });
 
   it("says how long it is", () => {
-    expect(describePiece(piece(Array.from({ length: 32 }, () => 31)), 120)).toBe("32 Takte, 1:04 Minuten, im Mittel 100 % Spannung");
-    expect(describePiece(piece([0, 0, 0, 31]), 60)).toBe("4 Takte, 0:16 Minuten, im Mittel 25 % Spannung");
+    expect(describePiece(piece(Array.from({ length: 32 }, () => 31)), 120)).toBe("32 bars, 1:04 minutes, 100 % tension on average");
+    expect(describePiece(piece([0, 0, 0, 31]), 60)).toBe("4 bars, 0:16 minutes, 25 % tension on average");
   });
 });
 
@@ -248,8 +248,8 @@ describe("a techno piece", () => {
     expect(line.noKick).toEqual(Array.from({ length: 32 }, (_, bar) => bar >= 16 && bar < 24));
     rotatePiece(line, 4);
     expect(line.noKick).toEqual(Array.from({ length: 32 }, (_, bar) => bar >= 20 && bar < 28));
-    expect(describePiece(line, 150)).toBe("32 Takte, 0:51 Minuten, im Mittel 71 % Spannung, 8 Takte Break");
-    expect(describePiece(level(32, 22), 150)).toBe("32 Takte, 0:51 Minuten, im Mittel 71 % Spannung");
+    expect(describePiece(line, 150)).toBe("32 bars, 0:51 minutes, 71 % tension on average, 8 bars of break");
+    expect(describePiece(level(32, 22), 150)).toBe("32 bars, 0:51 minutes, 71 % tension on average");
     resizePiece(line, 4);
     expect(barCount(line)).toBe(4);
   });
@@ -279,7 +279,7 @@ describe("a techno piece", () => {
     }
   });
 
-  it("is what the techno Kreisel's own piece has: a break of sixteen bars in which the acid line plays on", () => {
+  it("is what the plain techno form has: a break of sixteen bars in which the acid line plays on", () => {
     const start = technoPiece();
     expect(start.noKick?.flatMap((mark, bar) => (mark ? [bar] : []))).toEqual(Array.from({ length: 16 }, (_, index) => 48 + index));
     expect(playing(planBar(start, 48))).toEqual([1, 2, 3, 4]);

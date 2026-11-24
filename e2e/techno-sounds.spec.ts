@@ -19,10 +19,10 @@ const inWindow = async (page: Page): Promise<boolean> => {
   return card.y >= 0 && card.y + card.height <= 768 && !scrolls;
 };
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("stellt im Techno-Kreisel die Techno-Gruppe vor die Palette, und die Würfel werfen aus ihr", async ({ page }) => {
+  test("puts the techno group before the palette in the techno Kreisel, and the dice throw from it", async ({ page }) => {
     const problems = await open(page);
     const dice = page.locator("#palette-dice");
 
@@ -30,21 +30,21 @@ test.describe("am Laptop", () => {
     await focus(page, 2);
     await page.locator("#sound-pick").click();
     await expect(palette(page)).toBeVisible();
-    await expect(palette(page).locator(".palette-name")).toHaveText(["Seide", "Blech", "Shaker", "Zisch", "Becken"]);
+    await expect(palette(page).locator(".palette-name")).toHaveText(["Silk", "Tin", "Shaker", "Fizz", "Cymbal"]);
     await expect(palette(page).locator(".chip")).toHaveCount(50);
     await expect(page.locator(".palette-techno")).toHaveCount(0);
-    await expect(dice).toHaveAttribute("title", "Irgendeinen Klang aus der Palette nehmen");
+    await expect(dice).toHaveAttribute("title", "Take any sound from the palette");
 
     // A techno Kreisel's palette begins with the ring's techno group: ten of the fifty, shown a second time.
     await page.evaluate(() => window.plainTechno());
-    await expect(palette(page).locator(".palette-name")).toHaveText(["Techno · zehn von den fünfzig", "Seide", "Blech", "Shaker", "Zisch", "Becken"]);
-    await expect(group(page)).toHaveText(["Maschine", "Blech", "Schelle", "Rost", "Offen", "Zisch", "Shaker", "Ride", "Crash", "China"]);
+    await expect(palette(page).locator(".palette-name")).toHaveText(["Techno · ten of the fifty", "Silk", "Tin", "Shaker", "Fizz", "Cymbal"]);
+    await expect(group(page)).toHaveText(["Machine", "Tin", "Jingle", "Rust", "Open", "Fizz", "Shaker", "Ride", "Crash", "China"]);
     await expect(fifty(page)).toHaveCount(50);
-    await expect(palette(page).locator("header")).toContainText("Hi-Hat: 50 Klänge");
+    await expect(palette(page).locator("header")).toContainText("Hi-Hat: 50 sounds");
     // The techno Kreisel's hi-hat is the drum machine's: it is marked in the group and where it stands in its family.
     expect(await soundOf(page, 2)).toBe(numbers(2)[0]);
-    await expect(palette(page).locator(".chip[aria-pressed=true]")).toHaveText(["Maschine", "Maschine"]);
-    await expect(page.locator("#sound-pick .sound-family")).toHaveText("Blech");
+    await expect(palette(page).locator(".chip[aria-pressed=true]")).toHaveText(["Machine", "Machine"]);
+    await expect(page.locator("#sound-pick .sound-family")).toHaveText("Tin");
     expect(await inWindow(page)).toBe(true);
 
     // A click in the group takes the sound itself: the ride is the first of the cymbals, number 43.
@@ -52,7 +52,7 @@ test.describe("am Laptop", () => {
     expect(await soundOf(page, 2)).toBe(43);
     await expect(palette(page).locator(".chip[aria-pressed=true]")).toHaveText(["Ride", "Ride"]);
     await expect(page.locator("#sound-pick .sound-name")).toHaveText("Ride");
-    await expect(page.locator("#sound-pick .sound-family")).toHaveText("Becken");
+    await expect(page.locator("#sound-pick .sound-family")).toHaveText("Cymbal");
     // With a cymbal on the ring, the ring's dice give it a time-keeper's hits, none of them open.
     for (let throws = 0; throws < 4; throws += 1) {
       const pitches = await page.evaluate(() => {
@@ -64,11 +64,11 @@ test.describe("am Laptop", () => {
       expect(pitches.every((pitch) => pitch <= 0)).toBe(true);
     }
     // A sound that is not in the group is marked once.
-    await fifty(page).getByText("Samt", { exact: true }).click();
-    await expect(palette(page).locator(".chip[aria-pressed=true]")).toHaveText(["Samt"]);
+    await fifty(page).getByText("Velvet", { exact: true }).click();
+    await expect(palette(page).locator(".chip[aria-pressed=true]")).toHaveText(["Velvet"]);
 
     // The dice throw from the group: the button in the palette, and the right button on the sound's name.
-    await expect(dice).toHaveAttribute("title", "Einen der zehn Techno-Klänge dieses Rings nehmen");
+    await expect(dice).toHaveAttribute("title", "Take one of this ring's ten techno sounds");
     let before = await soundOf(page, 2);
     for (let throws = 0; throws < 6; throws += 1) {
       if (throws % 2 === 0) await dice.click();
@@ -80,21 +80,21 @@ test.describe("am Laptop", () => {
     }
     // The arrows still leaf through all fifty.
     await page.evaluate(() => window.kreisel.app.rings.setSound(2, 0));
-    await page.getByRole("button", { name: "Nächster Klang" }).click();
+    await page.getByRole("button", { name: "Next sound" }).click();
     expect(await soundOf(page, 2)).toBe(7);
 
     // Every ring has its group. The bass has the acid machine under its palette as well, and all of it is in view.
     await focus(page, 4);
-    await expect(group(page)).toHaveText(["Acid", "Kantig", "Zwitscher", "Gift", "Schnapp", "Gurgel", "Knurr", "Fuzz", "Sub", "Dunkel"]);
+    await expect(group(page)).toHaveText(["Acid", "Edgy", "Chirp", "Poison", "Snap", "Gurgle", "Growl", "Fuzz", "Sub", "Dark"]);
     await expect(page.locator("#palette-machine")).toBeVisible();
     await expect(page.locator("#palette-machine")).toHaveAttribute("aria-pressed", "true");
     await expect(palette(page).locator(".chip[aria-pressed=true]")).toHaveCount(0);
     expect(await inWindow(page)).toBe(true);
     await focus(page, 6);
-    await expect(group(page)).toHaveText(["Schrei", "Säge", "Sync", "Trance", "Breit", "Quinte", "Gleiter", "Sirene", "Roboter", "Quadrat"]);
+    await expect(group(page)).toHaveText(["Scream", "Saw", "Sync", "Trance", "Wide", "Fifth", "Glider", "Siren", "Robot", "Square"]);
     // The ring's menu has the same dice, and says what they do.
-    await page.locator(".track", { hasText: "Melodie" }).locator(".pick").click({ button: "right" });
-    await page.locator("#context").getByRole("menuitem", { name: "Einen der zehn Techno-Klänge dieses Rings nehmen" }).click();
+    await page.locator(".track", { hasText: "Melody" }).locator(".pick").click({ button: "right" });
+    await page.locator("#context").getByRole("menuitem", { name: "Take one of this ring's ten techno sounds" }).click();
     expect(numbers(6)).toContain(await soundOf(page, 6));
     expect(await soundOf(page, 6)).not.toBe(3);
     await page.keyboard.press("Escape");
@@ -103,14 +103,14 @@ test.describe("am Laptop", () => {
     await page.evaluate(() => window.kreisel.app.toggleStyle());
     await expect(page.locator(".palette-techno")).toHaveCount(0);
     await expect(palette(page).locator(".chip")).toHaveCount(50);
-    await expect(dice).toHaveAttribute("title", "Irgendeinen Klang aus der Palette nehmen");
+    await expect(dice).toHaveAttribute("title", "Take any sound from the palette");
     await page.evaluate(() => window.kreisel.app.toggleStyle());
     await expect(group(page)).toHaveCount(10);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });
 
-  test("schneidet im Techno-Kreisel die offene Hi-Hat mit der geschlossenen ab", async ({ page }) => {
+  test("cuts the open hi-hat off with the closed one in the techno Kreisel", async ({ page }) => {
     // Ten renders of the Kreisel.
     test.setTimeout(90_000);
     const problems = await open(page);
@@ -156,10 +156,10 @@ test.describe("am Laptop", () => {
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("zeigt am Handy die Techno-Gruppe zuerst, drei nebeneinander, und ein Finger wählt", async ({ page }) => {
+  test("shows the techno group first on a phone, three side by side, and a finger picks", async ({ page }) => {
     const problems = await open(page);
     await page.evaluate(() => {
       window.plainTechno();
@@ -168,16 +168,16 @@ test.describe("am Handy", () => {
     await page.locator("#sound-pick").scrollIntoViewIfNeeded();
     await page.locator("#sound-pick").tap();
     await expect(palette(page)).toBeVisible();
-    await expect(palette(page).locator(".palette-name").first()).toHaveText("Techno · zehn von den fünfzig");
+    await expect(palette(page).locator(".palette-name").first()).toHaveText("Techno · ten of the fifty");
     await expect(group(page)).toHaveCount(10);
     // Three abreast: the fourth stands under the first. (Where they stand in the row, not on the screen: the palette is still unfolding.)
     const places = await group(page).evaluateAll((chips) => chips.map((chip) => [(chip as HTMLElement).offsetLeft, (chip as HTMLElement).offsetTop] as const));
     expect(places[3]![0]).toBe(places[0]![0]);
     expect(places[3]![1]).toBeGreaterThan(places[0]![1]);
     expect(places[1]![1]).toBe(places[0]![1]);
-    await page.locator(".palette-techno").getByRole("button", { name: "Schrot", exact: true }).tap();
+    await page.locator(".palette-techno").getByRole("button", { name: "Pellets", exact: true }).tap();
     expect(numbers(1)).toContain(await soundOf(page, 1));
-    await expect(page.locator("#sound-pick .sound-name")).toHaveText("Schrot");
+    await expect(page.locator("#sound-pick .sound-name")).toHaveText("Pellets");
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);

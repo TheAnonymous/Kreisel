@@ -3,14 +3,14 @@ import { onLaptop, onPhone, open, openRelay } from "./helpers";
 
 /*
  * The bar: every thing has its place. The Kreisel's name, the speaker,
- * "Teilen", the arrow at "Aufnehmen" and the question mark each open the menu
+ * "Share", the arrow at "Record" and the question mark each open the menu
  * for what they are about; a phone has one sheet with the same groups.
  */
 
-test.describe("am Laptop", () => {
-  test.skip(onPhone, "Maus und Tastatur");
+test.describe("on a laptop", () => {
+  test.skip(onPhone, "mouse and keyboard");
 
-  test("hat für jedes Ding einen Platz in der Leiste", async ({ page }) => {
+  test("has a place in the top bar for every thing", async ({ page }) => {
     const problems = await open(page);
     const menu = page.locator("#context");
 
@@ -23,11 +23,11 @@ test.describe("am Laptop", () => {
 
     // Each button opens its own menu under itself, says that it is open, and puts it away at a second press.
     const places: readonly (readonly [string, readonly string[]])[] = [
-      ["kreisel-menu", ["Neu anfangen", "Leerer Kreisel", "Techno-Kreisel", "Werks-Kreisel", "Die Würfel werfen", "Zur Musik-Werkstatt"]],
-      ["sound", ["Lautstärke", "Druck"]],
-      ["share", ["Link kopieren", "Reihum: von Hand zu Hand"]],
-      ["record-more", ["Aufnehmen, was du hörst", "Als Opus speichern"]],
-      ["help-open", ["Hilfe und Tasten", "Tour: die ersten Schritte"]],
+      ["kreisel-menu", ["Start anew", "Empty Kreisel", "Techno Kreisel", "Factory Kreisel", "The dice throw", "To the Musik-Werkstatt"]],
+      ["sound", ["Volume", "Pressure"]],
+      ["share", ["Copy link", "Pass around: from hand to hand"]],
+      ["record-more", ["Record what you hear", "Save as Opus"]],
+      ["help-open", ["Help and keys", "Tour: the first steps"]],
     ];
     for (const [id, rows] of places) {
       const opener = page.locator(`#${id}`);
@@ -49,7 +49,7 @@ test.describe("am Laptop", () => {
     await page.locator("#share").click();
     await page.evaluate(() => document.getElementById("app")!.dispatchEvent(new Event("scroll")));
     await expect(menu).toBeVisible();
-    await expect(menu).toContainText("Link kopieren");
+    await expect(menu).toContainText("Copy link");
     await page.locator("#share").click();
     await expect(menu).toBeHidden();
     await page.locator("#kreisel").click({ button: "right", position: { x: 285, y: 285 } });
@@ -60,8 +60,8 @@ test.describe("am Laptop", () => {
     // One menu at a time: another button takes it over. Escape puts it away.
     await page.locator("#share").click();
     await page.locator("#help-open").click();
-    await expect(menu).toContainText("Hilfe und Tasten");
-    await expect(menu).not.toContainText("Link kopieren");
+    await expect(menu).toContainText("Help and keys");
+    await expect(menu).not.toContainText("Copy link");
     await expect(page.locator("#share")).toHaveAttribute("aria-expanded", "false");
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
@@ -87,50 +87,50 @@ test.describe("am Laptop", () => {
     // By keyboard: Enter on a button puts the keyboard into its menu, the arrows step, Escape hands it back.
     await page.locator("#share").focus();
     await page.keyboard.press("Enter");
-    await expect(menu.getByRole("menuitem", { name: /Link kopieren/ })).toBeFocused();
+    await expect(menu.getByRole("menuitem", { name: /Copy link/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(menu.getByRole("menuitem", { name: /Reihum/ })).toBeFocused();
+    await expect(menu.getByRole("menuitem", { name: /Pass around/ })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
     await expect(page.locator("#share")).toBeFocused();
     await page.locator("#share").blur();
 
-    // While a round of Reihum is going, "Teilen" says so, and the round comes first in its menu.
-    await expect(page.locator("#share .label")).toHaveText("Teilen");
+    // While a round of Reihum is going, "Share" says so, and the round comes first in its menu.
+    await expect(page.locator("#share .label")).toHaveText("Share");
     await openRelay(page);
     await page.locator("#relay-name").fill("Jodie");
     await page.locator("#relay-send").click();
-    await expect(page.locator("#share .label")).toHaveText("Reihum · 2");
+    await expect(page.locator("#share .label")).toHaveText("Pass around · 2");
     // A finished turn puts the window away by itself.
     await expect(page.locator("#reihum")).toBeHidden();
     await page.locator("#share").click();
-    await expect(menu.getByRole("menuitem").first()).toContainText("Reihum: Zug 2 ist deiner");
+    await expect(menu.getByRole("menuitem").first()).toContainText("Pass around: turn 2 is yours");
     await page.keyboard.press("Escape");
 
     // The name starts anew, and what lay on the table comes back.
     const before = await page.evaluate(() => window.kreisel.state());
     await page.locator("#kreisel-menu").click();
-    await menu.getByRole("menuitem", { name: "Leerer Kreisel" }).click();
+    await menu.getByRole("menuitem", { name: "Empty Kreisel" }).click();
     await expect(menu).toBeHidden();
     expect(await page.evaluate(() => window.kreisel.state())).not.toBe(before);
-    await page.locator("#toast").getByRole("button", { name: "Zurück" }).click();
+    await page.locator("#toast").getByRole("button", { name: "Undo" }).click();
     expect(await page.evaluate(() => window.kreisel.state())).toBe(before);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });
 });
 
-test.describe("am Handy", () => {
+test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("hat am Handy ein Blatt mit denselben Gruppen", async ({ page }) => {
+  test("has a sheet with the same groups on a phone", async ({ page }) => {
     const problems = await open(page);
     const menu = page.locator("#context");
     for (const id of ["sound", "record-more", "help-open"]) await expect(page.locator(`#${id}`)).toBeHidden();
 
     await page.locator("#more").tap();
     await expect(menu).toBeVisible();
-    for (const group of ["Klang", "Neu anfangen", "Die Würfel werfen", "Teilen", "Aufnahme", "Ansicht", "Hilfe"]) {
+    for (const group of ["Sound", "Start anew", "The dice throw", "Share", "Recording", "View", "Help"]) {
       await expect(menu.getByRole("heading", { name: group, exact: true })).toBeAttached();
     }
     // The sheet hangs under the bar's button and ends on the screen: what does not fit is reached by scrolling.
@@ -143,7 +143,7 @@ test.describe("am Handy", () => {
     await expect(tour).toBeInViewport();
 
     // A switch shows whether it is on and keeps the sheet; a control moves what it says.
-    const lights = menu.getByRole("menuitemcheckbox", { name: "Lichtspiel" });
+    const lights = menu.getByRole("menuitemcheckbox", { name: "Light show" });
     await expect(lights).toHaveAttribute("aria-checked", "true");
     await lights.tap();
     await expect(lights).toHaveAttribute("aria-checked", "false");
@@ -154,12 +154,12 @@ test.describe("am Handy", () => {
     await page.locator("#volume").fill("40");
     expect(await page.evaluate(() => window.kreisel.app.project.volume)).toBe(0.4);
 
-    // The dots put it away again; "Teilen" in the bar is the menu a laptop has there.
+    // The dots put it away again; "Share" in the bar is the menu a laptop has there.
     await page.locator("#more").tap();
     await expect(menu).toBeHidden();
     await page.locator("#share").tap();
-    await expect(menu).toContainText("Link kopieren");
-    await expect(menu).toContainText("Reihum: von Hand zu Hand");
+    await expect(menu).toContainText("Copy link");
+    await expect(menu).toContainText("Pass around: from hand to hand");
     await page.locator("#share").tap();
     await expect(menu).toBeHidden();
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);

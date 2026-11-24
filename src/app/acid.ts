@@ -99,6 +99,6 @@ export class AcidDesk {
       for (let step = 0; step < length; step += 1) line[step] = Math.round((WEATHER_MAX - 2) * Math.sin((Math.PI * step) / length) ** 2);
       scene.wind[SUN] = RIDE_WIND;
     });
-    this.app.say(`Filterfahrt: Sonne zieht über den Ring und öffnet den Filter, eine Runde in ${length} Takten. Unter „Wetter“ malst du sie um.`, this.app.takeBack);
+    this.app.say(`Filter ride: sun drifts across the ring and opens the filter, one round in ${length} bars. You can repaint it under “Weather”.`, this.app.takeBack);
   }
 }

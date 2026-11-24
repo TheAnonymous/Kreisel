@@ -7,7 +7,7 @@
  * Kreisel changes.
  *
  * The same menu hangs under the buttons of the bar that open one (the
- * Kreisel's name, the speaker, "Teilen"): there it opens under its button,
+ * Kreisel's name, the speaker, "Share"): there it opens under its button,
  * and a second press on the button puts it away again.
  */
 
@@ -342,7 +342,7 @@ export class ContextMenu {
         input.step = "1";
         input.value = String(Math.round(row.value * 100));
         if (row.id) input.id = row.id;
-        input.title = [row.title, row.reset ? "Rechtsklick setzt zurück" : ""].filter(Boolean).join(" · ");
+        input.title = [row.title, row.reset ? "Right click resets" : ""].filter(Boolean).join(" · ");
         input.addEventListener("input", () => row.set(Number(input.value) / 100));
         // Moved with the mouse or a finger, it does not keep the keyboard: the space bar still starts and stops.
         let byPointer = false;

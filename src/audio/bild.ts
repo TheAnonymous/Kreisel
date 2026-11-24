@@ -130,8 +130,8 @@ export function playBild(kit: Kit, out: AudioNode, trackIndex: number, track: Tr
   if (bild.strokes.length === 0) return;
   const info = trackInfo(trackIndex);
   const span = bildSeconds(trackIndex, track, hit.pitch);
-  // Rings whose pad says "Ton" tune the picture with it; the others shade its brightness.
-  const tunes = info.xLabel === "Ton";
+  // Rings whose pad says "Tone" tune the picture with it; the others shade its brightness.
+  const tunes = info.xLabel === "Tone";
   const tune = tunes ? semitones(lerp(-7, 7, track.x)) : 1;
   const ratios = info.refHz > 0
     ? hit.midis.map((midi) => (midiToHz(midi) / info.refHz) * tune)
