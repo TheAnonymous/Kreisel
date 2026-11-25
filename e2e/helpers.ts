@@ -62,8 +62,9 @@ async function watch(page: Page): Promise<string[]> {
 }
 
 /**
- * Opens the Kreisel as someone who has been here before, with the factory Kreisel on the table;
- * with `firstVisit`, as someone who has not seen the tour yet (then it comes).
+ * Opens the Kreisel as someone who has been here before, with the factory Kreisel on the table: the guide waits
+ * under the question mark. With `firstVisit`, as someone who has not put the guide away yet: then its first steps
+ * come by themselves, as a card under the wheel.
  */
 export async function open(page: Page, path = "./", firstVisit = false): Promise<string[]> {
   const problems = await watch(page);
@@ -77,7 +78,7 @@ export async function open(page: Page, path = "./", firstVisit = false): Promise
   return problems;
 }
 
-/** Opens the Kreisel as on a very first visit: nothing is kept in the browser, so the techno Kreisel is on the table and the tour comes. */
+/** Opens the Kreisel as on a very first visit: nothing is kept in the browser, so the techno Kreisel is on the table and the guide's first steps come by themselves. */
 export async function firstLook(page: Page): Promise<string[]> {
   const problems = await watch(page);
   await page.goto("./");

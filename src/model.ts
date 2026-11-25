@@ -794,6 +794,19 @@ export function emptySceneFor(style: StyleId): Scene {
   return style === "techno" ? { ...emptyScene(), chords: [0] } : emptyScene();
 }
 
+/**
+ * A fresh Kreisel: the one its style starts with, or (with `empty`) that one with nothing on its rings. The techno
+ * Kreisel's own piece belongs to its rings: an empty one starts with the plain form.
+ */
+export function freshProject(empty: boolean, style: StyleId): Project {
+  const project = startProject(style);
+  if (empty) {
+    project.scenes[0] = emptySceneFor(style);
+    if (style === "techno") project.piece = technoPiece();
+  }
+  return project;
+}
+
 /** The scene on the table (there is always one). */
 export function currentScene(project: Project): Scene {
   const scene = project.scenes[project.scene] ?? project.scenes.find((candidate) => candidate !== null);

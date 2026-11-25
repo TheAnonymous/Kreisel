@@ -102,7 +102,6 @@ export class BenchWindow {
     byId("bench").hidden = !open;
     byId("mallets").hidden = !open;
     if (open && !this.benchOpen) {
-      this.panels.endTour();
       byId("stage").scrollIntoView({ block: "nearest" });
     }
     this.benchOpen = open;

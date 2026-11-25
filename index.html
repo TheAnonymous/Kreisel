@@ -48,11 +48,37 @@
             <button id="record-more" class="button rec-more" type="button" aria-haspopup="menu" aria-expanded="false" title="Record or save as a file" aria-label="More about recording"><span class="caret" aria-hidden="true">▾</span></button>
           </div>
           <div class="more">
-            <button id="help-open" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" title="Help and tour" aria-label="Help"><span class="sign" aria-hidden="true">?</span></button>
+            <button id="help-open" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" title="Help and guide" aria-label="Help"><span class="sign" aria-hidden="true">?</span></button>
             <button id="more" class="button icon" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
           </div>
         </div>
       </header>
+
+      <section id="tour" class="guide" aria-labelledby="tour-title" hidden>
+        <div class="guide-head">
+          <h2 id="tour-title"></h2>
+          <p id="tour-count" class="guide-count"></p>
+          <p id="tour-f6" class="guide-f6"><kbd>F6</kbd> here and back</p>
+          <button id="tour-skip" class="button icon small" type="button" title="Close the guide (Esc)" aria-label="Close the guide">×</button>
+        </div>
+        <div class="guide-body">
+          <div class="guide-words">
+            <p id="tour-text" class="guide-text"></p>
+            <p id="tour-hint" class="guide-hint" hidden></p>
+            <p id="tour-keys" class="guide-keys"></p>
+            <div id="tour-list" class="guide-list" role="group" aria-label="Pick a lesson" hidden></div>
+          </div>
+          <div class="guide-foot">
+            <button id="tour-show" class="button small" type="button" title="Does this step once, so you see and hear what it is">Show me</button>
+            <button id="tour-back" class="button small" type="button">Back</button>
+            <button id="tour-next" class="button small" type="button">Skip</button>
+            <button id="tour-keep" class="button small primary" type="button" hidden>Keep it</button>
+            <button id="tour-mine" class="button small" type="button" hidden>Back to mine</button>
+          </div>
+        </div>
+      </section>
+      <p id="tour-said" class="sr" role="status"></p>
+      <div id="tour-mark" class="guide-mark" aria-hidden="true" hidden></div>
 
       <main class="table">
         <section class="side left" aria-label="Rings and scenes">
@@ -146,6 +172,7 @@
             </div>
           </div>
           <div id="fx" class="fx" role="group" aria-label="Effects, while held"></div>
+          <div id="tour-room" class="guide-room" aria-hidden="true" hidden></div>
           <div id="row" class="row-band" role="group" aria-label="Row: the scenes in the order they play" hidden></div>
           <p id="status" class="status" aria-live="polite"></p>
         </section>
@@ -153,18 +180,6 @@
         <section class="side right panel" id="panel" aria-label="The chosen ring"></section>
       </main>
 
-      <div id="tour" class="tour" hidden>
-        <div class="tour-hole"></div>
-        <div class="tour-card" role="dialog" aria-live="polite" aria-labelledby="tour-title" aria-describedby="tour-text">
-          <p id="tour-count" class="tour-count"></p>
-          <h2 id="tour-title"></h2>
-          <p id="tour-text"></p>
-          <div class="tour-foot">
-            <button id="tour-skip" class="button small" type="button">Skip</button>
-            <button id="tour-next" class="button small" type="button">Next</button>
-          </div>
-        </div>
-      </div>
       <div id="lookback" class="lookback" role="status" hidden></div>
       <div id="toast" class="toast" role="status" hidden></div>
 
@@ -263,7 +278,7 @@
             <section>
               <h3>Stage and light show</h3>
               <p>While the Kreisel plays, every hit throws light on the table, accented hits spray sparks, and the kick sends a wave through the rings. You switch the light show off and on again with the lamp in the corner beside the wheel; whoever has set less motion in the system never sees it.</p>
-              <p>The stage shows only the wheel, in the dark: with the button in the corner beside the wheel or the key O. Esc brings everything back. The question mark in the top bar shows the first steps once more (“Tour”).</p>
+              <p>The stage shows only the wheel, in the dark: with the button in the corner beside the wheel or the key O. Esc brings everything back. Under the question mark in the top bar waits the guide: the first steps, and six lessons to pick from.</p>
             </section>
             <section>
               <h3>Keys</h3>

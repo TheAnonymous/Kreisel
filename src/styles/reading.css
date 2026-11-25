@@ -8,8 +8,7 @@
 }
 
 .field,
-.line .label,
-.tour-count {
+.line .label {
   font-size: 0.7rem;
 }
 

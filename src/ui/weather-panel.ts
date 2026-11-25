@@ -116,7 +116,6 @@ export class WeatherPanel {
       this.panels.veilBox.hidden = true;
       // It is painted on the wheel: where the list sits below it, bring the wheel into view.
       if (!this.weatherFocused) {
-        this.panels.endTour();
         byId("stage").scrollIntoView({ block: "nearest" });
       }
     }

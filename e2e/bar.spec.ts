@@ -27,7 +27,7 @@ test.describe("on a laptop", () => {
       ["sound", ["Volume", "Pressure"]],
       ["share", ["Copy link", "Pass around: from hand to hand"]],
       ["record-more", ["Record what you hear", "Save as Opus"]],
-      ["help-open", ["Help and keys", "Tour: the first steps"]],
+      ["help-open", ["Help and keys", "Guide: first steps and lessons"]],
     ];
     for (const [id, rows] of places) {
       const opener = page.locator(`#${id}`);
@@ -138,7 +138,7 @@ test.describe("on a phone", () => {
     const sheet = (await menu.boundingBox())!;
     expect(sheet.y).toBeGreaterThanOrEqual(dots.y + dots.height);
     expect(sheet.y + sheet.height).toBeLessThanOrEqual(page.viewportSize()!.height);
-    const tour = menu.getByRole("menuitem", { name: /Tour/ });
+    const tour = menu.getByRole("menuitem", { name: /Guide/ });
     await tour.scrollIntoViewIfNeeded();
     await expect(tour).toBeInViewport();
 

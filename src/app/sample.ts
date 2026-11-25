@@ -557,6 +557,25 @@ export class SampleDesk {
     });
   }
 
+  /** Which recordings this browser keeps right now, by their ids: for whoever wants to tell later what came since. */
+  async keptIds(): Promise<string[]> {
+    return (await listRecordings()).map((item) => item.id);
+  }
+
+  /**
+   * Forgets, without a word, what was resampled from the Kreisel since `before` was noted and is played by no ring of
+   * the Kreisel on the table: a lesson of the guide resamples on a copy, and what it made goes with the copy.
+   */
+  async forgetSince(before: readonly string[]): Promise<void> {
+    const played = new Set(this.app.project.tracks.flatMap((track) => (track.sample ? [track.sample.id] : [])));
+    for (const item of await listRecordings()) {
+      if (item.source !== "kreisel" || before.includes(item.id) || played.has(item.id)) continue;
+      await dropRecording(item.id);
+      forgetSound(item.id);
+    }
+    await this.list();
+  }
+
   /** Forgets a kept recording. Rings that play it fall silent; for a moment it can be taken back. */
   async dropKept(id: string): Promise<void> {
     const recording = await recordingOf(id);

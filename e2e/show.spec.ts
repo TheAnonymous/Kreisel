@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { fromBar, onLaptop, onPhone, open, status, where } from "./helpers";
+import { onLaptop, onPhone, open, status, where } from "./helpers";
 
 /*
- * How the page moves and shows itself: the small motions, the tour of a first
- * visit, the light show and the stage.
+ * How the page moves and shows itself: the small motions, the light show and
+ * the stage. (The guide of a first visit has a file of its own, guide.spec.ts;
+ * here is only how the wheel answers a task that was done.)
  */
 
 test.describe("on a laptop", () => {
@@ -83,64 +84,54 @@ test.describe("on a laptop", () => {
     expect(problems).toEqual([]);
   });
 
-  test("shows the first steps on a first visit, where they happen", async ({ page }) => {
+  test("answers a task of the guide that was done with a wave and sparks from the wheel's middle, and keeps still where that is not wanted", async ({ page }) => {
     const problems = await open(page, "./", true);
-    const tour = page.locator("#tour");
+    const light = (): Promise<{ sparks: number; waves: number; glowing: boolean }> => page.evaluate(() => window.kreisel.light());
+    const dark = { sparks: 0, waves: 0, glowing: false };
     const count = page.locator("#tour-count");
-    await expect(tour).toBeVisible();
-    await expect(count).toHaveText("1 of 7");
-    await expect(page.locator("#tour-title")).toHaveText("This is your Kreisel");
-    /** The light lies around a part of the page, and the card is wholly in the window and not over that part's middle. */
-    const lit = (selector: string): Promise<boolean> =>
-      page.evaluate((query) => {
-        const part = document.querySelector(query)!.getBoundingClientRect();
-        const hole = document.querySelector(".tour-hole")!.getBoundingClientRect();
-        const card = document.querySelector(".tour-card")!.getBoundingClientRect();
-        const around = hole.left <= part.left && hole.top <= part.top && hole.right >= part.right && hole.bottom >= part.bottom && hole.width < part.width + 40;
-        const inside = card.left >= 0 && card.top >= 0 && card.right <= innerWidth && card.bottom <= innerHeight;
-        const x = part.left + part.width / 2;
-        const y = part.top + part.height / 2;
-        return around && inside && !(card.left <= x && card.right >= x && card.top <= y && card.bottom >= y);
-      }, selector);
-    await expect.poll(() => lit("#kreisel")).toBe(true);
+    const kick = page.locator('#tracks .track[data-track="0"] .mute');
+    /** Waits until the task that is up was noticed as done, and says what the light show has in the air in that moment. */
+    const cheered = async (): Promise<{ sparks: number; waves: number; glowing: boolean } | null> => {
+      const seen = await page.waitForFunction(() => (window.kreisel.app.guide.done ? window.kreisel.light() : null));
+      return seen.jsonValue();
+    };
 
-    // Nothing is locked while it runs. What a step asks for can be tried at once, and then it goes on by itself.
-    await page.keyboard.press("Space");
-    await expect(count).toHaveText("2 of 7");
-    const free = await where(page, 6, 1);
-    await page.mouse.click(free.x, free.y);
-    await expect(count).toHaveText("3 of 7");
-    await expect.poll(() => lit("#tracks")).toBe(true);
-    await page.keyboard.press("5");
-    await expect(count).toHaveText("4 of 7");
-    await expect.poll(() => lit("#panel")).toBe(true);
-    // The other steps wait for "Next".
-    const next = page.locator("#tour-next");
-    await next.click();
-    await expect(count).toHaveText("5 of 7");
-    await expect.poll(() => lit("#fx")).toBe(true);
-    await next.click();
-    await expect.poll(() => lit("#scenes")).toBe(true);
-    await next.click();
-    await expect(count).toHaveText("7 of 7");
-    await expect(next).toHaveText("Let's go");
-    await next.click();
-    await expect(tour).toBeHidden();
-    await page.keyboard.press("Space");
+    // The first steps lie under the wheel. Nothing plays, so nothing throws light.
+    await expect(count).toHaveText("Step 1 of 5");
+    expect(await light()).toEqual(dark);
+    await page.locator("#tour-next").click();
+    await expect(count).toHaveText("Step 2 of 5");
 
-    // It comes once. From the question mark in the bar it comes again, and Escape puts it away.
-    await page.reload();
-    await expect(status(page)).toContainText("hits");
-    await page.waitForTimeout(1200);
-    await expect(tour).toBeHidden();
-    await fromBar(page, "help-open", /Tour/);
-    await expect(tour).toBeVisible();
-    await expect(count).toHaveText("1 of 7");
-    await page.keyboard.press("Escape");
-    await expect(tour).toBeHidden();
-    await fromBar(page, "help-open", /Tour/);
-    await page.locator("#tour-skip").click();
-    await expect(tour).toBeHidden();
+    // The kick out and back: the task is done, and the wheel answers, although it stands still.
+    const answer = page.waitForFunction(() => {
+      const air = window.kreisel.light();
+      return air.waves > 0 && air.sparks > 0 && air.glowing ? air : null;
+    });
+    await kick.click();
+    await kick.click();
+    await expect(count).toHaveText("Done");
+    expect((await (await answer).jsonValue())!.sparks).toBeGreaterThanOrEqual(8);
+    expect(await page.evaluate(() => window.kreisel.app.playing)).toBe(false);
+    // It is a moment's answer: then the table is dark again.
+    await expect.poll(light, { timeout: 4000 }).toEqual(dark);
+
+    // With the light show switched off, a task that was done is only said, not lit. (The next task comes by itself
+    // once there was time to read what the card says.)
+    await expect(count).toHaveText("Step 3 of 5", { timeout: 10_000 });
+    await page.locator("#lights-toggle").click();
+    await page.locator("#tour-show").click();
+    expect(await cheered()).toEqual(dark);
+    await page.waitForTimeout(300);
+    expect(await light()).toEqual(dark);
+    await page.locator("#lights-toggle").click();
+
+    // Whoever asked the system for less motion gets no answer in light either.
+    await expect(count).toHaveText("Step 4 of 5", { timeout: 10_000 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.locator("#tour-show").click();
+    expect(await cheered()).toEqual(dark);
+    await page.waitForTimeout(300);
+    expect(await light()).toEqual(dark);
     expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
     expect(problems).toEqual([]);
   });
@@ -241,29 +232,12 @@ test.describe("on a laptop", () => {
 test.describe("on a phone", () => {
   test.skip(onLaptop, "Finger");
 
-  test("shows the first steps in the window on a phone and goes onto the stage", async ({ page }) => {
-    const problems = await open(page, "./", true);
-    const tour = page.locator("#tour");
-    const count = page.locator("#tour-count");
-    await expect(tour).toBeVisible();
-    /** The card is wholly in the window, and the part it speaks of is at least partly in view. */
-    const inView = (): Promise<boolean> =>
-      page.evaluate(() => {
-        const card = document.querySelector(".tour-card")!.getBoundingClientRect();
-        const hole = document.querySelector(".tour-hole")!.getBoundingClientRect();
-        return card.left >= 0 && card.top >= 0 && card.right <= innerWidth && card.bottom <= innerHeight && hole.bottom > 0 && hole.top < innerHeight;
-      });
-    for (let step = 1; step <= 7; step += 1) {
-      await expect(count).toHaveText(`${step} of 7`);
-      await expect.poll(inView).toBe(true);
-      await page.locator("#tour-next").tap();
-    }
-    await expect(tour).toBeHidden();
+  test("goes onto the stage on a phone, and the page is never wider than the window", async ({ page }) => {
+    const problems = await open(page);
     // Glow or not, the page is never wider than the window.
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
 
     // The stage: the button in the corner beside the wheel leads there and back.
-    await page.evaluate(() => window.scrollTo(0, 0));
     const root = page.locator("html");
     const toggle = page.locator("#stage-toggle");
     await toggle.tap();

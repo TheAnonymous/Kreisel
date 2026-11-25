@@ -73,7 +73,6 @@ export class BoothWindow {
     const open = app.voice.isOpen && voice !== null;
     byId("booth").hidden = !open;
     if (open && !this.boothOpen) {
-      this.panels.endTour();
       byId("stage").scrollIntoView({ block: "nearest" });
       // With a keyboard at hand the line is ready to be typed over (a phone's keyboard would only be in the way).
       if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {

@@ -175,13 +175,13 @@ export class RingDesk {
       const scene = currentScene(project);
       scene.patterns[track] = dice(track, patternOf(project, track).len, this.app.random, project.style, trackOf(project, track).sound);
     });
-    this.app.onDeed({ what: "dice", track });
+    this.app.report({ what: "dice", track });
   }
 
   vary(track: number): void {
     if (this.app.relay.refuse(track)) return;
     this.app.store.edit((project) => vary(track, patternOf(project, track), this.app.random));
-    this.app.onDeed({ what: "vary", track });
+    this.app.report({ what: "vary", track });
   }
 
   clear(track: number): void {
@@ -193,7 +193,7 @@ export class RingDesk {
       // An empty kick ring has no Nachbeben either.
       if (track === 0) currentScene(project).rumble = emptyRumble();
     });
-    this.app.onDeed({ what: "clear", track });
+    this.app.report({ what: "clear", track });
   }
 
   diceAll(): void {
@@ -206,7 +206,7 @@ export class RingDesk {
       scene.patterns = scene.patterns.map((pattern, track) => dice(track, pattern.len, this.app.random, project.style, trackOf(project, track).sound));
     });
     this.app.say("All rings diced anew.", this.app.takeBack);
-    this.app.onDeed({ what: "dice-all" });
+    this.app.report({ what: "dice-all" });
   }
 
   /** Takes a ring's pattern (of the scene on the table) to put somewhere else. */

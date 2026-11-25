@@ -1,62 +1,396 @@
-/* ---- the tour: a light on one part of the page after the other, and a card beside it ------------ */
+/* ---- the guide: a card under the wheel that asks for one thing at a time ---------------------- */
 
-.tour {
+/* Nothing is dimmed and nothing is locked: the page is played while the guide is up. The card has a place of its own
+   (under the wheel on a laptop, at the foot of the window elsewhere), so it never lies on what it talks about. */
+.guide {
   position: fixed;
-  inset: 0;
-  z-index: 25;
-  pointer-events: none;
-}
-
-.tour-hole {
-  position: absolute;
-  border: 3px solid var(--go);
-  border-radius: 24px;
-  box-shadow: 0 0 0 200vmax rgb(20 16 28 / 0.44);
-  transition: left 0.32s var(--snap), top 0.32s var(--snap), width 0.32s var(--snap), height 0.32s var(--snap);
-}
-
-.tour-card {
-  position: absolute;
+  z-index: 19;
   display: grid;
-  gap: 6px;
-  width: min(330px, calc(100vw - 16px));
-  padding: 14px 16px 12px;
+  /* One column that never grows with what stands in it: a long line wraps, it does not push the card wider. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 8px 10px 9px 14px;
   border: 2px solid var(--ink);
-  border-radius: 18px;
+  border-radius: 16px;
   background: var(--paper);
-  box-shadow: 0 4px 0 var(--ink);
-  pointer-events: auto;
-  transition: left 0.32s var(--snap), top 0.32s var(--snap);
+  box-shadow: 0 3px 0 var(--ink);
 }
 
-.tour:not([hidden]) .tour-card {
-  animation: pop-in 0.26s var(--spring);
+.guide[hidden] {
+  display: none;
 }
 
-.tour-count {
-  font-size: 0.7rem;
+/* Under the wheel the card has one height whatever a task shows (a sentence of two lines, a hint of two, and the
+   keyboard's line), so the wheel keeps its size from task to task and the buttons stay where they are. And neither
+   it nor its room is ever in motion: whoever places it reads where its room is right after making it. */
+.guide:not(.sheet) {
+  min-height: 146px;
+  grid-template-rows: auto 1fr;
+}
+
+/* Where lessons are picked, the sentence is one line and the chips need the room. */
+.guide.listing .guide-text {
+  min-height: 0;
+}
+
+.guide,
+.guide-room {
+  transition: none !important;
+}
+
+/* The wheel makes room for the card at once. (Where less motion is asked for, every change on the page is given a
+   transition of a hundredth of a millisecond: that is one frame in which the wheel would still lie under the card.) */
+:root[data-guide] .wheel,
+:root[data-guide] #stage,
+:root[data-guide] #kreisel,
+:root[data-guide] #licht {
+  transition-property: none;
+}
+
+/* Where the page has no room of its own for it: along the foot of the window, and the page is that much longer. */
+.guide.sheet {
+  left: 8px;
+  right: 8px;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  max-width: 620px;
+  max-height: 46dvh;
+  margin-inline: auto;
+  overflow: hidden auto;
+}
+
+/* In a low window the card scrolls: its head, with the way out, stays in view. */
+.guide.sheet .guide-head {
+  position: sticky;
+  top: -8px;
+  z-index: 1;
+  margin-top: -8px;
+  padding-top: 8px;
+  background: var(--paper);
+}
+
+/* What takes the focus is scrolled into the room above the card, not under it. */
+:root[data-guide="sheet"] {
+  scroll-padding-bottom: calc(var(--guide-foot, 0px) + 12px);
+}
+
+:root[data-guide="sheet"] .app {
+  padding-bottom: calc(var(--guide-height, 0px) + 22px);
+}
+
+/* The room it takes under the wheel on a laptop. While the row is not shown, the row's own place is part of it. */
+.guide-room {
+  grid-area: guide;
+  height: var(--guide-height, 0px);
+}
+
+.guide-room[hidden] {
+  display: none;
+}
+
+@media (min-width: 1100px) and (min-height: 540px) {
+  .wheel:has(.guide-room:not([hidden])) {
+    grid-template: "tools stage fx" minmax(0, 1fr) "guide guide guide" auto "row row row" 41px "status status status" auto / auto minmax(0, 1fr) auto;
+  }
+
+  :root:not([data-row]) .guide-room {
+    margin-bottom: -47px;
+    height: max(47px, var(--guide-height, 0px));
+  }
+}
+
+.guide-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.guide-head h2,
+.guide-count {
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+.guide-count {
+  flex: 1;
   color: var(--soft);
 }
 
-.tour-card h2 {
-  font-size: 1.14rem;
+/* The one key the guide has: it leads to the card and back. For a keyboard only. */
+.guide-f6 {
+  font-size: 0.68rem;
+  color: var(--soft);
 }
 
-#tour-text {
-  font-size: 0.9rem;
+@media (pointer: coarse) {
+  .guide-f6 {
+    display: none;
+  }
 }
 
-.tour-foot {
+/* A task that was done says so in words and with a mark, not by a colour alone. */
+.guide.done .guide-count {
+  color: var(--ink);
+}
+
+.guide.done .guide-count::before {
+  content: "✓ ";
+}
+
+.guide-head .button.icon {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+}
+
+.guide-body {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  align-items: flex-end;
+  gap: 10px 14px;
+}
+
+/* The words begin right under the card's head; the buttons stand at its foot. */
+.guide-words {
+  flex: 1;
+  align-self: flex-start;
+  min-width: 0;
+}
+
+/* Room for two lines whatever a task's sentence is long: the card keeps its height from task to task, and with it
+   the wheel keeps its size. */
+.guide-text {
+  min-height: 2.68em;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.34;
+}
+
+.guide-keys {
+  min-height: 1.3em;
+}
+
+/* Something is in the task's way (nothing plays yet; a hit went into another ring): said under the sentence, with an
+   arrow before it, not by a colour alone. It takes the place of the keyboard's line. */
+.guide-hint {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.guide-hint::before {
+  content: "→ ";
+}
+
+.guide-hint[hidden] {
+  display: none;
+}
+
+.guide-keys {
+  margin-top: 2px;
+  font-size: 0.74rem;
+  line-height: 1.3;
+  color: var(--soft);
+}
+
+/* A key is as tall as the words around it: a line with a key in it is no taller than one without. */
+.guide kbd {
+  padding: 0 4px;
+  border: 1.5px solid currentcolor;
+  border-radius: 5px;
+  font: inherit;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* The place a task names is a button in its sentence: it puts the focus there. */
+.guide-goto {
+  padding: 0 1px;
+  border: 0;
+  border-bottom: 2px solid var(--go);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.guide-goto:hover {
+  background: color-mix(in srgb, var(--go) 16%, transparent);
+}
+
+.guide-foot {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.guide-foot .button[hidden] {
+  display: none;
+}
+
+/* "Show me" while a task is done: there, but with nothing to do, and it looks it. */
+.guide-foot .button[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* What is to be decided at a lesson's end, and the lesson to go on with: ink on paper turned round (4.5:1 and more in
+   both themes). The button that skips a task is not one of them: the task is done on the page, not on the card. */
+.guide .button.primary,
+.guide-list .chip.primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* "Skip", "Next" and "Finish" are one button: it is as wide for one word as for another, so nothing beside it moves. */
+#tour-next {
+  min-width: 70px;
+}
+
+/* The lessons, as a row of chips: one finished has a tick, the one that was left says so. */
+.guide-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 6px;
 }
 
-#tour-next {
-  background: var(--go);
-  color: #fff;
+.guide-list[hidden] {
+  display: none;
+}
+
+.guide-list .chip {
+  min-height: 28px;
+  padding: 3px 11px;
+}
+
+.guide-list .chip.finished .name::before {
+  content: "✓ ";
+}
+
+.guide-list .chip .where {
+  margin-left: 6px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+/* What a lesson is for stands under the chips while the pointer or the focus is on one; in the chip itself for a finger. */
+.guide-list .chip .promise {
+  display: none;
+}
+
+/* The mark on the place a task names: a ring in two colours, so that it shows on any ground. It moves a few times
+   when it comes and then stands still. */
+.guide-mark {
+  position: fixed;
+  z-index: 18;
+  border: 3px solid var(--go);
+  border-radius: 14px;
+  box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink);
+  pointer-events: none;
+  animation: guide-mark 1.1s ease-in-out 3;
+}
+
+.guide-mark[hidden] {
+  display: none;
+}
+
+@keyframes guide-mark {
+  50% {
+    box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink), 0 0 0 10px color-mix(in srgb, var(--go) 35%, transparent);
+  }
+}
+
+/* The palette of sounds is a card over the page: while the guide is up, it ends above the guide's card (which reaches
+   `--guide-foot` up from the window's foot), so the guide's buttons stay in reach. */
+:root[data-guide] .palette {
+  max-height: calc(100dvh - 24px - var(--guide-foot, 0px));
+}
+
+@media (max-width: 719px) {
+  :root[data-guide] .palette {
+    bottom: calc(var(--guide-foot, 0px) + 8px);
+    max-height: calc(72dvh - var(--guide-foot, 0px));
+    border-width: 2px 0;
+  }
+}
+
+/* A message lies where the guide lies: while the guide is up, it keeps above it. (With the row shown on a laptop the
+   message is a slim one under the row, and the guide lies above the row: they do not meet.) */
+:root[data-guide="sheet"] .toast,
+:root[data-guide="docked"]:not([data-row]) .toast {
+  bottom: calc(var(--guide-foot, 0px) + 10px);
+}
+
+@media (forced-colors: active) {
+  .guide-mark {
+    border-color: Highlight;
+    box-shadow: none;
+    outline: 2px solid CanvasText;
+  }
+
+  .guide-goto {
+    border-bottom-color: LinkText;
+  }
+}
+
+/* A finger: buttons it can hit. */
+@media (pointer: coarse) {
+  /* No keyboard, no line for its keys. */
+  .guide-keys:empty {
+    display: none;
+  }
+
+  .guide-foot .button,
+  .guide-list .chip {
+    min-height: 44px;
+    padding-inline: 14px;
+  }
+
+  /* The lessons one under the other, each with what it is for. */
+  .guide-list {
+    flex-direction: column;
+  }
+
+  .guide-list .chip {
+    display: grid;
+    justify-items: start;
+    padding-block: 6px;
+    text-align: left;
+    /* What a lesson is for wraps inside its chip: the card is as wide as the window, never wider. */
+    white-space: normal;
+  }
+
+  .guide-list .chip .promise {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 500;
+  }
+
+  .guide-list .chip .where {
+    margin-left: 0;
+  }
+
+  .guide-head .button.icon {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+
+  .guide-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 560px) {
+  .guide-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

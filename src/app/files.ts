@@ -52,9 +52,11 @@ export class FileDesk {
     } else if (done === "copied") {
       const loose = this.app.sample.loose();
       this.app.say(loose.length === 0 ? "Link copied. Whoever opens it gets their own copy of your Kreisel." : `Link copied. It names ${loose.length === 1 ? `the recording “${loose[0] ?? ""}”` : `${loose.length} recordings`} but cannot carry sound: for that, use “Save as a file with its recordings” under Share.`);
-      this.app.onDeed({ what: "share" });
+      this.app.report({ what: "share" });
     } else {
       this.app.say("The link is now in the address bar: copy it from there.");
+      // Shared all the same, as far as the guide is concerned (the button's own little motion is for a copy).
+      this.app.guide.note({ what: "share" });
     }
   }
 

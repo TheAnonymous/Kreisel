@@ -116,9 +116,9 @@ export class SoundPalette {
     this.card.append(this.machineRow);
   }
 
-  /** A press outside puts the palette away. The list of rings and the bar are not outside: another ring's palette is one click away, and so is start and stop. */
+  /** A press outside puts the palette away. The list of rings, the bar and the guide's card are not outside: another ring's palette is one click away, and so are start and stop and the guide's "Show me". */
   outside(target: Element | null): void {
-    if (!target?.closest("#palette, .sound-row, #tracks, .bar, #context")) this.app.rings.closePalette();
+    if (!target?.closest("#palette, .sound-row, #tracks, .bar, #context, #tour")) this.app.rings.closePalette();
   }
 
   sync(): void {
@@ -130,7 +130,11 @@ export class SoundPalette {
     this.family.textContent = where ? (familyNames(track)[where.family] ?? "") : settings.sound === ACID_SOUND ? "Machine" : settings.sound === SAMPLE_SOUND ? "sample" : "own sound";
     const open = app.rings.paletteOpen && app.focus === "ring" && !app.relay.veiled(track);
     this.pick.setAttribute("aria-expanded", String(open));
+    // Put away with the focus inside (a sound was just taken with Enter, and something else closed it): the focus
+    // goes to the sound's name, which opened it, and not off the page.
+    const inside = !open && !this.card.hidden && this.card.contains(document.activeElement);
     this.card.hidden = !open;
+    if (inside && this.pick.getClientRects().length > 0) this.pick.focus();
     if (!open) return;
     const techno = app.project.style === "techno";
     const group = technoSounds(track);
@@ -166,9 +170,12 @@ export class SoundPalette {
     const panel = byId("panel").getBoundingClientRect();
     const width = card.offsetWidth;
     const height = card.offsetHeight;
+    // While the guide is up, the palette ends above its card: the guide's buttons stay in reach.
+    const root = document.documentElement;
+    const foot = root.dataset.guide ? (Number.parseFloat(root.style.getPropertyValue("--guide-foot")) || 0) + 8 : 0;
     const left = panel.left - width - 12 >= 8 ? panel.left - width - 12 : clamp(row.left, 8, Math.max(8, innerWidth - width - 8));
     const top = left < panel.left - width ? row.top - 12 : row.bottom + 8;
     card.style.left = `${left}px`;
-    card.style.top = `${clamp(top, 8, Math.max(8, innerHeight - height - 8))}px`;
+    card.style.top = `${clamp(top, 8, Math.max(8, innerHeight - height - 8 - foot))}px`;
   }
 }

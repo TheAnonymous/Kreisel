@@ -76,11 +76,11 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .button:hover:not(:disabled, :active, .toast *, .lookback *, .entry *, .tour *, .stage-toggle) {
+  .button:hover:not(:disabled, :active, .toast *, .lookback *, .entry *, .guide *, .stage-toggle) {
     box-shadow: 0 4px 0 var(--ink);
   }
 
-  .button.small:hover:not(:disabled, :active, .toast *, .lookback *, .entry *, .tour *, .stage-toggle) {
+  .button.small:hover:not(:disabled, :active, .toast *, .lookback *, .entry *, .guide *, .stage-toggle) {
     box-shadow: 0 3px 0 var(--ink);
   }
 

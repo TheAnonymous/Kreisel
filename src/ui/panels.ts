@@ -19,7 +19,7 @@ import { flash, playMotion, type Motion } from "./answers";
 import { button, byId, capture, el, iconButton } from "./dom";
 import { FX_CODES, PLAY_CODES, TOOL_CODES, WEATHER_CODES } from "./keymap";
 import { RelayDialog } from "./relay-dialog";
-import { TourGuide } from "./tour-guide";
+import { GuideCard } from "./guide-card";
 import { HelpDialog } from "./help";
 import { ChordMenu } from "./chord-menu";
 import { ToastView } from "./toast";
@@ -104,7 +104,7 @@ export class Panels {
 
   // ---- the parts of the page that have a file of their own ----
   private readonly relayDialog: RelayDialog;
-  private readonly tourGuide: TourGuide;
+  private readonly guideCard: GuideCard;
   private readonly help: HelpDialog;
   private readonly chordMenu: ChordMenu;
   private readonly toast: ToastView;
@@ -124,7 +124,7 @@ export class Panels {
 
   constructor(private readonly app: App, private readonly ring: RingView, private readonly easel: EaselView, private readonly bench: BenchView, private readonly mouth: BoothView) {
     this.relayDialog = new RelayDialog(this, app);
-    this.tourGuide = new TourGuide(this, app);
+    this.guideCard = new GuideCard(this, app, () => ring.cheer(), () => ring.pointAgain());
     this.help = new HelpDialog(this);
     this.chordMenu = new ChordMenu(app, ring);
     this.toast = new ToastView(app);
@@ -153,7 +153,7 @@ export class Panels {
     this.palette.build();
     this.piecePanel.build();
     this.relayDialog.build();
-    this.tourGuide.build();
+    this.guideCard.build();
     this.buildStage();
     this.help.build();
     document.addEventListener("pointerdown", (event) => this.outside(event), true);
@@ -372,8 +372,9 @@ export class Panels {
     this.help.show();
   }
 
+  /** The guide was asked for: its list of lessons comes up. */
   startTour(): void {
-    this.tourGuide.start();
+    this.app.guide.open();
   }
 
   /** The piece written down phrase by phrase, in a window of its own. */
@@ -391,9 +392,9 @@ export class Panels {
     this.relayDialog.show();
   }
 
-  /** Ends the tour if it runs, and says whether it did. */
+  /** Puts the guide away if it is up, and says whether it was. */
   endTour(): boolean {
-    return this.tourGuide.end();
+    return this.guideCard.end();
   }
 
   private buildTracks(): void {
@@ -424,6 +425,7 @@ export class Panels {
       // The list runs like the rings: the outermost on top.
       const info = trackInfo(track);
       const row = el("li", "track");
+      row.dataset.track = String(track);
       row.style.setProperty("--c", info.color);
       const pick = button("pick", "", `Pick ${info.name} (key ${track + 1})`);
       pick.append(el("span", "dot"), el("span", "name", info.name), el("span", "sound"));
@@ -777,6 +779,9 @@ export class Panels {
     this.sampleBoard.sync();
     this.acidPanel.sync();
     this.chordMenu.sync();
+    // The guide's card before the palette and the messages, which keep clear of it; and after everything that decides
+    // how the page is laid out (the row under the wheel, the sides of the panel).
+    this.guideCard.sync();
     this.palette.sync();
     this.toast.sync();
     this.ring.invalidate();
@@ -814,7 +819,8 @@ export class Panels {
     const lights = byId("lights-toggle");
     lights.setAttribute("aria-pressed", String(app.lights));
     lights.title = app.lights ? "Light show: on" : "Light show: off";
-    this.tourGuide.check();
+    // The guide: a task that was just done (its card comes last, when everything else has its place).
+    this.app.guide.check();
     // What belongs to the ring in focus only moves when it changes, not when another ring comes into focus.
     const sameRing = this.shownRing === selected;
     if (!sameRing && this.shownRing !== -1) {
@@ -960,7 +966,7 @@ export class Panels {
     const settings = trackOf(project, selected);
     // A recording in slices with a hit on every step plays through: said so, not as a list of all its steps.
     const sliced = settings.sound === SAMPLE_SOUND && settings.sample?.mode === SLICES;
-    byId("status").textContent = app.weather.focused
+    const says = app.weather.focused
       ? `Weather: ${describeWeather(currentScene(project))}`
       : app.piece.laying && app.piece.key !== null
       ? app.piece.describeRoster(app.piece.lane, app.piece.key)
@@ -971,5 +977,8 @@ export class Panels {
       : app.body.isOpen ? `Body ${info.name}: ${describeBody(settings.body)}`
       : app.voice.isOpen ? `Voice ${info.name}: ${describeVoice(settings.voice)}`
       : `${info.name}: ${sliced && activeSteps(pattern).length === pattern.len ? `a hit on every step of ${pattern.len}` : describe(pattern)}${settings.sound === SAMPLE_SOUND && settings.sample ? ` · ${describeSample(settings.sample, app.sample.sound?.seconds ?? null, pattern.len)}${app.sample.state === "missing" ? " (not in this browser: silent)" : ""}` : ""}${selected === 0 && hasRumble(currentScene(project), pattern.len) ? ` · ${describeRumble(currentScene(project), pattern)}` : ""}${this.pull(selected)}${this.ahead()}`;
+    // Written only when the words differ: a line that is live is spoken again when it is written again.
+    const status = byId("status");
+    if (status.textContent !== says) status.textContent = says;
   }
 }

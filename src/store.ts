@@ -21,6 +21,8 @@ export class Store {
   private lastAt = 0;
   private readonly listeners = new Set<() => void>();
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** What was on the table before a lesson brought a Kreisel of its own: the project and its steps back and forth. */
+  private lent: { project: Project; past: string[]; future: string[] } | null = null;
   /** While locked (looking back at an old turn), nothing can be changed; `refused` hears every attempt. */
   locked = false;
   refused: () => void = () => undefined;
@@ -108,8 +110,52 @@ export class Store {
     return true;
   }
 
+  /**
+   * Lends the table to a lesson: its own Kreisel comes onto it, with steps back of its own, and what was there is set
+   * aside whole (the project and its history). Nothing of the lesson is kept by the browser: what `save` writes while
+   * the table is lent is the Kreisel that was set aside, so a reload brings that one back.
+   */
+  lend(project: Project): void {
+    if (this.lent) this.giveBack();
+    this.lent = { project: this.project, past: this.past, future: this.future };
+    this.project = project;
+    this.past = [];
+    this.future = [];
+    this.lastKey = null;
+    this.changed();
+  }
+
+  /** Whether a lesson has the table. */
+  get lending(): boolean {
+    return this.lent !== null;
+  }
+
+  /**
+   * Ends a loan. The Kreisel that was set aside comes back with its history, as if the lesson had not been; with
+   * `keep`, the lesson's Kreisel stays on the table instead, and the one set aside is one step back. Gives the
+   * lesson's Kreisel (for whoever wants to offer it once more), or `null` if nothing was lent.
+   */
+  giveBack(keep = false): Project | null {
+    const own = this.lent;
+    if (!own) return null;
+    this.lent = null;
+    const made = this.project;
+    this.project = own.project;
+    this.past = own.past;
+    this.future = own.future;
+    this.lastKey = null;
+    if (keep) {
+      this.remember();
+      this.project = made;
+    }
+    this.changed();
+    return made;
+  }
+
   /** Puts another project on the table (a shared link, a fresh start); undo brings the old one back. */
   replace(project: Project): void {
+    // What comes now is the visitor's own doing: a lesson's loan ends first, so that it replaces their Kreisel and not the lesson's.
+    if (this.lent) this.giveBack();
     this.remember();
     this.lastKey = null;
     this.project = project;
@@ -119,7 +165,8 @@ export class Store {
   /** Keeps the current project aside before a shared one replaces it, even across reloads. */
   backup(): void {
     try {
-      localStorage.setItem(BACKUP_KEY, serialize(this.project));
+      // While a lesson has the table, the visitor's own Kreisel is the one worth keeping aside.
+      localStorage.setItem(BACKUP_KEY, serialize(this.lent?.project ?? this.project));
     } catch {
       // No storage: undo still has it for this visit.
     }
@@ -148,7 +195,7 @@ export class Store {
     if (this.saveTimer !== null) clearTimeout(this.saveTimer);
     this.saveTimer = null;
     try {
-      localStorage.setItem(STORAGE_KEY, serialize(this.project));
+      localStorage.setItem(STORAGE_KEY, serialize(this.lent?.project ?? this.project));
     } catch {
       // Private mode or a full disk: the Kreisel still plays, it just is not kept.
     }

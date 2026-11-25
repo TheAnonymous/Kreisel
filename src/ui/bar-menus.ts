@@ -90,7 +90,7 @@ function viewRows(app: App, doors: BarDoors): MenuRow[] {
 function helpRows(doors: BarDoors): MenuRow[] {
   return [
     { kind: "action", label: "Help and keys", hint: "?", run: () => doors.help() },
-    { kind: "action", label: "Tour: the first steps", run: () => doors.tour() },
+    { kind: "action", label: "Guide: first steps and lessons", run: () => doors.tour() },
   ];
 }
 

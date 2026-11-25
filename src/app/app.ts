@@ -1,5 +1,5 @@
 import { Engine, type FxName } from "../audio/engine";
-import { BAR, clamp, currentScene, emptySceneFor, patternOf, startProject, technoPiece, TRACK_COUNT, trackOf, wrap, type Project, type StyleId } from "../model";
+import { BAR, clamp, currentScene, freshProject, patternOf, startProject, TRACK_COUNT, trackOf, wrap, type Project, type StyleId } from "../model";
 import { chordAt } from "../music";
 import { seeded } from "../patterns";
 import { barCount } from "../piece";
@@ -19,6 +19,7 @@ import { BodyDesk } from "./body";
 import { ChordDesk } from "./chords";
 import { SceneDesk } from "./scenes";
 import { FileDesk } from "./files";
+import { GuideDesk } from "./guide";
 
 /*
  * The app: the project on the table, what is selected, and everything that
@@ -54,6 +55,12 @@ export interface Toast {
 
 /** Something done that a button on the page stands for. */
 export type Deed = { what: "undo" | "redo" | "dice-all" | "share" } | { what: "dice" | "vary" | "clear"; track: number };
+
+/** The parts of a `Deed`, for whoever asks "was this done?" without caring which kind it is. */
+export interface DeedSeen {
+  what: Deed["what"];
+  track?: number;
+}
 
 /** What the wheel and the panel are turned to: one of the seven rings, the piece's ring, or the weather. */
 export type Focus = "ring" | "piece" | "weather";
@@ -105,6 +112,13 @@ export class App {
   stage = false;
   /** Something was done that a button stands for: that button answers with a little motion, also when a key did it. */
   onDeed: (deed: Deed) => void = () => undefined;
+
+  /** Reports a deed: to the button that stands for it, and to the guide, which may have asked for just that. */
+  report(deed: Deed): void {
+    this.guide.note(deed);
+    this.onDeed(deed);
+  }
+
   /** Effects that were latched with the right button: they stay on without being held. */
   readonly latched = new Set<FxName>();
   /** The dice of this visit: everything that is thrown comes from here. */
@@ -130,6 +144,7 @@ export class App {
   readonly chords = new ChordDesk(this);
   readonly scenes = new SceneDesk(this);
   readonly files = new FileDesk(this);
+  readonly guide = new GuideDesk(this);
 
   constructor() {
     this.engine = new Engine(() => this.store.project, {
@@ -355,13 +370,13 @@ export class App {
   undo(): void {
     if (!this.store.undo()) return;
     if (this.playing) this.engine.queueScene(this.project.scene);
-    this.onDeed({ what: "undo" });
+    this.report({ what: "undo" });
   }
 
   redo(): void {
     if (!this.store.redo()) return;
     if (this.playing) this.engine.queueScene(this.project.scene);
-    this.onDeed({ what: "redo" });
+    this.report({ what: "redo" });
   }
 
   /**
@@ -369,13 +384,7 @@ export class App {
    * Without a `style` it stays in the style of the Kreisel on the table.
    */
   newProject(empty: boolean, style: StyleId = this.project.style): void {
-    const project = startProject(style);
-    if (empty) {
-      project.scenes[0] = emptySceneFor(style);
-      // The techno Kreisel's own piece belongs to its rings: an empty one starts with the plain form.
-      if (style === "techno") project.piece = technoPiece();
-    }
-    this.store.replace(project);
+    this.store.replace(freshProject(empty, style));
     if (this.playing) this.engine.queueScene(0);
     this.say(empty ? "An empty Kreisel." : style === "techno" ? "The techno Kreisel is here." : "The factory Kreisel is back.", this.takeBack);
   }
@@ -407,15 +416,21 @@ export class App {
 
   // ---- messages -----------------------------------------------------------------
 
-  say(text: string, action?: Toast["action"]): void {
+  /**
+   * Says something at the foot of the page, with one thing to press if there is one. With `stays` it does not leave
+   * by itself: for an offer that cannot be had any other way afterwards (what a lesson of the guide had built).
+   */
+  say(text: string, action?: Toast["action"], stays = false): void {
     this.toast = action ? { text, action } : { text };
     if (this.toastTimer !== null) clearTimeout(this.toastTimer);
     // As long as it takes to read: a short word five seconds (nine with something to press), a long sentence up to sixteen.
-    this.toastTimer = setTimeout(() => this.dismiss(), Math.min(16_000, Math.max(action ? 9000 : 5000, 2000 + text.length * 60)));
+    this.toastTimer = stays ? null : setTimeout(() => this.dismiss(), Math.min(16_000, Math.max(action ? 9000 : 5000, 2000 + text.length * 60)));
     this.notify();
   }
 
   dismiss(): void {
+    if (this.toastTimer !== null) clearTimeout(this.toastTimer);
+    this.toastTimer = null;
     this.toast = null;
     this.notify();
   }

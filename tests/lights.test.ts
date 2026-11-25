@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { clear, fade, GLOW_FADE, GLOW_LIFE, Lights, MAX_SPARKS, SPARK_LIFE, sparkAt, WAVE_LIFE, waveAt, type Spark } from "../src/ui/lights";
-import { placeCard } from "../src/ui/tour";
 
 describe("the light show", () => {
   const spark: Spark = { x: 100, y: 100, vx: 200, vy: 0, born: 10, life: SPARK_LIFE, size: 2, color: "#e4572e" };
@@ -66,40 +65,5 @@ describe("the light show", () => {
     lights.clear();
     expect(lights.count()).toEqual({ sparks: 0, waves: 0, glowing: false });
     expect(lights.alive).toBe(false);
-  });
-});
-
-describe("the tour's card", () => {
-  const window = { width: 1366, height: 768 };
-  const card = { width: 330, height: 180 };
-
-  it("goes on the wished side of what the light falls on, level with its middle", () => {
-    const target = { left: 360, top: 110, width: 580, height: 580 };
-    expect(placeCard(target, card, window, "right")).toEqual({ left: 954, top: 310 });
-    expect(placeCard(target, card, window, "left")).toEqual({ left: 16, top: 310 });
-  });
-
-  it("takes another side when the wished one has no room", () => {
-    // The panel at the right edge: no room to its right.
-    const panel = { left: 1040, top: 76, width: 310, height: 680 };
-    expect(placeCard(panel, card, window, "right")).toEqual({ left: 696, top: 326 });
-    // The three dots in the corner: below them.
-    const dots = { left: 1312, top: 18, width: 40, height: 40 };
-    const spot = placeCard(dots, card, window, "below");
-    expect(spot.top).toBe(72);
-    expect(spot.left).toBe(1366 - 330 - 8);
-  });
-
-  it("stays inside the window, also where nothing fits beside the target", () => {
-    const phone = { width: 412, height: 839 };
-    const wheel = { left: 4, top: 113, width: 404, height: 404 };
-    const below = placeCard(wheel, card, phone, "right");
-    expect(below).toEqual({ left: 41, top: 531 });
-    const tall = { left: 4, top: 20, width: 404, height: 800 };
-    const over = placeCard(tall, card, phone, "left");
-    expect(over.left).toBeGreaterThanOrEqual(8);
-    expect(over.left + card.width).toBeLessThanOrEqual(phone.width - 8);
-    expect(over.top).toBeGreaterThanOrEqual(8);
-    expect(over.top + card.height).toBeLessThanOrEqual(phone.height - 8);
   });
 });

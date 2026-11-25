@@ -27,6 +27,8 @@ interface Palette {
   bg: string;
   ink: string;
   paper: string;
+  /** The accent: what says "here" and "go". */
+  go: string;
 }
 
 /** Where everything on the wheel lies, in the canvas's own pixels. */
@@ -89,6 +91,8 @@ interface Lane {
   high: number;
 }
 const TOP = -Math.PI / 2;
+/** The guide's mark moves for so many seconds when it comes, then it stands. */
+const MARK_MOVES = 3.6;
 const FOCUS = 3.1;
 /** The piece's ring among the weights, and how wide it is while another ring is in focus. */
 const PIECE = TRACK_COUNT;
@@ -114,7 +118,10 @@ export class RingView {
   private size = 0;
   private readonly weights: number[] = [...Array.from({ length: TRACK_COUNT }, () => 1), PIECE_REST];
   dirty = true;
-  private palette: Palette = { bg: "#f4ecdd", ink: "#2a2233", paper: "#fffaf0" };
+  private palette: Palette = { bg: "#f4ecdd", ink: "#2a2233", paper: "#fffaf0", go: "#e8542a" };
+  /** The guide's mark on the wheel: which place it names, and since when (it moves for a few seconds, then stands). */
+  private markName = "";
+  private markSince = 0;
   private font = "system-ui, sans-serif";
   private readonly calm = window.matchMedia("(prefers-reduced-motion: reduce)");
   // ---- motion (see motion.ts): what each ring looked like at the last look, and what is still moving ----
@@ -193,6 +200,26 @@ export class RingView {
     this.readPalette();
   }
 
+  /** The guide's mark on the wheel moves once more: somebody asked where the place is. */
+  pointAgain(): void {
+    this.markName = "";
+    this.dirty = true;
+  }
+
+  /** A task of the guide was done: the wheel answers with a wave from its middle and a few sparks. Nothing where less motion or no light show was asked for. */
+  cheer(): void {
+    if (this.calm.matches || !this.app.lights) return;
+    const now = performance.now() / 1000;
+    const { center, hub } = this.geometry();
+    this.lights.wave(now, 0.9);
+    for (let spoke = 0; spoke < 8; spoke += 1) {
+      const angle = (spoke / 8) * TAU;
+      this.lights.strike(now, center + Math.cos(angle) * hub * 1.3, center + Math.sin(angle) * hub * 1.3, this.size, this.palette.go, 0.8, 4);
+    }
+    this.live(now, 1.2);
+    this.dirty = true;
+  }
+
   private live(now: number, seconds: number): void {
     this.liveUntil = Math.max(this.liveUntil, now + seconds);
   }
@@ -267,7 +294,7 @@ export class RingView {
   private readPalette(): void {
     const style = getComputedStyle(document.documentElement);
     const read = (name: string, fallback: string): string => style.getPropertyValue(name).trim() || fallback;
-    this.palette = { bg: read("--bg", "#f4ecdd"), ink: read("--ink", "#2a2233"), paper: read("--paper", "#fffaf0") };
+    this.palette = { bg: read("--bg", "#f4ecdd"), ink: read("--ink", "#2a2233"), paper: read("--paper", "#fffaf0"), go: read("--go", "#e8542a") };
     this.font = getComputedStyle(this.canvas).fontFamily || this.font;
     this.dirty = true;
   }
@@ -393,6 +420,15 @@ export class RingView {
         this.live(now, 0.45);
       }
     }
+    // The guide's mark: when it comes or moves to another place, it is drawn anew and moves for a few seconds.
+    const mark = app.guide.mark;
+    const markName = mark && mark.kind !== "node" ? JSON.stringify(mark) : "";
+    if (markName !== this.markName) {
+      this.markName = markName;
+      this.markSince = now;
+      this.dirty = true;
+      if (markName !== "" && !calm) this.live(now, MARK_MOVES);
+    }
     const flashing = Array.from({ length: TRACK_COUNT }, (_, track) => app.sinceStruck(track)).some((since) => since < 0.4);
     if (!this.dirty && !moving && !app.playing && !flashing && now > this.liveUntil && !this.lights.alive) return;
     this.dirty = false;
@@ -433,6 +469,7 @@ export class RingView {
     }
     this.drawChords(frame);
     this.drawHub(frame);
+    this.drawGuide(frame);
     // Over the chords too: the bar numbers stand at their outer edge, where a chord that sounds lights up.
     if (laying) this.drawRosterMarks(frame);
     const piece = this.drawPiece(geometry, playhead !== null);
@@ -1083,6 +1120,53 @@ export class RingView {
       context.fillStyle = glow > 0.5 ? bg : ink;
       context.fillText(chordName(app.project.root, app.project.scale, chord), center + Math.cos(angle) * slotRadius, center + Math.sin(angle) * slotRadius + 0.5);
     });
+  }
+
+  /**
+   * The guide's mark: a ring in two colours around the place a task names (the play button, a ring of the wheel), and
+   * a small ring on each step it asks for. It swells a few times when it comes and then stands: it is there to be
+   * found, not to keep moving.
+   */
+  private drawGuide(frame: Frame): void {
+    const mark = this.app.guide.mark;
+    if (!mark || mark.kind === "node") return;
+    const { now, calm, geometry } = frame;
+    const { center, hub } = geometry;
+    const context = this.context;
+    const age = now - this.markSince;
+    const swell = calm || age > MARK_MOVES ? 0 : (1 - Math.cos((age / MARK_MOVES) * TAU * 3)) / 2;
+    const width = Math.max(3, this.size * 0.007);
+    /** A line that shows on any ground: paper under the accent. */
+    const twice = (path: () => void): void => {
+      for (const [color, by] of [[this.palette.paper, width + 4], [this.palette.go, width]] as const) {
+        context.beginPath();
+        path();
+        context.strokeStyle = color;
+        context.lineWidth = by + swell * 2;
+        context.stroke();
+      }
+    };
+    if (mark.kind === "hub") {
+      twice(() => context.arc(center, center, hub * (1.3 + 0.06 * swell), 0, TAU));
+      return;
+    }
+    const band = geometry.rings[mark.track];
+    if (!band) return;
+    if (!mark.steps) {
+      twice(() => context.arc(center, center, band.outer - width / 2, 0, TAU));
+      twice(() => context.arc(center, center, band.inner + width / 2, 0, TAU));
+      return;
+    }
+    // The steps a task asks for: a ring on each that has no hit yet.
+    const pattern = frame.scene.patterns[mark.track];
+    if (!pattern) return;
+    const middle = (band.inner + band.outer) / 2;
+    const size = Math.max(6, (band.outer - band.inner) * 0.34);
+    for (const step of mark.steps) {
+      if (stepAt(pattern, step).on) continue;
+      const angle = TOP + ((step + 0.5) / pattern.len) * TAU;
+      twice(() => context.arc(center + Math.cos(angle) * middle, center + Math.sin(angle) * middle, size * (1 + 0.15 * swell), 0, TAU));
+    }
   }
 
   /**

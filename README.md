@@ -50,7 +50,7 @@ and no knobs. So Kreisel has no knobs either:
   to the workshop). The speaker holds the two controls for everything
   together, volume and Druck. "Share" gives the Kreisel away, as a link or
   Reihum, and says so while a round is going. The arrow at "Record" saves
-  a file. The question mark is the help and the tour. Stage and light show
+  a file. The question mark is the help and the guide. Stage and light show
   are two buttons at the wheel. All of them are the menu of the right button
   hung under a button (`src/ui/bar-menus.ts`). A phone's bar has no room for
   that: there three dots open one sheet with the same groups under their
@@ -356,10 +356,59 @@ Easier to get into, and more to look at.
 - **The stage** (the button in the corner beside the wheel, or the key O): only the wheel,
   larger, on a dark table whatever the colour scheme, with the tools and the held effects still at hand
   and the glow stronger. Escape or the button leads back; a window that opens takes the Kreisel off it.
-- **The tour** (`src/ui/tour.ts`) replaces the single hint of the first visit: a light falls on one part
-  of the page after the other and a card says in two sentences what it is for. Nothing is locked while
-  it runs, and a step that asks for something to be tried (start, set a hit, pick a ring) goes on by
-  itself once it was done. It comes once and again from the question mark in the bar.
+- **The guide** (`src/app/guide.ts`, `src/app/lessons.ts`, `src/ui/guide-card.ts`) is how a newcomer
+  starts. It replaced a tour that showed seven parts of the page under a dimmed light: reading about a
+  page teaches little, tours that come by themselves are mostly skipped, and locking a page to the one
+  lit control helped in none of the studies read for this. So nothing is dimmed or locked. A card under
+  the wheel asks for one small thing in one sentence, a ring marks where (on the wheel, the wheel itself
+  draws it), and the task is over when what it asks for has happened, by mouse, finger or keys. Then
+  the card says "Done" and what was just made, stays as long as that takes to read and to hear, and
+  brings the next task by itself.
+  - On a first visit the card only says "Click play in the middle of the wheel and listen to a turn".
+    The **first steps** are five tasks: play, take the kick out and bring it back, set three notes in
+    the melody, another sound, hold Stutter. After them come six **lessons** to pick from, each of two to
+    four tasks: "Build a beat" (from an empty wheel), "Sounds", "Play it live", "A second part" (a second
+    scene and the row), "Sample a ring", "Share and show". The card recommends the next one that was not
+    done yet and says in a line what it is for.
+  - "Show me" does a task once for whoever is stuck (asked twice in a row, it still does it once). "Skip"
+    goes on without doing it (it reads "Next" once the task was done, "Finish" on the last), "Back" is
+    there from the second task on, the cross closes. A task gone back to that holds already (it asks for
+    play, and it plays) is shown once more to be read, as done, and stays until one goes on. A lesson that
+    was only skipped through is not ticked, and its end says so instead of praising.
+  - A line of its own answers what stands in the way: "Nothing plays yet: …" where a task is about sound
+    and the wheel stands still, and a sentence for a near miss (a hit in another ring than the one asked
+    for, a palette that was closed again). A task says in its `miss` what its near miss is. Under it
+    stands the keyboard's way; where that is far by Tab, it says that the underlined words lead there.
+  - What the card says when a task was done stays a second and a half and three tenths of a second a
+    word (and at least as long as the task says, so that what was made is heard); "Next" goes on at once.
+  - A lesson that changes much borrows the table (`Chapter.lends`): "Build a beat" brings an empty
+    wheel, "Sounds", "A second part" and "Sample a ring" work on a copy. The visitor's Kreisel is set
+    aside whole, with its steps back, and at the end the card asks: "Keep it" (the old one is one step
+    back) or "Back to mine" (`Store.lend`, `giveBack`). Closing before that was answered gives the
+    visitor's own back, and the message offers what was built once more: that message stays until it is
+    answered, and a keyboard's focus goes to its button. What a lesson resampled on its
+    copy is forgotten with the copy. A link, a file or a new Kreisel opened meanwhile ends the lesson
+    without a word of the guide's (the page has just said its own).
+  - The card is a named part of the page, not a window. It takes the focus only for the keyboard (when
+    the last input was a key) and only when it was asked for or one of its buttons was pressed; a task
+    done on the page leaves the focus where it was. F6 goes to the card and back to where one was; a
+    ring's digit or an arrow key pressed on one of the card's buttons takes the focus to the wheel, so
+    that the next Enter sets a hit there and does not press the card's button again. The
+    name of a task's place in its sentence is a button: it puts the focus on that place and lets the mark
+    beckon again. Every step is written once to an announcer of its own (`role="status"`), so a screen
+    reader speaks it once; what the page's message says already is not said there a second time, and the
+    announcer is emptied again after a while. "Show me" says in its name when it will start the Kreisel.
+    Escape closes what was opened last before it closes the guide. The words say "tap" where a finger is
+    used and leave out what only a mouse or a key can do.
+  - On a laptop the card is docked under the wheel, as tall for one task as for the next, so the wheel
+    keeps its size and the buttons their place. In a small window, on a phone and on the stage it is a
+    sheet at the foot of the window, and the page, the sound palette, the messages and whatever takes the
+    focus keep clear of it (`--guide-foot`, `scroll-padding-bottom`).
+  - Which lessons were finished and where one was left is kept in the browser. Closing always says where
+    the guide waits: under the question mark in the bar (a phone has it in the menu behind the three dots).
+  - A new task is an entry in `src/app/lessons.ts`: its sentence (the place's name in brackets, a verb
+    first, twenty words at most), where its mark goes, how to tell that it was done from the Kreisel's
+    state alone, and how "Show me" does it. `tests/guide.test.ts` holds the wording rules.
 - **Easier to read**: the smallest writing is a little larger, the keyboard's focus frame is drawn in ink
   (a ring's colour can be too pale on paper), and `prefers-contrast: more` gets stronger lines and
   writing and no glow.
@@ -1234,7 +1283,7 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/easel.ts`, `bench.ts`, `booth.ts` | the canvases in the three windows: the sheet, the body, the mouth |
 | `src/ui/panels.ts` | everything around the wheel: the bar, the list of rings, tools, the panel of the ring in focus |
 | `src/ui/scenes-box.ts`, `row-band.ts`, `scene-thumb.ts`, `carry.ts` | the scenes as small wheels with the switch for what plays; the row under the wheel; a scene drawn small; carrying a thing with the mouse |
-| `src/ui/easel-window.ts`, `bench-window.ts`, `booth-window.ts`, `piece-panel.ts`, `weather-panel.ts`, `relay-dialog.ts`, `chord-menu.ts`, `toast.ts`, `help.ts`, `tour-guide.ts`, `tour.ts` | the parts of the page that have a file of their own |
+| `src/ui/easel-window.ts`, `bench-window.ts`, `booth-window.ts`, `piece-panel.ts`, `weather-panel.ts`, `relay-dialog.ts`, `chord-menu.ts`, `toast.ts`, `help.ts`, `guide-card.ts` | the parts of the page that have a file of their own |
 | `src/ui/sound-palette.ts` | the row with the ring's sound in its panel, and the palette of all fifty |
 | `src/ui/pedal-board.ts`, `sample-board.ts`, `wave.ts`, `drop.ts` | the two other sides of a ring's panel: its pedals and its sampler; a recording as a strip of bars; files dropped on the page or pasted |
 | `src/ui/menu.ts`, `menus.ts`, `bar-menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the same menu under the bar's buttons; the keyboard; small helpers for building the page |

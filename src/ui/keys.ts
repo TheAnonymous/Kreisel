@@ -70,7 +70,9 @@ class Keyboard {
 
   listen(): void {
     window.addEventListener("keydown", (event) => {
-      if (!typing(event.target)) this.take(pressOf(event));
+      if (typing(event.target)) return;
+      this.offCard(event);
+      this.take(pressOf(event));
     });
     window.addEventListener("keyup", (event) => this.release(event.code));
     // A key still down when the window loses focus never sends its keyup.
@@ -132,6 +134,19 @@ class Keyboard {
     return true;
   }
 
+  /**
+   * A key that picks a ring or moves along it, pressed while the focus rests on a button of the guide's card (on
+   * "Skip", say, which was just pressed): the visitor has turned to the wheel, and the focus goes there with them.
+   * Left on the card's button, the next Enter would press that button again instead of setting the hit the card
+   * has just asked for.
+   */
+  private offCard(event: KeyboardEvent): void {
+    const focused = document.activeElement;
+    if (this.app.guide.view !== "task" || !(focused instanceof HTMLButtonElement) || focused.closest("#tour") === null) return;
+    if (event.ctrlKey || event.metaKey || event.altKey || !/^(Digit[1-7]|Arrow(Left|Right|Up|Down))$/.test(event.code)) return;
+    document.getElementById("kreisel")?.focus();
+  }
+
   /** Space is start and stop, except on a button focused by keyboard: that one keeps its space bar. */
   private startStop({ event, code, repeat }: Press): boolean {
     if (code !== "Space") return false;
@@ -142,12 +157,16 @@ class Keyboard {
     return true;
   }
 
-  /** Escape puts away what is open, one thing at a time from the top: the tour, a window, and last the stage. */
+  /**
+   * Escape puts away what is open, one thing at a time from the top: a window, a palette, a side of the panel, the
+   * stage. The guide comes last (what it asked to be opened closes before it does), or first if the focus is on it.
+   */
   private putAway({ key }: Press): boolean {
     if (key !== "Escape") return false;
     const { app, panels } = this;
-    if (panels.endTour()) return true;
     const open = app.paint.isOpen || app.body.isOpen || app.voice.isOpen || app.chords.openSlot !== null || app.rings.paletteOpen || app.pedals.open || app.sample.open;
+    const onGuide = document.activeElement instanceof Element && document.activeElement.closest("#tour") !== null;
+    if ((onGuide || (!open && !app.stage && app.keyCursor === null && !app.weather.focused && !app.relay.oldTurn)) && panels.endTour()) return true;
     if (!open && app.stage) app.toggleStage(false);
     app.chords.close();
     app.rings.closePalette();

@@ -34,7 +34,8 @@ export class ToastView {
       const act = button("button small", action.label);
       act.addEventListener("click", () => {
         action.run();
-        app.dismiss();
+        // (Unless what was just done has said something of its own: that message stays.)
+        if (app.toast === toast) app.dismiss();
       });
       children.push(act);
     }

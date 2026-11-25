@@ -83,8 +83,7 @@ export class EaselWindow {
     // The piece has two tools of its own (see piece-panel.ts).
     byId("tools").hidden = open || app.body.isOpen || app.weather.focused || app.piece.focused;
     if (open && !this.easelOpen) {
-      // The first hint is about the rings, and where the panel sits below the wheel, the sheet opens out of sight.
-      this.panels.endTour();
+      // Where the panel sits below the wheel, the sheet opens out of sight.
       byId("stage").scrollIntoView({ block: "nearest" });
     }
     this.easelOpen = open;
