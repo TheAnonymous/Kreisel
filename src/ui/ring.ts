@@ -1,9 +1,12 @@
 import { nextHit, slidesInto } from "../acid";
-import { ACID_SOUND, BAR, currentScene, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SCENE_NAMES, WEATHER_MAX, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, trackOf, type Pattern, type Scene, type Step, wrap } from "../model";
+import { ACID_SOUND, BAR, currentScene, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SAMPLE_SOUND, SCENE_NAMES, WEATHER_MAX, stepAt, TENSION_MAX, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, trackInfo, trackOf, type Pattern, type Scene, type Step, wrap } from "../model";
 import { chordAt, chordName } from "../music";
 import { drawMouth } from "./booth";
 import { tideShare, WEATHER_COLORS, windDrift } from "../weather";
 import { crestSteps, sweepAt, sweeps, takesPedals } from "../pedals";
+import { readySound } from "../audio/sample";
+import { SLICES } from "../sample";
+import { loudness } from "./wave";
 import { Lights } from "./lights";
 import { approach, compare, DEAL, dealt, face, hop, MANY, POP, rest, SHRINK, SLIDE, SWELL, swell, unface } from "./motion";
 import { buildFor, buildReach, dropsOf, entry, gapSteps, PHRASE, planBar, playsThere, reached, ROSTER, rosterOf } from "../piece";
@@ -505,6 +508,7 @@ export class RingView {
       return;
     }
     this.drawBand(frame, lane);
+    this.drawRecord(frame, lane);
 
     // A ring that was just turned slides into its new place, with all that lies on it.
     const slide = this.sliding(track, now);
@@ -526,6 +530,43 @@ export class RingView {
     this.drawCrest(frame, lane);
     this.drawRunner(frame, lane);
     this.drawPointers(center, lane);
+  }
+
+  /**
+   * A ring that plays a recording in slices shows it: the recording lies around the ring like the groove of a
+   * record, loud where the band is wide. What lies under a step is what a hit there plays (the record turned on by
+   * as many steps as the sample says, and the other way round for one that is played backwards).
+   */
+  private drawRecord(frame: Frame, lane: Lane): void {
+    const settings = trackOf(this.app.project, lane.track);
+    const sample = settings.sample;
+    if (!sample || settings.sound !== SAMPLE_SOUND || sample.mode !== SLICES) return;
+    const made = readySound(sample.id);
+    if (!made) return;
+    const context = this.context;
+    const { center } = frame.geometry;
+    const steps = lane.pattern.len;
+    const each = steps <= 16 ? 6 : 4;
+    const buckets = steps * each;
+    const loud = loudness(sample.id, made, buckets, sample.from, sample.to);
+    // In ink, not in the ring's colour: on the ring's own tint a hue of the same colour is hardly seen.
+    context.strokeStyle = this.palette.ink;
+    context.globalAlpha = 0.42 + 0.2 * lane.heard;
+    context.lineWidth = Math.max(1, ((TAU * lane.middle) / buckets) * 0.55);
+    context.lineCap = "round";
+    context.beginPath();
+    for (let bucket = 0; bucket < buckets; bucket += 1) {
+      const turned = (bucket + sample.turn * each) % buckets;
+      const value = loud[sample.back ? buckets - 1 - turned : turned] ?? 0;
+      const reach = Math.max(0.7, value * lane.thickness * 0.4);
+      const angle = TOP + ((bucket + 0.5) / buckets) * TAU;
+      const [across, along] = [Math.cos(angle), Math.sin(angle)];
+      context.moveTo(center + across * (lane.middle - reach), center + along * (lane.middle - reach));
+      context.lineTo(center + across * (lane.middle + reach), center + along * (lane.middle + reach));
+    }
+    context.stroke();
+    context.globalAlpha = 1;
+    context.lineCap = "butt";
   }
 
   /**

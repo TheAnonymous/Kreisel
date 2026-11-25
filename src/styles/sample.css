@@ -1,0 +1,269 @@
+/* ---- the sampler: the third side of a ring's panel -------------------------------- */
+
+/* A ring has four sounds of its own now. Where the panel stands beside the wheel (a laptop), their rows lie flatter
+   and closer, so that the panel still fits the screen; under the wheel (a phone) they keep their height for a finger. */
+@media (min-width: 1100px) and (min-height: 540px) {
+  .panel-ring .own-pick {
+    height: 26px;
+    padding-block: 1px;
+    font-size: 0.76rem;
+  }
+
+  .panel-ring .own-pick .thumb {
+    height: 18px;
+  }
+
+  .panel-ring .own .button.small {
+    min-height: 26px;
+    padding-block: 2px;
+  }
+
+  .panel-ring .own + .own {
+    margin-top: -5px;
+  }
+}
+
+.panel-sample {
+  gap: 6px;
+}
+
+.panel-sample .group {
+  gap: 4px;
+  padding-top: 7px;
+}
+
+.panel-sample .line {
+  min-height: 28px;
+}
+
+.panel-sample .panel-head h2 {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 1.02rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sample-sources {
+  display: grid;
+  gap: 4px;
+}
+
+.sample-sources .line {
+  gap: 6px;
+}
+
+.sample-sources .line .button {
+  flex: 1;
+}
+
+/* What is going on, in words: reading, recording, a recording that is not here. */
+.sample-state {
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--soft);
+}
+
+/* A missing recording is said in a frame of its own, not by a colour alone. */
+.sample-state.missing {
+  padding: 5px 8px;
+  border: 2px dashed var(--ink);
+  border-radius: 10px;
+  color: var(--ink);
+}
+
+.sample-shape {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sample-about {
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* The recording as a strip: pale where it is not played, in the ring's colour where it is. */
+.sample-wave {
+  display: block;
+  width: 100%;
+  height: 50px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--c) 10%, var(--paper));
+}
+
+.pedal-choice.sample-modes,
+.pedal-choice.sample-fits {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pedal-choice.sample-fits.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.panel-sample .chip {
+  min-height: 26px;
+  padding-block: 3px;
+}
+
+.panel-sample .chip[aria-checked="true"],
+.panel-sample .chip[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.panel-sample .chip[role="radio"] {
+  position: relative;
+}
+
+/* What is taken is also marked without its colours: a dot in its corner. */
+.panel-sample .chip[aria-checked="true"]::after {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--bg);
+  content: "";
+}
+
+.panel-sample .line .button.small,
+.panel-sample .line .chip {
+  flex: none;
+  padding-inline: 9px;
+}
+
+/* A slider and its word are one label; what stands beside them (a button, a switch) is not part of it. */
+.sample-amount {
+  display: contents;
+}
+
+.panel-sample .line .sample-amount + .button,
+.panel-sample .line .sample-amount + .chip {
+  margin-left: 2px;
+}
+
+/* A button that cannot be used right now stays where it is and keeps the focus: it only looks and says that it is held. */
+.panel-sample .button[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The microphone's button while it records: filled, and its word is "Stop". */
+.sample-mic.recording {
+  background: var(--go);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+/* Where the system paints in its own few colours, what is taken is marked in the colour it has for that. */
+@media (forced-colors: active) {
+  .panel-sample .chip[aria-checked="true"],
+  .panel-sample .chip[aria-pressed="true"],
+  .panel-pedals .chip[aria-checked="true"],
+  .panel-pedals .chip[aria-pressed="true"] {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+}
+
+/* The recordings this browser keeps: the list takes the room that is left and rolls by itself when it gets long. */
+.panel-sample {
+  min-height: 0;
+}
+
+.panel-sample > * {
+  flex: none;
+}
+
+.panel-sample > .sample-keeps {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 98px;
+}
+
+.sample-kept {
+  display: grid;
+  flex: 0 1 auto;
+  align-content: start;
+  gap: 4px;
+  min-height: 28px;
+  max-height: 124px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.sample-kept .none {
+  font-size: 0.74rem;
+  color: var(--soft);
+}
+
+.kept-sound {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kept-sound .chip {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 8px;
+  padding-inline: 10px;
+  text-align: left;
+}
+
+.kept-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kept-length {
+  flex: none;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.kept-sound .button.icon {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+}
+
+#sample-bundle {
+  flex: none;
+  align-self: flex-start;
+}
+
+/* A file is being dragged over the page: the wheel says where it will land. */
+:root[data-dropping] .stage {
+  outline: 3px dashed var(--focus);
+  outline-offset: -6px;
+}
+
+:root[data-dropping] .stage[data-drop]::after {
+  position: absolute;
+  inset: auto 12px 12px;
+  z-index: 4;
+  padding: 8px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--paper);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: center;
+  content: attr(data-drop);
+}

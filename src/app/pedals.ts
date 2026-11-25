@@ -40,7 +40,10 @@ export class PedalDesk {
     if (!this.open && (!this.fits || this.app.focus !== "ring" || this.app.relay.veiled(this.app.selected))) return;
     this.open = !this.open;
     this.asked = this.open;
-    if (this.open) this.app.rings.paletteOpen = false;
+    if (this.open) {
+      this.app.rings.paletteOpen = false;
+      this.app.sample.shut();
+    }
     this.app.notify();
   }
 

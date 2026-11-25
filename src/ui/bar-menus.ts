@@ -61,9 +61,13 @@ function diceRows(app: App): MenuRow[] {
 function shareRows(app: App, doors: BarDoors): MenuRow[] {
   const link: MenuRow = { kind: "action", label: "Copy link", note: "The whole Kreisel in one link. Whoever opens it gets their own copy.", run: () => void app.files.share() };
   const turns = app.relay.round?.turns.length ?? 0;
+  // A Kreisel whose rings play recordings: a link names them but cannot carry them, a file can.
+  const file: MenuRow[] = app.project.tracks.some((track) => track.sample !== undefined)
+    ? [{ kind: "action", label: "Save as a file with its recordings", note: "A link cannot carry sound. This file holds the Kreisel and the recordings its rings play; dropped on a Kreisel, it opens.", run: () => void app.sample.saveBundle() }]
+    : [];
   // A round that is going comes first: its next turn is what "Share" is about now.
-  if (turns > 0) return [{ kind: "action", label: `Pass around: turn ${turns + 1} is yours`, note: "Build your turn, finish it and send the link on.", run: () => doors.relay() }, link];
-  return [link, { kind: "action", label: "Pass around: from hand to hand", note: "Everyone builds a turn and sends the link on.", run: () => doors.relay() }];
+  if (turns > 0) return [{ kind: "action", label: `Pass around: turn ${turns + 1} is yours`, note: "Build your turn, finish it and send the link on.", run: () => doors.relay() }, link, ...file];
+  return [link, ...file, { kind: "action", label: "Pass around: from hand to hand", note: "Everyone builds a turn and sends the link on.", run: () => doors.relay() }];
 }
 
 function soundOutRows(app: App, withRecording: boolean): MenuRow[] {

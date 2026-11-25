@@ -55,7 +55,7 @@ export function chordRoman(scale: ScaleId, degree: number): string {
 }
 
 /** The root moved into the octave around `center` (never more than a tritone away). */
-function rootNear(root: number, center: number): number {
+export function rootNear(root: number, center: number): number {
   return center + wrap(root - center + 6, 12) - 6;
 }
 

@@ -1071,6 +1071,123 @@ The research (which effects and chains acid and hard techno are made with,
 and how instruments make effects quick to play and usable without sight) is
 not part of the repository; the plan it led to names the notes.
 
+## The sampler
+
+Acid and hard techno sample: a shout, a film quote, a break from the rave
+years, a top loop, one chord played up and down the keys as a stab, and above
+all their own machine. Of about 75 sources read for this, 24 name resampling
+as the way they work, more than any other technique: the kick is recorded
+with its reverb, rumble and distortion and cut back to one hit, a pattern is
+recorded and chopped, a loop is driven, bounced and driven again.
+
+So a ring can play a **recording**, as the fourth sound of its own beside the
+painted sound, the body and the voice. The button "Sample" in a ring's panel
+(key 0) turns the panel over to the sampler, and the wheel stays in view
+beside it. A recording comes in one of three ways, and all three end the
+same:
+
+- **A file**: "Load a file …", or a file dropped anywhere on the page, or
+  pasted. WAV (8, 16, 24 and 32 bit, float), AIFF, MP3, Ogg Vorbis, Opus (in
+  Ogg and in WebM), FLAC and AAC/M4A are read. The browser decodes what it
+  can; AIFF, which no browser reads, is decoded here (`src/sample-files.ts`).
+  What a file is, is told by its first bytes, not by its name.
+- **The microphone**: "Microphone", make the sound, "Stop".
+- **The Kreisel itself**: "Resample" lays what the Kreisel plays on the ring
+  as a recording. "This ring" takes one turn of the ring by itself, with its
+  pedals, its weather and (for the kick) its hardness and Nachbeben: the ring
+  frozen. Its hits stay where they lie. "The wheel" takes a bar or two of
+  everything that is heard. The ring that takes the recording starts clean,
+  because what was on it is in the recording now, and the recording is made
+  as loud on the ring as what it was made from.
+
+Then it plays at once and in time, without anything being set. The silence
+before and after the sound is left out, the level is brought to that of the
+rings' own sounds, and the page decides whether it is one sound or a loop and
+says so in a sentence. A loop is at least 1.5 seconds long and most of its
+hits lie on a grid of sixteenths; a spoken sentence has hits too, but they
+lie where they like, so it stays one sound.
+
+- As a **One-shot**, every hit of the ring plays all of it. Bass, chords and
+  melody play it higher and lower (of a chord, its lowest note: one sampled
+  chord moved in parallel is the rave stab), and a clear pitch is tuned to
+  the key when it comes in. "Stretch" makes it up to eight times as long at
+  its own pitch.
+- In **Slices** the recording lies around the ring like the groove of a
+  record, cut into as many slices as the ring has steps, and is drawn there.
+  A hit drops the needle on its slice and plays on until the next hit comes:
+  one hit on the first step plays it all through, and every further hit is a
+  new drop of the needle. That is how a break is chopped. A loop that comes
+  in gets a hit on every step (the toast says so, and takes it back); with
+  a recording that fits its steps, those joins cannot be heard. Turning the
+  ring moves every hit onto another slice; "Turn" turns the recording under
+  the hits; a hit pulled outwards or inwards takes a later or an earlier
+  slice. The home row (A to K) drops the needle at eight places by hand, and
+  "Play in" writes that down.
+- **Chop, Speed, Stretch** say how a slice fits its step: at the recording's
+  own speed, as a record played faster or slower, or made longer or shorter
+  at its own pitch. The stretch is the one of the old Akai samplers
+  (`src/stretch.ts`): the sound is cut into short cycles and some are played
+  again. Stretched far, that buzzes, and here a cycle is as long as one wave
+  of the key's root, so the buzz is in key.
+
+The ring's sound pad means something of its own for a recording: across, a
+filter (in the middle none, to the left the highs go, to the right the lows),
+upwards the length. A ring's sample has one voice: a new hit lets the one
+before it go. Pedals, weather, drive and everything else act on a recording
+as on any sound.
+
+### A link stays a link
+
+Sound does not fit in a link. The browser keeps the recordings (IndexedDB,
+each under the hash of its sound, so the same file is never kept twice), and
+a Kreisel only names the recording a ring plays and how. Three things follow:
+
+- **What was resampled travels in the link anyway.** It carries its recipe:
+  the packed Kreisel it was made from. Any browser plays that Kreisel again
+  and has the recording. (Not if one of its rings plays a file's sound, or
+  if it is a resample of a resample more than three deep: then this browser
+  keeps it like a file's.)
+- For files and takes there is **one file with the Kreisel and its
+  recordings** ("Save as a file with its recordings" under "Share", or at the
+  bottom of the sampler). Dropped on a Kreisel, it opens.
+- Where a recording is missing, the page says which, the ring is silent, and
+  loading the same file again brings it back as it was set.
+
+A link and a Kreisel's file can be written by anyone, so both are held to
+limits. A recipe is played only if it is the one its recording is named
+after (the name is the recipe's hash), only its scene, for two bars at most,
+a dozen recipes for one Kreisel, one after the other. Of a Kreisel's file
+only the sounds its rings name are kept, each only if it is the sound its
+name says.
+
+### For hands and ears
+
+Every way in is a real button; dropping and pasting are shortcuts. Start,
+end, turn, tune, level and stretch are sliders that say their value in
+seconds, steps and semitones. The waveform has a sentence for a text and is
+drawn in ink, with the part that plays on the ring's colour. What happened is
+said once, in a whole sentence, and an error names the file and what helps.
+What takes a moment is said as well, and a button that has to wait stays
+where it is. The sampler is a side of the panel, not a window over the wheel.
+Escape closes it and the focus goes back where it was. Loading, resampling,
+removing and forgetting a recording can be taken back.
+
+### What is not there
+
+- No buffer that always runs along and catches the last bars: resampling
+  from the recipe can be repeated and fits in a link.
+- Slices are cut on the ring's steps, not freely at the hits.
+- A ring holds 32 slices: a resample is two bars at most, and "This ring" is
+  one turn of the ring, whatever its chords do after that.
+- No stretching in high quality: the genre wants the rough one here.
+- Sample content is the user's own. The page ships none, and nothing a user
+  loads leaves the browser.
+
+The research (what acid and hard techno sample and how, how samplers are made
+quick and usable without sight, and what browsers decode) is not part of the
+repository; the plan it led to names the notes. The test sounds in
+`e2e/fixtures/samples/` are made by `scripts/make-sample-fixtures.mjs`.
+
 ## Build
 
 Sound comes from [Klangwerk](https://github.com/TheAnonymous/Klangwerk), the
@@ -1106,10 +1223,11 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/bild.ts`, `src/imitate.ts`, `src/collection.ts` | painted sounds: strokes, guide lines, dice; what the microphone heard as strokes; the shelf of kept pictures |
 | `src/body.ts`, `src/voice.ts`, `src/kick.ts`, `src/rumble.ts`, `src/weather.ts`, `src/press.ts`, `src/acid.ts`, `src/hat.ts` | the rules of the Klangkörper, the voice, the kick's place in the key, the Nachbeben, the weather, of Zerre and Druck, of the acid machine, and of the hi-hat that is one voice |
 | `src/piece.ts`, `src/order.ts`, `src/relay.ts` | the piece: what a bar's tension asks for; the row of scenes: laying, moving and walking its rounds; Reihum: what a turn touched, people's colours |
+| `src/sample.ts`, `src/sample-files.ts`, `src/sample-analysis.ts`, `src/stretch.ts`, `src/resample.ts`, `src/bundle.ts`, `src/sample-store.ts` | the sampler: how a recording is played and travels in a link; which file is what, and the decoders for what no browser reads; silence, level, hits, tempo, pitch, and whether it is a loop; the Akai stretch; the recipe of what was resampled; the file that holds a Kreisel with its recordings; where the browser keeps recordings |
 | `src/sounds/` | the palettes: 350 ready-made sounds as recipes (`shapes.ts` says what a recipe is, a file for each ring holds its fifty, `index.ts` knows their numbers and names, `trims.ts` how loud each is, `techno.ts` which ten of each ring are its techno group) |
-| `src/audio/` | the ready-made sounds made audible, painted sounds, bodies and voices, the kick's drive and the Nachbeben, listening, the mixer, the player (live and offline), effects, recording; `hear.ts` renders one hit by itself and measures it, `whole.ts` the whole Kreisel |
+| `src/audio/` | the ready-made sounds made audible, painted sounds, bodies and voices, the kick's drive and the Nachbeben, listening, the mixer, the player (live and offline), effects, recording; `hear.ts` renders one hit by itself and measures it, `whole.ts` the whole Kreisel; `sample.ts` decodes and plays recordings, `sample-bank.ts` gets them ready (from the browser's store, or made again from a recipe), `record.ts` records the microphone |
 | `src/app/app.ts` | the app's core: the table, what is in focus, starting and stopping, steps back, messages |
-| `src/app/rings.ts`, `voice.ts`, `weather.ts`, `rumble.ts`, `relay.ts`, `piece.ts`, `paint.ts`, `body.ts`, `chords.ts`, `scenes.ts`, `files.ts` | one desk for each subject |
+| `src/app/rings.ts`, `voice.ts`, `weather.ts`, `rumble.ts`, `relay.ts`, `piece.ts`, `paint.ts`, `body.ts`, `chords.ts`, `scenes.ts`, `files.ts`, `pedals.ts`, `sample.ts` | one desk for each subject |
 | `src/app/workshop.ts`, `prefs.ts` | what the three windows for a ring's own sound share; what the browser remembers |
 | `src/ui/ring.ts`, `ring-gestures.ts`, `ring-shape.ts` | the wheel: drawing it; what a pointer does on it; what both go by |
 | `src/ui/motion.ts`, `lights.ts`, `answers.ts` | motion on the wheel, the light show, the little motions with which the page answers |
@@ -1118,10 +1236,12 @@ The code lies in four layers, and each knows only the ones before it (the linter
 | `src/ui/scenes-box.ts`, `row-band.ts`, `scene-thumb.ts`, `carry.ts` | the scenes as small wheels with the switch for what plays; the row under the wheel; a scene drawn small; carrying a thing with the mouse |
 | `src/ui/easel-window.ts`, `bench-window.ts`, `booth-window.ts`, `piece-panel.ts`, `weather-panel.ts`, `relay-dialog.ts`, `chord-menu.ts`, `toast.ts`, `help.ts`, `tour-guide.ts`, `tour.ts` | the parts of the page that have a file of their own |
 | `src/ui/sound-palette.ts` | the row with the ring's sound in its panel, and the palette of all fifty |
+| `src/ui/pedal-board.ts`, `sample-board.ts`, `wave.ts`, `drop.ts` | the two other sides of a ring's panel: its pedals and its sampler; a recording as a strip of bars; files dropped on the page or pasted |
 | `src/ui/menu.ts`, `menus.ts`, `bar-menus.ts`, `keys.ts`, `keymap.ts`, `dom.ts` | the menu under the right button and what stands in it; the same menu under the bar's buttons; the keyboard; small helpers for building the page |
 | `src/styles/` | the style sheet, one file for each part of the page; `src/style.css` lists them in the order of the cascade |
 | `scripts/level-sounds.mjs` | `npm run level`: measures every ready-made sound and writes `src/sounds/trims.ts` |
-| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`, `kick`, `bar`, `scenes`, `roster`, `techno-sounds`, `arrange`, `master`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit; the tests of a techno Kreisel's tools begin with the plain one (`window.plainTechno()`: a clear sky and the plain techno form), `master` looks at the techno Kreisel as it comes |
+| `scripts/make-sample-fixtures.mjs` | writes the test sounds in `e2e/fixtures/samples/` (needs ffmpeg; the files are kept in the repository) |
+| `e2e/` | browser tests against the built app: laptop and phone in Chromium, the laptop again in Firefox; a file a subject (`wheel`, `menus`, `files`, `sounds`, `paint`, `body`, `voice`, `rumble`, `weather`, `piece`, `relay`, `show`, `start`, `press`, `acid`, `kick`, `bar`, `scenes`, `roster`, `techno-sounds`, `arrange`, `master`, `pedals`, `sample`), and `helpers.ts` for what they share; most tests begin with the Werks-Kreisel on the table, `start` looks at a true first visit; the tests of a techno Kreisel's tools begin with the plain one (`window.plainTechno()`: a clear sky and the plain techno form), `master` looks at the techno Kreisel as it comes |
 
 ## License
 

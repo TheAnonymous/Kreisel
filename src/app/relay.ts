@@ -114,8 +114,10 @@ export class RelayDesk {
       if (project.relay.turns.length > MAX_TURNS) project.relay.turns.shift();
     });
     const count = this.round?.turns.length ?? 1;
-    const copied = (await this.app.files.copyLink()) === "copied";
-    this.app.say(copied ? `Turn ${count} is finished and the link copied. Send it to the next person.` : `Turn ${count} is finished. The link is in the address bar: copy it from there and send it on.`);
+    const done = await this.app.files.copyLink();
+    this.app.say(done === "copied" ? `Turn ${count} is finished and the link copied. Send it to the next person.`
+      : done === "too big" ? `Turn ${count} is finished, but this Kreisel has grown too big for a link: its resampled recordings carry too much.`
+      : `Turn ${count} is finished. The link is in the address bar: copy it from there and send it on.`);
     return true;
   }
 

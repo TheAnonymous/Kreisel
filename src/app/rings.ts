@@ -1,6 +1,7 @@
 import { hasRumble, shakes } from "../rumble";
-import { clamp, clone, currentScene, emptyRumble, emptyStep, startProject, MAX_NOTE_LENGTH, MAX_STEPS, MIN_STEPS, patternOf, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, stepAt, TRACK_COUNT, trackInfo, trackOf, type Pattern, type Step, type Track, wrap } from "../model";
+import { clamp, clone, currentScene, emptyRumble, emptyStep, startProject, MAX_NOTE_LENGTH, MAX_STEPS, MIN_STEPS, patternOf, PITCH_MAX, PITCH_MIN, RUMBLE_MAX, SAMPLE_SOUND, stepAt, TRACK_COUNT, trackInfo, trackOf, type Pattern, type Step, type Track, wrap } from "../model";
 import { activeSteps, clear, dice, resize, rotate, spread, transpose, vary } from "../patterns";
+import { PLAY_KEYS, sliceOffset, SLICES } from "../sample";
 import { alongPalette, PALETTE_ORDER, technoSounds } from "../sounds/index";
 import type { App, Tool } from "./app";
 
@@ -29,7 +30,7 @@ export class RingDesk {
   }
 
   private hear(track: number, step: number): void {
-    if (!this.app.playing) void this.app.engine.audition(track, this.note(track, step), this.app.chordNow());
+    if (!this.app.playing) void this.app.engine.audition(track, this.note(track, step), this.app.chordNow(), 0, step);
   }
 
   addNote(track: number, step: number, values: Partial<Step>, gesture: string): void {
@@ -247,7 +248,10 @@ export class RingDesk {
 
   togglePalette(): void {
     this.paletteOpen = !this.paletteOpen;
-    if (this.paletteOpen) this.app.pedals.open = false;
+    if (this.paletteOpen) {
+      this.app.pedals.open = false;
+      this.app.sample.shut();
+    }
     this.app.notify();
   }
 
@@ -257,9 +261,12 @@ export class RingDesk {
     this.app.notify();
   }
 
-  /** Strikes the ring once, at the pitch its last hit had; a voice sings syllable `number` of its line. */
+  /** Strikes the ring once, at the pitch its last hit had; a voice sings syllable `number` of its line; a recording in slices plays from the slice of its first step. */
   strike(track: number, number = 0): void {
-    void this.app.engine.audition(track, { ...emptyStep(), on: true, pitch: this.pitches[track] ?? 0, len: 2 }, this.app.chordNow(), number);
+    const settings = trackOf(this.app.project, track);
+    // In slices a hit's place across the ring picks the slice: the last pitch would start somewhere in the middle.
+    const sliced = settings.sound === SAMPLE_SOUND && settings.sample?.mode === SLICES;
+    void this.app.engine.audition(track, { ...emptyStep(), on: true, pitch: sliced ? 0 : (this.pitches[track] ?? 0), len: 2 }, this.app.chordNow(), number);
   }
 
   /** One note of the ring as it sounds now, unless the Kreisel is playing it anyway. */
@@ -300,6 +307,11 @@ export class RingDesk {
   playKey(degree: number): void {
     const track = this.app.selected;
     if (this.app.relay.veiled(track)) return;
+    const sample = trackOf(this.app.project, track);
+    if (sample.sound === SAMPLE_SOUND && sample.sample?.mode === SLICES) {
+      this.playSlice(track, degree, sample.sample.turn);
+      return;
+    }
     const pitch = clamp(degree, PITCH_MIN, PITCH_MAX);
     const note: Step = { ...emptyStep(), on: true, pitch, len: trackInfo(track).melodic ? 2 : 1 };
     void this.app.engine.audition(track, note, this.app.chordNow());
@@ -308,6 +320,23 @@ export class RingDesk {
     const position = this.app.engine.recordTarget(track);
     if (position === null) return;
     const step = position % patternOf(this.app.project, track).len;
+    this.app.store.edit((project) => { Object.assign(stepAt(patternOf(project, track), step), { ...emptyStep(), on: true, pitch }); }, "einspielen", 4000);
+  }
+
+  /**
+   * A key of the home row on a ring that plays a record: the eight keys drop the needle at eight places around it,
+   * evenly apart. While live it is written down: the hit lands where the wheel is, and takes the slice that was played
+   * by its place across the ring (as far as a hit can be pulled out or in).
+   */
+  private playSlice(track: number, key: number, turn: number): void {
+    const len = patternOf(this.app.project, track).len;
+    const slice = Math.floor((clamp(key, 0, PLAY_KEYS - 1) * len) / PLAY_KEYS);
+    void this.app.engine.audition(track, { ...emptyStep(), on: true }, this.app.chordNow(), 0, wrap(slice - turn, len));
+    if (!this.live || !this.app.playing) return;
+    const position = this.app.engine.recordTarget(track);
+    if (position === null) return;
+    const step = position % len;
+    const pitch = sliceOffset(step, slice, len, turn);
     this.app.store.edit((project) => { Object.assign(stepAt(patternOf(project, track), step), { ...emptyStep(), on: true, pitch }); }, "einspielen", 4000);
   }
 }

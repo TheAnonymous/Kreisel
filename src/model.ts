@@ -110,6 +110,40 @@ export interface Voice {
 /** The number of the acid machine among a ring's sounds: the first after the fifty of the palette (see src/sounds/index.ts). */
 export const ACID_SOUND = 53;
 
+/** The ring's sampled sound: a recording it plays (see sample.ts). */
+export const SAMPLE_SOUND = 54;
+
+/**
+ * A ring's sample: which recording it plays, and how. The recording itself is not here: sound is far too big for a
+ * link, so the browser keeps it (src/sample-store.ts) under `id`, and a Kreisel names it. A recording made of the
+ * Kreisel itself also carries how it was made, so that any browser can make it again.
+ */
+export interface Sample {
+  /** Which recording: sixteen hex digits of the hash of its sound, the name the browser keeps it under. */
+  id: string;
+  /** What it is called (a file's name without its ending): for the eye, and for finding the file again where it is missing. */
+  name: string;
+  /** How it is played: 0 a hit (all of it at every hit), 1 slices (cut into as many as the ring has steps; a hit plays the slice it lies on). */
+  mode: number;
+  /** In slices, how a slice fits its step: 0 at its own speed (the next hit cuts it off), 1 sped up or slowed down until it fills its step, 2 stretched or squeezed at its own pitch until it does. */
+  fit: number;
+  /** Where the part that is played begins and ends, as shares of the whole recording, 0..1. */
+  from: number;
+  to: number;
+  /** Tuned by so many semitones, −24..24 (with fractions). */
+  tune: number;
+  /** Played backwards. */
+  back: boolean;
+  /** In slices: how many steps the record is turned on under the ring (a hit on step 1 then plays the slice of step 1 + turn). */
+  turn: number;
+  /** How loud, 0..2: at 1 it is as loud as it was made when it came in (which is as loud as the rings' own sounds are). */
+  gain: number;
+  /** As a hit: made so many times as long at its own pitch, 1..8 (1: as it is). See src/stretch.ts for how, and for the buzz that comes with it. */
+  stretch: number;
+  /** For a recording of the Kreisel itself: the Kreisel it was made of, packed (see resample.ts). */
+  recipe?: string;
+}
+
 /**
  * The acid machine's own settings (see src/acid.ts). Where its filter rests
  * and how much it rings are the sound pad's two directions, as for any sound.
@@ -145,6 +179,8 @@ export interface Track {
   acid: Acid | null;
   /** The ring's pedals, where they say something: without them a ring sounds as it always did. */
   pedals?: Pedals;
+  /** The ring's sample, once a recording was given to it. */
+  sample?: Sample;
 }
 
 /**

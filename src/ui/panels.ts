@@ -5,7 +5,7 @@ import { describeBody } from "../body";
 import { describeRumble, hasRumble } from "../rumble";
 import { describeVoice, FIELD_LETTERS } from "../voice";
 import { describeWeather } from "../weather";
-import { ACID_SOUND, BAR, clamp, currentScene, VOICE_SOUND, MAX_STEPS, MIN_STEPS, patternOf, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
+import { ACID_SOUND, BAR, clamp, currentScene, SAMPLE_SOUND, VOICE_SOUND, MAX_STEPS, MIN_STEPS, patternOf, TRACK_COUNT, trackInfo, trackOf, type ScaleId } from "../model";
 import { NOTE_NAMES, SCALE_IDS, SCALES } from "../music";
 import { activeSteps, behindKick, describe, meeting } from "../patterns";
 import { describePiece } from "../piece";
@@ -26,11 +26,13 @@ import { ToastView } from "./toast";
 import { PiecePanel } from "./piece-panel";
 import { AcidPanel } from "./acid-panel";
 import { PedalBoard } from "./pedal-board";
+import { SampleBoard } from "./sample-board";
 import { WeatherPanel } from "./weather-panel";
 import { EaselWindow } from "./easel-window";
 import { BoothWindow } from "./booth-window";
 import { BenchWindow } from "./bench-window";
 import { SoundPalette, soundLabel } from "./sound-palette";
+import { describeSample, SLICES } from "../sample";
 import { RowBand } from "./row-band";
 import { ScenesBox } from "./scenes-box";
 
@@ -110,6 +112,7 @@ export class Panels {
   private readonly weatherPanel: WeatherPanel;
   private readonly acidPanel: AcidPanel;
   private readonly pedalBoard: PedalBoard;
+  private readonly sampleBoard: SampleBoard;
   /** The ring's Zerre and the button to its pedals, side by side. */
   private readonly driving = el("div", "lines driving");
   private readonly easelWindow: EaselWindow;
@@ -129,6 +132,7 @@ export class Panels {
     this.weatherPanel = new WeatherPanel(this, app);
     this.acidPanel = new AcidPanel(this, app);
     this.pedalBoard = new PedalBoard(this, app);
+    this.sampleBoard = new SampleBoard(this, app);
     this.easelWindow = new EaselWindow(this, app, easel);
     this.boothWindow = new BoothWindow(this, app, mouth);
     this.benchWindow = new BenchWindow(this, app, bench);
@@ -513,13 +517,13 @@ export class Panels {
   /** The panel of the ring in focus, and the cloth over a ring that someone else has built (Stille Post). */
   private buildPanel(): void {
     this.head.append(el("span", "dot"), this.panel.name);
-    this.ringBox.append(this.head, this.panel.info, this.buildDoing(), this.palette.buildRow(), ...this.buildOwnSounds(), this.buildPad(), this.acidPanel.build(), this.buildSteps(), this.buildQuake(), this.buildMix());
+    this.ringBox.append(this.head, this.panel.info, this.buildDoing(), this.palette.buildRow(), ...this.buildOwnSounds(), this.sampleBoard.buildRow(), this.buildPad(), this.acidPanel.build(), this.buildSteps(), this.buildQuake(), this.buildMix());
     this.veilBox.append(
       el("header", "panel-head"),
       el("p", "veil-text", "Telephone: this ring is covered. Someone has already built here, but you hear and see only the ring of the person before you. Add your own: take a ring that is still empty. When everyone is done, you reveal it in the pass-around window."),
     );
     this.veilBox.querySelector("header")!.append(el("span", "dot"), el("h2"));
-    byId("panel").append(this.ringBox, this.pedalBoard.build(), this.pieceBox, this.veilBox);
+    byId("panel").append(this.ringBox, this.pedalBoard.build(), this.sampleBoard.build(), this.pieceBox, this.veilBox);
   }
 
   /** What can be done to the ring's whole pattern: dice, a small change, all away. */
@@ -770,6 +774,7 @@ export class Panels {
     this.boothWindow.sync();
     this.weatherPanel.sync();
     this.pedalBoard.sync();
+    this.sampleBoard.sync();
     this.acidPanel.sync();
     this.chordMenu.sync();
     this.palette.sync();
@@ -923,12 +928,13 @@ export class Panels {
     parts.puck.style.left = `${settings.x * 100}%`;
     parts.puck.style.bottom = `${settings.y * 100}%`;
     const sings = settings.sound === VOICE_SOUND;
-    // For the acid machine the pad is its filter: how far open, and how much it rings.
-    const [xLabel, yLabel] = settings.sound === ACID_SOUND ? ["Filter", "Resonance"] : [info.xLabel, info.yLabel];
+    const sampled = settings.sound === SAMPLE_SOUND;
+    // For the acid machine the pad is its filter: how far open, and how much it rings. For a sample: a filter and how long a hit rings.
+    const [xLabel, yLabel] = settings.sound === ACID_SOUND ? ["Filter", "Resonance"] : sampled ? ["Filter", "Length"] : [info.xLabel, info.yLabel];
     parts.axisX.textContent = sings ? "" : `${xLabel} →`;
     parts.axisY.textContent = sings ? "" : `${yLabel} ↑`;
     this.vowels.hidden = !sings;
-    parts.pad.title = sings ? "The vowel field: the point pulls all vowels towards itself, entirely at the edge, not at all in the middle" : "";
+    parts.pad.title = sings ? "The vowel field: the point pulls all vowels towards itself, entirely at the edge, not at all in the middle" : sampled ? "A sample's pad. Across: in the middle the recording is as it is; to the left its highs go, to the right its lows. Up: in the upper half a hit plays out; below, it is cut shorter" : "";
     parts.pad.setAttribute("aria-label", `Sound pad: ${xLabel} ${Math.round(settings.x * 100)} %, ${yLabel} ${Math.round(settings.y * 100)} %. Arrow keys change it.`);
     parts.steps.textContent = String(pattern.len);
     this.moved(parts.steps, pattern.len, "tick", undefined, !sameRing);
@@ -952,6 +958,8 @@ export class Panels {
     const info = trackInfo(selected);
     const pattern = patternOf(project, selected);
     const settings = trackOf(project, selected);
+    // A recording in slices with a hit on every step plays through: said so, not as a list of all its steps.
+    const sliced = settings.sound === SAMPLE_SOUND && settings.sample?.mode === SLICES;
     byId("status").textContent = app.weather.focused
       ? `Weather: ${describeWeather(currentScene(project))}`
       : app.piece.laying && app.piece.key !== null
@@ -962,6 +970,6 @@ export class Panels {
       : app.paint.isOpen ? `Painted sound ${info.name}: ${describeBild(settings.bild)}`
       : app.body.isOpen ? `Body ${info.name}: ${describeBody(settings.body)}`
       : app.voice.isOpen ? `Voice ${info.name}: ${describeVoice(settings.voice)}`
-      : `${info.name}: ${describe(pattern)}${selected === 0 && hasRumble(currentScene(project), pattern.len) ? ` · ${describeRumble(currentScene(project), pattern)}` : ""}${this.pull(selected)}${this.ahead()}`;
+      : `${info.name}: ${sliced && activeSteps(pattern).length === pattern.len ? `a hit on every step of ${pattern.len}` : describe(pattern)}${settings.sound === SAMPLE_SOUND && settings.sample ? ` · ${describeSample(settings.sample, app.sample.sound?.seconds ?? null, pattern.len)}${app.sample.state === "missing" ? " (not in this browser: silent)" : ""}` : ""}${selected === 0 && hasRumble(currentScene(project), pattern.len) ? ` · ${describeRumble(currentScene(project), pattern)}` : ""}${this.pull(selected)}${this.ahead()}`;
   }
 }

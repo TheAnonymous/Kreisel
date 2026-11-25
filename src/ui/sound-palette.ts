@@ -1,6 +1,6 @@
 import type { App } from "../app/app";
 import { takesAcid } from "../acid";
-import { ACID_SOUND, BODY_SOUND, clamp, trackInfo, trackOf, VOICE_SOUND, type Track } from "../model";
+import { ACID_SOUND, BODY_SOUND, clamp, SAMPLE_SOUND, trackInfo, trackOf, VOICE_SOUND, type Track } from "../model";
 import { BODY_NAMES } from "../body";
 import { FAMILY_COUNT, FAMILY_SIZE, familyNames, familySounds, placeOf, SOUND_COUNT, soundAt, soundName, technoSounds } from "../sounds/index";
 import { button, byId, el } from "./dom";
@@ -12,6 +12,7 @@ export function soundLabel(track: number, settings: Track): string {
   if (name !== null) return name;
   if (settings.sound === ACID_SOUND) return "Acid 303";
   if (settings.sound === VOICE_SOUND) return "Voice";
+  if (settings.sound === SAMPLE_SOUND) return settings.sample ? `“${settings.sample.name}”` : "Sample";
   return settings.sound === BODY_SOUND && settings.body ? (BODY_NAMES[settings.body.kind] ?? "Body") : "Painted";
 }
 
@@ -126,7 +127,7 @@ export class SoundPalette {
     const settings = trackOf(app.project, track);
     const where = placeOf(settings.sound);
     this.name.textContent = soundLabel(track, settings);
-    this.family.textContent = where ? (familyNames(track)[where.family] ?? "") : settings.sound === ACID_SOUND ? "Machine" : "own sound";
+    this.family.textContent = where ? (familyNames(track)[where.family] ?? "") : settings.sound === ACID_SOUND ? "Machine" : settings.sound === SAMPLE_SOUND ? "sample" : "own sound";
     const open = app.rings.paletteOpen && app.focus === "ring" && !app.relay.veiled(track);
     this.pick.setAttribute("aria-expanded", String(open));
     this.card.hidden = !open;

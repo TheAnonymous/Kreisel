@@ -1,12 +1,12 @@
 import { Engine, renderFile } from "../audio/engine";
-import { decodeLink, encodeLink } from "../codec";
+import { decodeLink, encodeLink, linkFits } from "../codec";
 import { clone } from "../model";
 import type { App } from "./app";
 
 /** How a saved file's format is named; a WAV says why it is not Opus. */
 const FORMATS = { opus: "Opus", wav: "WAV (this browser cannot write Opus)" } as const;
 
-function download(blob: Blob, name: string): void {
+export function download(blob: Blob, name: string): void {
   // Handed over without a type: Firefox looks into a file it knows the type of and renames an Opus file to ".ogx".
   const url = URL.createObjectURL(new Blob([blob], { type: "application/octet-stream" }));
   const link = document.createElement("a");
@@ -31,8 +31,11 @@ export class FileDesk {
    * Copies the link that holds the whole Kreisel. Where the page may not copy, the link goes into the address bar
    * instead; the answer says which of the two happened.
    */
-  async copyLink(): Promise<"copied" | "in address bar"> {
-    const link = `${location.origin}${location.pathname}#k=${await encodeLink(this.app.store.project)}`;
+  async copyLink(): Promise<"copied" | "in address bar" | "too big"> {
+    const packed = await encodeLink(this.app.store.project);
+    // A Kreisel whose rings play resamples of resamples can outgrow what a link may hold: it would not open again.
+    if (!linkFits(packed)) return "too big";
+    const link = `${location.origin}${location.pathname}#k=${packed}`;
     try {
       await navigator.clipboard.writeText(link);
       return "copied";
@@ -43,8 +46,12 @@ export class FileDesk {
   }
 
   async share(): Promise<void> {
-    if ((await this.copyLink()) === "copied") {
-      this.app.say("Link copied. Whoever opens it gets their own copy of your Kreisel.");
+    const done = await this.copyLink();
+    if (done === "too big") {
+      this.app.say("This Kreisel is too big for a link: its resampled recordings carry too much. Save it as a file with its recordings instead (under Share).");
+    } else if (done === "copied") {
+      const loose = this.app.sample.loose();
+      this.app.say(loose.length === 0 ? "Link copied. Whoever opens it gets their own copy of your Kreisel." : `Link copied. It names ${loose.length === 1 ? `the recording “${loose[0] ?? ""}”` : `${loose.length} recordings`} but cannot carry sound: for that, use “Save as a file with its recordings” under Share.`);
       this.app.onDeed({ what: "share" });
     } else {
       this.app.say("The link is now in the address bar: copy it from there.");

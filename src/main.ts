@@ -5,6 +5,7 @@ import { hearBeats, hearWhole, type Beat, type Whole } from "./audio/whole";
 import { serialize } from "./codec";
 import { PALETTE_ORDER } from "./sounds/index";
 import { bindKeys } from "./ui/keys";
+import { bindDrop } from "./ui/drop";
 import { BenchView } from "./ui/bench";
 import { BoothView } from "./ui/booth";
 import { EaselView } from "./ui/easel";
@@ -56,6 +57,7 @@ panels.onBarMenu = (opener, which, byKeyboard) => {
 };
 app.subscribe(() => menu.refresh());
 
+bindDrop(app);
 bindKeys(app, panels, () => {
   if (app.piece.focused) {
     const bar = app.piece.key ?? app.piece.start;

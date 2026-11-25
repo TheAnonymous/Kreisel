@@ -1,6 +1,7 @@
 import type { Project } from "../model";
 import { MONO_BELOW } from "../press";
 import { RENDER_LEAD, renderBuffer } from "./engine";
+import { loadSounds } from "./sample-bank";
 
 /*
  * The whole Kreisel, rendered faster than it plays, and what can be measured
@@ -136,6 +137,7 @@ export function measureBeats(left: Float32Array, right: Float32Array, sampleRate
 
 /** Renders the project as `hearWhole` does and measures it beat by beat, or in `parts` equal parts of a beat (4 for sixteenths). */
 export async function hearBeats(project: Project, parts = 1): Promise<Beat[]> {
+  await loadSounds(project);
   const { buffer, length } = await renderBuffer(project);
   // The first beat begins where the render's first step does.
   const from = Math.round(RENDER_LEAD * buffer.sampleRate);
@@ -144,6 +146,7 @@ export async function hearBeats(project: Project, parts = 1): Promise<Beat[]> {
 
 /** Renders the project as a saved file would hold it (the scene twice through its chords, the chain, or the piece) and measures it. */
 export async function hearWhole(project: Project): Promise<Whole> {
+  await loadSounds(project);
   const { buffer, length } = await renderBuffer(project);
   return measureWhole(buffer.getChannelData(0).subarray(0, length), buffer.getChannelData(1).subarray(0, length), buffer.sampleRate);
 }

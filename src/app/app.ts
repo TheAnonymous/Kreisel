@@ -7,6 +7,7 @@ import { Store } from "../store";
 import { readFlag, writeFlag } from "./prefs";
 import { AcidDesk } from "./acid";
 import { PedalDesk } from "./pedals";
+import { SampleDesk } from "./sample";
 import { RingDesk } from "./rings";
 import { VoiceDesk } from "./voice";
 import { WeatherDesk } from "./weather";
@@ -118,6 +119,7 @@ export class App {
   readonly rings = new RingDesk(this);
   readonly acid = new AcidDesk(this);
   readonly pedals = new PedalDesk(this);
+  readonly sample = new SampleDesk(this);
   readonly voice = new VoiceDesk(this);
   readonly weather = new WeatherDesk(this);
   readonly rumble = new RumbleDesk(this);
@@ -157,8 +159,11 @@ export class App {
     this.store.subscribe(() => {
       this.relay.changed();
       this.engine.sync();
+      // A ring's sample names a recording: whatever the Kreisel on the table names is got ready.
+      this.sample.refresh();
       this.notify();
     });
+    this.sample.refresh();
     this.store.refused = () => this.say("This is a look back at an old turn: nothing can be changed here. Go back to now, or build on from here.");
     window.addEventListener("pagehide", () => this.store.save());
     document.addEventListener("visibilitychange", () => {
@@ -290,6 +295,7 @@ export class App {
     this.chords.openSlot = null;
     this.rings.paletteOpen = false;
     this.pedals.open = false;
+    this.sample.shut();
     this.keyCursor = null;
     this.notify();
   }
@@ -300,6 +306,7 @@ export class App {
     this.chords.openSlot = null;
     this.rings.paletteOpen = false;
     this.pedals.open = false;
+    this.sample.shut();
     this.notify();
   }
 
@@ -403,7 +410,8 @@ export class App {
   say(text: string, action?: Toast["action"]): void {
     this.toast = action ? { text, action } : { text };
     if (this.toastTimer !== null) clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => this.dismiss(), action ? 9000 : 5000);
+    // As long as it takes to read: a short word five seconds (nine with something to press), a long sentence up to sixteen.
+    this.toastTimer = setTimeout(() => this.dismiss(), Math.min(16_000, Math.max(action ? 9000 : 5000, 2000 + text.length * 60)));
     this.notify();
   }
 

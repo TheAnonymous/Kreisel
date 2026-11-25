@@ -1,10 +1,11 @@
 import { cleanAcid, takesAcid } from "./acid";
 import { packPedals, takesPedals, unpackPedals } from "./pedals";
+import { packSample, unpackSample } from "./sample";
 import { cleanBody } from "./body";
 import { cleanVoice } from "./voice";
 import { cleanRumble } from "./rumble";
 import { cleanTide, cleanWind, packWeather, unpackWeather } from "./weather";
-import { ACID_SOUND, BODY_SOUND, BUILD_BARS, BUILD_GAPS, BUILD_NONE, BUILD_SMALL, SWAY_PARTS, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Acid, type Bild, type Body, type Build, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
+import { ACID_SOUND, SAMPLE_SOUND, BODY_SOUND, BUILD_BARS, BUILD_GAPS, BUILD_NONE, BUILD_SMALL, SWAY_PARTS, clamp, emptyRumble, emptyStep, HEIGHT_MAX, MAX_VOICE_TEXT, VOICE_SOUND, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MAX_STROKE_POINTS, MAX_NAME, MAX_STROKES, MAX_TURNS, MIN_STEPS, OWN_SOUND, PITCH_MAX, PITCH_MIN, SCENE_COUNT, STYLE_IDS, TIME_MAX, TRACK_COUNT, firstPiece, type Acid, type Bild, type Body, type Build, type Pattern, type Voice, type Piece, type Project, type Relay, type Scene, type ScaleId, type Step, type StyleId, type Stroke, type Track } from "./model";
 import { SCALE_IDS } from "./music";
 import { MAX_ROUNDS, orderOfOld, packOrder, unpackOrder } from "./order";
 import { buildOfAll, isDrop, MAX_MARKS, MAX_OWN_BUILDS, soundBuild, soundPiece } from "./piece";
@@ -283,6 +284,9 @@ const DRIVE_AT = 10;
 const ACID_AT = 11;
 /** And its pedals, after that. */
 const PEDALS_AT = 12;
+/** And its sample (which recording, and how it is played), and after that the recipe of a recording made of a Kreisel. */
+const SAMPLE_AT = 13;
+const RECIPE_AT = 14;
 
 interface Packed {
   v: 1;
@@ -349,6 +353,12 @@ export function packState(project: Project): Packed {
       if (track.pedals) {
         while (packed.length < PEDALS_AT) packed.push(0);
         packed.push(packPedals(track.pedals));
+      }
+      // A sample is nine numbers, the name of its recording and its own name; the recording itself stays in the browser. One made of a Kreisel has its recipe after it.
+      if (track.sample) {
+        while (packed.length < SAMPLE_AT) packed.push(0);
+        packed.push(packSample(track.sample));
+        if (track.sample.recipe) packed.push(track.sample.recipe);
       }
       return packed;
     }),
@@ -475,12 +485,13 @@ function unpackTrack(value: unknown, index: number): Track {
   // Only the bass and the melody can have an acid machine.
   const acid = takesAcid(index) ? unpackAcid(list[ACID_AT]) : null;
   const pedals = unpackPedals(list[PEDALS_AT]);
+  const sample = unpackSample(list[SAMPLE_AT], list[RECIPE_AT]);
   // A number that is no sound (a damaged link, or one from a later Kreisel that has more sounds) is read as the ring's first.
-  const stored = integer(list[0], -1, ACID_SOUND + 1, 0);
-  const sound = stored < 0 || (stored > LAST_SOUND && stored !== ACID_SOUND) ? 0 : stored;
+  const stored = integer(list[0], -1, SAMPLE_SOUND + 1, 0);
+  const sound = stored < 0 || (stored > LAST_SOUND && stored !== ACID_SOUND && stored !== SAMPLE_SOUND) ? 0 : stored;
   return {
-    // A ring cannot play a picture, a body, a voice or a machine it does not have.
-    sound: (sound === OWN_SOUND && !bild) || (sound === BODY_SOUND && !body) || (sound === VOICE_SOUND && !voice) || (sound === ACID_SOUND && !acid) ? 0 : sound,
+    // A ring cannot play a picture, a body, a voice, a machine or a sample it does not have.
+    sound: (sound === OWN_SOUND && !bild) || (sound === BODY_SOUND && !body) || (sound === VOICE_SOUND && !voice) || (sound === ACID_SOUND && !acid) || (sound === SAMPLE_SOUND && !sample) ? 0 : sound,
     x: number(list[1], 0, 1, 0.5),
     y: number(list[2], 0, 1, 0.5),
     level: number(list[3], 0, 1, 0.7),
@@ -494,6 +505,7 @@ function unpackTrack(value: unknown, index: number): Track {
     acid,
     // The kick has a chain of its own; any other ring's pedals are there only where they say something.
     ...(takesPedals(index) && pedals ? { pedals } : {}),
+    ...(sample ? { sample } : {}),
   };
 }
 
@@ -548,7 +560,7 @@ async function pipe(bytes: Uint8Array<ArrayBuffer>, stream: CompressionStream | 
 }
 
 /** Links longer than this are not worth trying: no Kreisel is that big. */
-const MAX_LINK_LENGTH = 40_000;
+export const MAX_LINK_LENGTH = 40_000;
 
 /** The project as the part of a link after `#k=`. */
 export async function encodeLink(project: Project): Promise<string> {
@@ -556,6 +568,9 @@ export async function encodeLink(project: Project): Promise<string> {
   if (typeof CompressionStream === "undefined") return `0.${toBase64Url(json)}`;
   return `1.${toBase64Url(await pipe(json, new CompressionStream("deflate-raw")))}`;
 }
+
+/** Whether a link's text (what `encodeLink` gave) can be opened again: a Kreisel can be too big for a link. */
+export const linkFits = (text: string): boolean => text.length <= MAX_LINK_LENGTH;
 
 export async function decodeLink(text: string): Promise<Project> {
   if (text.length > MAX_LINK_LENGTH) throw new Error("link too long");

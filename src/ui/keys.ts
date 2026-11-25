@@ -147,11 +147,12 @@ class Keyboard {
     if (key !== "Escape") return false;
     const { app, panels } = this;
     if (panels.endTour()) return true;
-    const open = app.paint.isOpen || app.body.isOpen || app.voice.isOpen || app.chords.openSlot !== null || app.rings.paletteOpen || app.pedals.open;
+    const open = app.paint.isOpen || app.body.isOpen || app.voice.isOpen || app.chords.openSlot !== null || app.rings.paletteOpen || app.pedals.open || app.sample.open;
     if (!open && app.stage) app.toggleStage(false);
     app.chords.close();
     app.rings.closePalette();
     app.pedals.close();
+    app.sample.close();
     app.hideCursor();
     app.paint.close();
     app.body.close();
@@ -451,6 +452,9 @@ class Keyboard {
     } else if (code === "KeyY") {
       // The key between T and U: the ring's pedals.
       app.pedals.toggle();
+    } else if (code === "Digit0") {
+      // The key after the rings, the piece and the weather: the ring's sampler.
+      app.sample.toggle();
     } else if (code === "KeyN") {
       if (shift) app.rings.vary(app.selected);
       else app.rings.dice(app.selected);

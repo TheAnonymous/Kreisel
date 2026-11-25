@@ -21,7 +21,7 @@ import {
 } from "klangwerk";
 import { charged, noteSeconds } from "../acid";
 import { CHOKE_SECONDS, HAT_TRACK, hatChokes, isOpenHat, OPEN_HATS } from "../hat";
-import { ACID_SOUND, BAR, BODY_SOUND, BUILD_MEDIUM, clamp, currentScene, emptyStep, MARK, OWN_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Build, type Project, type Scene, type Step, type Track, wrap } from "../model";
+import { ACID_SOUND, BAR, BODY_SOUND, BUILD_MEDIUM, clamp, currentScene, emptyStep, MARK, OWN_SOUND, SAMPLE_SOUND, VOICE_SOUND, stepAt, TRACK_COUNT, TRACK_INFO, TRACK_KINDS, type Acid, type Build, type Project, type Scene, type Step, type Track, wrap } from "../model";
 import { bassMidi, chordAt, chordMidis, leadMidi, percMidi } from "../music";
 import { seeded, type Random } from "../patterns";
 import { hasRumble } from "../rumble";
@@ -41,6 +41,8 @@ import { hitNumber } from "../voice";
 import { firstRound, nextRound, orderBars, roundAfter } from "../order";
 import { soundFile, type SoundFile } from "./opus";
 import { playAcid, type AcidNote } from "./acid";
+import { playSample } from "./sample";
+import { loadSounds } from "./sample-bank";
 import { glides, playHit, type Hit } from "./sounds";
 
 /*
@@ -239,12 +241,14 @@ class Voices {
    * Plays `step` of ring `track` at `time`; `stepTime` is how long one step lasts, `level` scales how loud it is.
    * `quakes` says that the ground shakes in this scene (then an acid machine leaves the lows to it).
    */
-  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number, level = 1, bright = 0, number = 0, quakes = false, long = 0): void {
+  strike(project: Project, track: number, step: Step, chord: number, time: number, stepTime: number, level = 1, bright = 0, number = 0, quakes = false, long = 0, place: { step: number; steps: number } = { step: 0, steps: 16 }): void {
     const plain = project.tracks[track];
     // Sun and fog reach into the sound itself where a ring has a brightness of its own: note by note, as a filter is played.
     // The piece's tension can push the same way, and along the sound's length too; an acid machine's bite goes with its brightness.
-    const settings = plain && (bright !== 0 || long !== 0)
-      ? { ...plain, x: shaded(plain.x, bright), y: shaded(plain.y, long), acid: plain.acid && bright > 0 ? { ...plain.acid, bite: shaded(plain.acid.bite, bright * 0.6) } : plain.acid }
+    // (Not across a sample's pad: there the middle is "as it is", and further right is not brighter but thinner.)
+    const across = plain?.sound === SAMPLE_SOUND ? 0 : bright;
+    const settings = plain && (across !== 0 || long !== 0)
+      ? { ...plain, x: shaded(plain.x, across), y: shaded(plain.y, long), acid: plain.acid && bright > 0 ? { ...plain.acid, bite: shaded(plain.acid.bite, bright * 0.6) } : plain.acid }
       : plain;
     const inlet = this.graph.inlets[track];
     if (!settings || !inlet) return;
@@ -273,6 +277,10 @@ class Voices {
         if (settings.voice) playVoice(this.graph.kit, out, track, settings, at, hit, settings.voice, number);
       } else if (settings.sound === BODY_SOUND) {
         if (settings.body) playBody(this.graph.kit, out, track, settings, at, hit, settings.body);
+      } else if (settings.sound === SAMPLE_SOUND) {
+        // A sample plays the slice its step lies on (a roll plays it again and again). It has one voice whatever ring it
+        // is on, so it goes straight into the ring's inlet: the hi-hat's gate has nothing to choke.
+        if (settings.sample) playSample(this.graph.kit, inlet, track, settings, at, hit, settings.sample, { ...place, stepSeconds: stepTime });
       } else if (settings.sound !== OWN_SOUND) {
         playHit(this.graph.kit, out, track, settings, at, hit);
       } else if (settings.bild) {
@@ -653,7 +661,7 @@ export class Player {
       // What the tension moves in the sound itself: the hi-hat's length up, the kick's down (its level goes down in the mix), the brightness of bass, chords and melody up.
       const long = !sway ? 0 : track === HAT_TRACK ? sway.hat : track === KICK_RING ? -sway.kick : 0;
       const lift = sway && track >= BASS_RING ? sway.bright : 0;
-      this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, clamp((shadesSound(track) ? brightness(over) : 0) + lift, -1, 1), hitNumber(pattern, position % pattern.len, this.local), quakes, long);
+      this.voices.strike(project, track, step, chord, time, duration, this.plan ? gateLevel(gate) : 1, clamp((shadesSound(track) ? brightness(over) : 0) + lift, -1, 1), hitNumber(pattern, position % pattern.len, this.local), quakes, long, { step: position % pattern.len, steps: pattern.len });
       if (track === 0) hitRumble(this.graph.rumble, time, duration);
     }
     // Under a pause, held or laid on the bar, the roll and the fill stay out with the drums.
@@ -689,7 +697,7 @@ export class Player {
       const own = scene.patterns[hit.ring];
       if (gate <= 0 || (hit.vel === 0 && dropsQuiet(gate)) || (own && stepAt(own, position % own.len).on)) continue;
       fired |= 1 << hit.ring;
-      this.voices.strike(project, hit.ring, { ...emptyStep(), on: true, vel: hit.vel, pitch: hit.pitch }, chord, time, duration, gateLevel(gate), 0, 0, quakes);
+      this.voices.strike(project, hit.ring, { ...emptyStep(), on: true, vel: hit.vel, pitch: hit.pitch }, chord, time, duration, gateLevel(gate), 0, 0, quakes, 0, { step: position % (own?.len ?? BAR), steps: own?.len ?? BAR });
       if (hit.ring === 0) hitRumble(this.graph.rumble, time, duration);
     }
     return fired;
@@ -702,15 +710,17 @@ export class Player {
     for (const hit of hits) {
       if (Math.floor(hit.step) !== inBar) continue;
       fired |= 1 << ROLL_RING;
-      this.voices.strike(project, ROLL_RING, { ...emptyStep(), on: true }, chord, time + (hit.step - inBar) * duration, duration, hit.level, 0, 0, quakes);
+      const steps = currentScene(project).patterns[ROLL_RING]?.len ?? BAR;
+      this.voices.strike(project, ROLL_RING, { ...emptyStep(), on: true }, chord, time + (hit.step - inBar) * duration, duration, hit.level, 0, 0, quakes, 0, { step: Math.floor(hit.step) % steps, steps });
     }
     return fired;
   }
 
-  /** Plays one step by hand, over `chord`; a voice sings syllable `number` of its line. */
-  play(track: number, step: Step, time: number, chord: number, number = 0): void {
+  /** Plays one step by hand, over `chord`; a voice sings syllable `number` of its line, a sample plays the slice of step `at` of its ring. */
+  play(track: number, step: Step, time: number, chord: number, number = 0, at = 0): void {
     const project = this.project();
-    this.voices.strike(project, track, step, chord, time, stepSeconds(project), 1, 0, number, hasRumble(currentScene(project)));
+    const scene = currentScene(project);
+    this.voices.strike(project, track, step, chord, time, stepSeconds(project), 1, 0, number, hasRumble(scene), 0, { step: at, steps: scene.patterns[track]?.len ?? 16 });
   }
 
   private changeScene(project: Project): void {
@@ -959,11 +969,11 @@ export class Engine {
   }
 
   /** Plays a step by hand, for the keyboard and for hearing what was just painted. */
-  async audition(track: number, step: Step, chord: number, number = 0): Promise<void> {
+  async audition(track: number, step: Step, chord: number, number = 0, at = 0): Promise<void> {
     if (!(await this.wake())) return;
     const context = this.host.context;
     if (context && this.player) {
-      this.player.play(track, step, context.currentTime + 0.008, chord, number);
+      this.player.play(track, step, context.currentTime + 0.008, chord, number, at);
       this.struck[track] = this.host.visualTime() + 0.008;
       this.sung[track] = number;
     }
@@ -1115,15 +1125,19 @@ export interface RenderPlan {
 export function renderPlan(project: Project): RenderPlan {
   const bars = project.piece.on ? barCount(project.piece) : project.chain ? orderBars(project) : currentScene(project).chords.length * 2;
   const steps = bars * BAR;
-  return { steps, seconds: steps * stepSeconds(project) + 3 };
+  return { steps, seconds: steps * stepSeconds(project) + RING_OUT };
 }
+
+/** How long a render goes on after its last step, in seconds: what rings out. */
+export const RING_OUT = 3;
 
 /** How long a render waits before its first step, in seconds: what comes before a sound's own start has room. */
 export const RENDER_LEAD = 0.05;
 
 /** Renders the project faster than it plays: what would be heard, and how many of its samples are music (the rest rings out). */
-export async function renderBuffer(project: Project, onProgress: (share: number) => void = () => undefined, sampleRate = 48_000): Promise<{ buffer: AudioBuffer; length: number }> {
-  const plan = renderPlan(project);
+export async function renderBuffer(project: Project, onProgress: (share: number) => void = () => undefined, sampleRate = 48_000, steps?: number): Promise<{ buffer: AudioBuffer; length: number }> {
+  // Asked for so many steps, it plays just those (and rings out); otherwise what a saved file holds.
+  const plan = steps === undefined ? renderPlan(project) : { steps, seconds: steps * stepSeconds(project) + RING_OUT };
   const context = new OfflineAudioContext(2, Math.ceil(plan.seconds * sampleRate), sampleRate);
   const graph = buildGraph(context);
   const audible = (track: number): boolean => !project.tracks[track]?.mute;
@@ -1146,6 +1160,8 @@ export async function renderBuffer(project: Project, onProgress: (share: number)
 
 /** Renders the project and saves it as Opus (as a 16-bit WAV where the browser cannot write Opus). */
 export async function renderFile(project: Project, onProgress: (share: number) => void = () => undefined, sampleRate = 48_000): Promise<SoundFile> {
+  // A ring's recording has to be ready before the Kreisel is played into a file.
+  await loadSounds(project);
   const { buffer, length } = await renderBuffer(project, onProgress, sampleRate);
   return soundFile(buffer.getChannelData(0).subarray(0, length), buffer.getChannelData(1).subarray(0, length), sampleRate, () => encodeWav(buffer, length));
 }

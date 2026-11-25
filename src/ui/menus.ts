@@ -1,6 +1,6 @@
 import type { App, ContextTarget } from "../app/app";
 import { nextHit } from "../acid";
-import { ACID_SOUND, BODY_SOUND, BUILD_SIZES, VOICE_SOUND, currentScene, MARK_NAMES, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, trackInfo, trackOf, type Build, type BuildSize, type Sway, wrap } from "../model";
+import { ACID_SOUND, BODY_SOUND, BUILD_SIZES, SAMPLE_SOUND, VOICE_SOUND, currentScene, MARK_NAMES, MAX_BARS, MAX_CHORDS, MAX_NOTE_LENGTH, MAX_STEPS, MIN_BARS, MIN_STEPS, OWN_SOUND, patternOf, PITCH_MAX, PITCH_MIN, SCENE_NAMES, stepAt, TENSION_MAX, TRACK_COUNT, trackInfo, trackOf, type Build, type BuildSize, type Sway, wrap } from "../model";
 import { chordName, pitchName } from "../music";
 import { activeSteps } from "../patterns";
 import { hasRumble, RUMBLE_SHAPES, shapeOf } from "../rumble";
@@ -133,6 +133,14 @@ function ringMenu(app: App, track: number, step: number | null): MenuSpec | null
       options: [
         { label: "Use", active: settings.sound === BODY_SOUND, disabled: !settings.body, title: settings.body ? "Use this ring's built body" : "Not built yet", run: () => app.rings.setSound(track, BODY_SOUND) },
         { label: "Build …", title: "Build this ring's body", close: true, run: () => { app.select(track); app.body.open(); } },
+      ],
+    },
+    {
+      kind: "choice",
+      label: "Sample",
+      options: [
+        { label: "Use", active: settings.sound === SAMPLE_SOUND, disabled: !settings.sample, title: settings.sample ? `Use this ring's sample “${settings.sample.name}”` : "No recording yet", run: () => app.rings.setSound(track, SAMPLE_SOUND) },
+        { label: "Sampler …", title: "Give this ring a recording to play: a file, the microphone, or the Kreisel itself", close: true, run: () => { app.select(track); if (!app.sample.open) app.sample.toggle(); } },
       ],
     },
     ...(track === 0

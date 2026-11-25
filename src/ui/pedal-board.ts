@@ -9,7 +9,7 @@ import type { Panels } from "./panels";
  * A group of choices of which one is taken. It is one stop for the Tab key; the arrow keys go through it and take
  * what they land on, so stepping through the choices is hearing them.
  */
-function choices(holder: HTMLElement, label: string, options: readonly { name: string; hint: string; says?: string }[], pick: (index: number) => void): HTMLButtonElement[] {
+export function choices(holder: HTMLElement, label: string, options: readonly { name: string; hint: string; says?: string }[], pick: (index: number) => void): HTMLButtonElement[] {
   holder.setAttribute("role", "radiogroup");
   holder.setAttribute("aria-label", label);
   const nodes = options.map((option, index) => {
@@ -33,7 +33,8 @@ function choices(holder: HTMLElement, label: string, options: readonly { name: s
   return nodes;
 }
 
-function take(nodes: readonly HTMLButtonElement[], chosen: number): void {
+/** Marks which of a group's choices is taken: it is the one the Tab key stops at. */
+export function take(nodes: readonly HTMLButtonElement[], chosen: number): void {
   nodes.forEach((node, index) => {
     node.setAttribute("aria-checked", String(index === chosen));
     node.tabIndex = index === chosen ? 0 : -1;
@@ -41,7 +42,7 @@ function take(nodes: readonly HTMLButtonElement[], chosen: number): void {
 }
 
 /** Whether a node can take the focus right now: it is on the page and not inside anything hidden. */
-const reachable = (node: Element | null): node is HTMLElement => node instanceof HTMLElement && node.isConnected && node.getClientRects().length > 0;
+export const reachable = (node: Element | null): node is HTMLElement => node instanceof HTMLElement && node.isConnected && node.getClientRects().length > 0;
 
 /*
  * The pedalboard: the second side of a ring's panel. A button in the ring's
