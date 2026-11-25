@@ -344,16 +344,20 @@ test.describe("on a laptop", () => {
     const scream = await wearing(4);
     expect(warm.peak).toBeLessThanOrEqual(1);
     for (const [name, heard] of [["Distortion", distortion], ["Fuzz", fuzz], ["Clip", clip], ["Scream", scream]] as const) {
-      // A character changes how the ring sounds, not how loud it is: within 1 dB of the warm one in Chromium, within 3 dB in Firefox.
+      // A character changes how the ring sounds, not how loud it is: within 1 dB of the warm one in Chromium, within 3 dB
+      // in Firefox (whose warm drive is the louder one: the warm shaper is oversampled, and each browser makes its own of that).
       expect(Math.abs(dB(heard, warm)), name).toBeLessThan(4);
       expect(heard.peak, name).toBeLessThanOrEqual(1);
-      // And it is another sound than the warm one (the least different is the clipper in Chromium, by 4 %).
+      // And it is another sound than the warm one (the least different is the fuzz in Chromium, by 9 %).
       expect(Math.abs(heard.sharp / warm.sharp - 1), name).toBeGreaterThan(0.03);
     }
-    // The clipper is sharper than the warm one, the scream by far. The distortion and the fuzz need not be: behind
-    // their shaper a low-pass takes the fizz away, and in Chromium that leaves them a little duller than the warm one
-    // (they are their own sound all the same, see above).
-    expect(clip.sharp).toBeGreaterThan(warm.sharp);
+    // Among themselves the characters are the same in every browser (their shapers are not oversampled): the clipper
+    // is the densest and the dullest of the four, the scream the sharpest, by far sharper than the warm one too.
+    for (const other of [distortion, fuzz, scream]) {
+      expect(clip.crest).toBeLessThan(other.crest);
+      expect(clip.sharp).toBeLessThan(other.sharp);
+    }
+    expect(scream.sharp).toBeGreaterThan(distortion.sharp * 1.05);
     expect(scream.sharp).toBeGreaterThan(warm.sharp * 1.2);
 
     // The lows, heard where the line has some: an octave down, its ground tone is at 49 Hz. The distortion gives the

@@ -216,6 +216,31 @@ describe("The chain, in words", () => {
   });
 });
 
+describe("The techno Kreisel", () => {
+  it("comes with pedals on three of its rings: a flanger over the hi-hat, a distortion behind the acid line, the stab's reverb in front of its drive", () => {
+    const tracks = technoProject().tracks;
+    expect(tracks.map((track) => track.pedals !== undefined)).toEqual([false, false, true, false, true, true, false]);
+    // The hi-hat: shallow, one sweep in four rounds, its top on the one.
+    expect(tracks[2]!.pedals).toMatchObject({ mod: FLANGER, depth: 0.3, crest: 0, span: SPANS.indexOf(4), tone: WARM, first: 0 });
+    expect(describeChain(tracks[2]!)).toBe("Drive, then Flanger, then Reverb");
+    // The acid line: the chain acid is known by.
+    expect(tracks[4]!.pedals).toMatchObject({ tone: DISTORTION, mod: 0, crush: 0, first: 0 });
+    expect(describeChain(tracks[4]!)).toBe("Distortion, then Echo");
+    // The stab: its reverb first, and enough of it for the drive to get hold of.
+    expect(tracks[5]!.pedals).toMatchObject({ tone: WARM, first: 1 });
+    expect(tracks[5]!.hall).toBe(0.45);
+    expect(describeChain(tracks[5]!)).toBe("Reverb, then Drive, then Echo");
+    // What it wears is what a link would carry: nothing to put right.
+    for (const track of tracks) if (track.pedals) expect(cleanPedals(track.pedals)).toEqual(track.pedals);
+  });
+
+  it("carries them in its link and gets them back; the factory Kreisel wears none", async () => {
+    const back = await decodeLink(await encodeLink(technoProject()));
+    expect(back.tracks.map((track) => track.pedals)).toEqual(technoProject().tracks.map((track) => track.pedals));
+    expect(factoryProject().tracks.every((track) => track.pedals === undefined)).toBe(true);
+  });
+});
+
 describe("Chains", () => {
   it("are five for every ring but the kick, each with a name of its own", () => {
     expect(chainsFor(0)).toEqual([]);

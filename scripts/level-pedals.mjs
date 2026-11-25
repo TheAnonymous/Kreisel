@@ -9,11 +9,12 @@
  *   node scripts/level-pedals.mjs            the whole table
  *   node scripts/level-pedals.mjs null       only the numbers of a Kreisel without pedals, to hold against another build
  *
- * KREISEL_URL=<page> measures that page instead of building this one.
+ * KREISEL_URL=<page> measures that page instead of building this one. KREISEL_BROWSER=firefox measures in Firefox
+ * (the trims are set in Chromium; Firefox is for seeing that it agrees).
  */
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { chromium } from "@playwright/test";
+import { chromium, firefox } from "@playwright/test";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number.parseInt(process.env.KREISEL_LEVEL_PORT ?? "4319", 10);
@@ -43,7 +44,7 @@ try {
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  const browser = await chromium.launch();
+  const browser = await (process.env.KREISEL_BROWSER === "firefox" ? firefox : chromium).launch();
   const page = await browser.newPage();
   await page.addInitScript(() => localStorage.setItem("kreisel.hinweis", "1"));
   await page.goto(url);

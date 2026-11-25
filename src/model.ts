@@ -730,11 +730,15 @@ export function technoProject(): Project {
       // Clap and hi-hat come from the techno group of their palettes (src/sounds/techno.ts): claps in layers, and the
       // six square waves of a drum machine's cymbal.
       { sound: soundCalled(1, "Crowd"), x: 0.5, y: 0.35, level: 0.7, hall: 0.12, echo: 0, drive: 0.25, mute: false, bild: null, body: null, voice: null, acid: null },
-      { sound: soundCalled(2, "Machine"), x: 0.5, y: 0.5, level: 0.62, hall: 0.03, echo: 0, drive: 0.15, mute: false, bild: null, body: null, voice: null, acid: null },
+      // The hi-hat goes through a shallow flanger that sweeps once in four rounds, with its top on the one: the jet over the hats.
+      { sound: soundCalled(2, "Machine"), x: 0.5, y: 0.5, level: 0.62, hall: 0.03, echo: 0, drive: 0.15, mute: false, bild: null, body: null, voice: null, acid: null, pedals: { tone: 0, crush: 0, mod: 2, depth: 0.3, crest: 0, span: 3, first: 0 } },
       { sound: 0, x: 0.3, y: 0.45, level: 0.55, hall: 0.1, echo: 0.15, drive: 0.3, mute: false, bild: null, body: null, voice: null, acid: null },
-      // The acid machine: its filter less than half open and ringing, a saw that bites.
-      { sound: ACID_SOUND, x: 0.42, y: 0.68, level: 0.72, hall: 0, echo: 0.12, drive: 0.4, mute: false, bild: null, body: null, voice: null, acid: { bite: 0.6, decay: 0.35, square: false } },
-      { sound: 1, x: 0.55, y: 0.3, level: 0.5, hall: 0.25, echo: 0.3, drive: 0.35, mute: false, bild: null, body: null, voice: null, acid: null },
+      // The acid machine: its filter less than half open and ringing, a saw that bites. Behind it the pedal an acid line
+      // is known by: a distortion (the drive's second character), and the echo behind that.
+      { sound: ACID_SOUND, x: 0.42, y: 0.68, level: 0.72, hall: 0, echo: 0.12, drive: 0.4, mute: false, bild: null, body: null, voice: null, acid: { bite: 0.6, decay: 0.35, square: false }, pedals: { tone: 1, crush: 0, mod: 0, depth: 0.4, crest: 0, span: 2, first: 0 } },
+      // The stab's reverb comes before its drive, and there is more of it than a clean room would bear: the tail is
+      // driven too and stands between the hits, the wall of hard techno.
+      { sound: 1, x: 0.55, y: 0.3, level: 0.5, hall: 0.45, echo: 0.3, drive: 0.35, mute: false, bild: null, body: null, voice: null, acid: null, pedals: { tone: 0, crush: 0, mod: 0, depth: 0.4, crest: 0, span: 2, first: 1 } },
       { sound: 3, x: 0.55, y: 0.4, level: 0.6, hall: 0.1, echo: 0.3, drive: 0.3, mute: false, bild: null, body: null, voice: null, acid: null },
     ],
     scenes: [scene, null, null, null, null, null, null, null],

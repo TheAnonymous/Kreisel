@@ -1004,6 +1004,16 @@ in view beside it. On the board, from top to bottom:
   names instead of cables. On a ring whose reverb comes first, the clouds of
   the weather go that way too.
 
+The techno Kreisel comes with pedals on three of its rings, the three the
+research names first: a shallow flanger over the hi-hat (one sweep in four
+rounds, its top on the one), a distortion behind the acid line with the echo
+behind that, and the stab's reverb in front of its drive (with more reverb
+than it had, so that the drive gets hold of the tail). Measured against the
+techno Kreisel without them, the whole is as loud as it was and its peaks are
+where they were; the acid line is as loud in Chromium and denser, and the
+stab's tail stands about 3 dB higher between its hits. The factory Kreisel
+wears none.
+
 Three **held effects** came with them, the ones on a DJ's mixer: "Wash"
 (everything swells into a reverb of its own while the dry sum sinks; let go,
 the dry sum is back at once and the reverb rings out over it), "Jet" (a
@@ -1044,7 +1054,13 @@ How it is made:
   the crusher, the modulations and the orders do to its loudness. The trims
   in `src/pedals.ts` come from that table: on average over the six rings a
   character is as loud as the warm one at the same drive, and the crusher as
-  loud as the clean ring. Nobody has judged them by ear yet.
+  loud as the clean ring. Nobody has judged them by ear yet. The characters'
+  shapers are not oversampled: an oversampled shaper delays what it shapes by
+  an amount each browser chooses for itself, and the same acid line came out
+  3 dB apart in Chromium and Firefox. Without it a character is as loud in
+  one browser as in the other (within about 1 dB on average over the rings);
+  the warm drive keeps its oversampling, because it is the drive every older
+  Kreisel has.
 - Every slider of the panel says its value to a screen reader
   (`aria-valuetext`: a word where there is one, a percentage otherwise), every
   group of choices on the board is a radio group with one tab stop whose arrow

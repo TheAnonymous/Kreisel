@@ -76,6 +76,11 @@ export function toneBoard(board: Board, tone: number): void {
   if (tone === board.tone) return;
   const { kit, meet, push, shaper, wet, driven } = board;
   shaper.curve = toneCurve(tone);
+  // The warm drive keeps its oversampling (it is the shaper every ring always had). The others do without: an
+  // oversampled shaper delays what it shapes, by an amount each browser chooses for itself, and what went through it
+  // then meets the clean share of the sound a little late: a comb whose teeth sit elsewhere in every browser (the same
+  // acid line came out 3 dB apart in Chromium and Firefox). Without it the sum is the same sum everywhere.
+  shaper.oversample = tone === WARM ? "2x" : "none";
   const filtered = tone !== WARM;
   if (filtered && !board.filters) {
     const pre = kit.filter("highpass", 30, 0.7);

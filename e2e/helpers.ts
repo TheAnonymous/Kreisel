@@ -19,10 +19,11 @@ declare global {
   interface Window {
     cspViolations: string[];
     /**
-     * Puts the plain techno Kreisel on the table: the techno Kreisel under a clear sky, with the plain techno form as
-     * its piece (112 bars, a break in bars 49 to 64, drops in bar 17 and bar 65). The tests of the Kreisel's tools
-     * begin with it, so that what they lay and measure stands by itself. The techno Kreisel as it comes has weather
-     * with tides and a piece that uses every one of those tools: master.spec.ts looks at that one.
+     * Puts the plain techno Kreisel on the table: the techno Kreisel under a clear sky, without pedals, with the plain
+     * techno form as its piece (112 bars, a break in bars 49 to 64, drops in bar 17 and bar 65). The tests of the
+     * Kreisel's tools begin with it, so that what they lay and measure stands by itself. The techno Kreisel as it comes
+     * has weather with tides, pedals on three rings and a piece that uses every one of those tools: master.spec.ts
+     * looks at that one.
      */
     plainTechno(): void;
   }
@@ -47,6 +48,8 @@ async function watch(page: Page): Promise<string[]> {
       // Not a step of its own: one step back from here is the Kreisel that was on the table before.
       app.store.touch((project) => {
         project.piece = structuredClone(plain);
+        // The techno Kreisel comes with pedals on three of its rings: a tool is measured on rings that wear none.
+        for (const track of project.tracks) delete track.pedals;
         for (const scene of project.scenes) {
           if (!scene) continue;
           scene.weather = scene.weather.map((rings) => rings.map((line) => line.map(() => 0)));

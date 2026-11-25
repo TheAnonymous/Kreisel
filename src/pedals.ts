@@ -151,15 +151,17 @@ const PUSH: readonly (readonly [low: number, high: number, wet: number, lows: nu
  * What a ring's own drive is turned up or down by for each character but the warm one (which has its own, see
  * `driveTrim`), in dB along the control: so that a character changes how the ring sounds, not how loud it is.
  * Measured with `scripts/level-pedals.mjs` on the six rings of the plain techno Kreisel, each by itself: with these
- * numbers every character is, on average over the rings, as loud as the warm one at the same drive. A single ring
- * can lie a few dB off that (a low drum loses its body to the scream, which cuts the lows away).
+ * numbers every character is, on average over the rings, as loud as the warm one at the same drive in Chromium. A
+ * single ring can lie a few dB off that (a low drum loses its body to the distortion and the scream, which thin the
+ * lows before they clip). The characters' shapers are not oversampled (see `toneBoard`), so what they make of a ring
+ * is as loud in one browser as in another; the warm one's is, and a browser's own delay is in its numbers.
  */
 const TONE_TRIM: readonly (readonly (readonly [drive: number, dB: number])[])[] = [
   [],
-  [[0, 0], [0.25, 0.1], [0.5, -1], [0.75, -2.4], [1, -3.7]],
-  [[0, 0], [0.25, 0.6], [0.5, -0.3], [0.75, -1.7], [1, -3.4]],
-  [[0, 0], [0.25, 0.6], [0.5, -0.3], [0.75, -2.5], [1, -4.4]],
-  [[0, 0], [0.25, 1], [0.5, 1.4], [0.75, 0.7], [1, -0.7]],
+  [[0, 0], [0.25, -0.5], [0.5, -1.2], [0.75, -1.7], [1, -2.6]],
+  [[0, 0], [0.25, -0.3], [0.5, -0.6], [0.75, -1.4], [1, -3]],
+  [[0, 0], [0.25, -0.9], [0.5, -2.4], [0.75, -3.6], [1, -4.9]],
+  [[0, 0], [0.25, 0.1], [0.5, 0.1], [0.75, 0.2], [1, -0.9]],
 ];
 
 /** A table of dB along a control, read between its points, as a factor. */
